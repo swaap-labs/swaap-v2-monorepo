@@ -1,0 +1,7 @@
+{
+  "name": "@swaap-labs/pool-safeguard",
+  "devDependencies": {
+    "@swaap-labs/swaap-core-v1": "^1.0.0",
+    "hardhat": "^2.12.7"
+  }
+}
