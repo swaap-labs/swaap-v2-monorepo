@@ -93,7 +93,12 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
         uint256 pauseWindowDuration,
         uint256 bufferPeriodDuration,
         address owner,
-        uint256 performanceUpdateInterval
+        address signer,
+        uint256 maxTVLoffset,
+        uint256 maxBalOffset,
+        uint256 perfUpdateInterval,
+        uint256 maxQuoteOffset,
+        uint256 maxPriceOffet
     )
         BasePool(
             vault,
@@ -129,8 +134,18 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
             (uint256(1), 10**(decimals0 - decimals1)) : (10**(decimals1 - decimals0), uint256(1));
 
         // TODO add signer setter
-        _setPerfUpdateInterval(performanceUpdateInterval);
+        _setSigner(signer);
+        _setMaxTVLoffset(maxTVLoffset);
+        _setMaxBalOffset(maxBalOffset);
+        _setPerfUpdateInterval(perfUpdateInterval);
+        _setMaxQuoteOffset(maxQuoteOffset);
+        _setMaxPriceOffet(maxPriceOffet);
 
+        // uint256 maxTVLoffset,
+        // uint256 maxBalOffset,
+        // uint256 perfUpdateInterval,
+        // uint256 maxQuoteOffset,
+        // uint256 maxPriceOffet
     }
 
     function onSwap(
@@ -231,7 +246,7 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
         address sender,
         address recipient,
         uint256[] memory balances,
-        uint256 lastChangeBlock,
+        uint256, // lastChangeBlock
         uint256 protocolSwapFeePercentage,
         bytes memory userData
     ) external override(BasePool, IBasePool) onlyVault(poolId) returns (uint256[] memory, uint256[] memory) {
@@ -322,7 +337,7 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
     function _joinTokenInForExactBPTOut(
         uint256[] memory balances,
         bytes memory userData
-    ) internal returns (uint256, uint256[] memory) {
+    ) internal view returns (uint256, uint256[] memory) {
         (
             uint256 exactBptAmountOut,
             uint256[] memory maxAmountsIn
@@ -414,31 +429,67 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
     }
 
     /**
-        def get_sas(
-        r_1, r_2,
-        a_1, a_2,
-        b_1, b_2,
-        midmarket_12,
-        dynfees_12_real,
-        dynfees_12_estimate_error_per
-    ):
-        if r_1 > r_2:
-            p = midmarket_12 * (1 + dynfees_12_real * (1 + dynfees_12_estimate_error_per / 100))
-            sa_2 = (b_2 * a_1 / b_1 - a_2) / (1 + b_2 * p / b_1)
-            sa_1 = sa_2 * p
-        else:
-            p = (1 / midmarket_12) * (1 + dynfees_12_real * (1 + dynfees_12_estimate_error_per / 100))
-            # p = (1 / midmarket_12) * (1 + dynfees_12_real)
-            sa_1 = (a_1 - b_1 * a_2 / b_2) / (1 + b_1 * p / b_2)
-            sa_2 = sa_1 * p
+     * @notice Vault hook for removing liquidity from a pool.
+     * @dev This function can only be called from the Vault, from `exitPool`.
+     */
+    /*
+    function onExitPool(
+        bytes32 poolId,
+        address sender,
+        address recipient,
+        uint256[] memory balances,
+        uint256 lastChangeBlock,
+        uint256 protocolSwapFeePercentage,
+        bytes memory userData
+    ) external override onlyVault(poolId) returns (uint256[] memory, uint256[] memory) {
+        uint256[] memory amountsOut;
+        uint256 bptAmountIn;
 
-        return sa_1, sa_2
+        // When a user calls `exitPool`, this is the first point of entry from the Vault.
+        // We first check whether this is a Recovery Mode exit - if so, we proceed using this special lightweight exit
+        // mechanism which avoids computing any complex values, interacting with external contracts, etc., and generally
+        // should always work, even if the Pool's mathematics or a dependency break down.
+        if (userData.isRecoveryModeExitKind()) {
+            // This exit kind is only available in Recovery Mode.
+            _ensureInRecoveryMode();
+
+            // Note that we don't upscale balances nor downscale amountsOut - we don't care about scaling factors during
+            // a recovery mode exit.
+            (bptAmountIn, amountsOut) = _doRecoveryModeExit(balances, totalSupply(), userData);
+        } else {
+            // Note that we only call this if we're not in a recovery mode exit.
+            _beforeSwapJoinExit();
+
+            uint256[] memory scalingFactors = _scalingFactors();
+            _upscaleArray(balances, scalingFactors);
+
+            (bptAmountIn, amountsOut) = _onExitPool(
+                poolId,
+                sender,
+                recipient,
+                balances,
+                lastChangeBlock,
+                inRecoveryMode() ? 0 : protocolSwapFeePercentage, // Protocol fees are disabled while in recovery mode
+                scalingFactors,
+                userData
+            );
+
+            // amountsOut are amounts exiting the Pool, so we round down.
+            _downscaleDownArray(amountsOut, scalingFactors);
+        }
+
+        // Note we no longer use `balances` after calling `_onExitPool`, which may mutate it.
+
+        _burnPoolTokens(sender, bptAmountIn);
+
+        // This Pool ignores the `dueProtocolFees` return value, so we simply return a zeroed-out array.
+        return (amountsOut, new uint256[](balances.length));
+    }
     */
 
     /**
-        r_opt = min((a_1 - sa_1_opt) / b_1, (a_2 + sa_2_opt) / b_2)
+    * Decoders
     */
-
     function _decodeJoinPoolUserData(bytes memory joinPoolData)
     internal pure
     returns(
@@ -541,11 +592,21 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
     /**
     * Setters
     */
+    function setSigner(address signer) external authenticate whenNotPaused {
+        _setSigner(signer);
+    }
+
+    function _setSigner(address signer) internal {
+        require(signer != address(0), "error: signer cannot be a null address");
+        _signer = signer;
+    }
+
     /**
      * @notice Set the performance update interval.
      * @dev This is a permissioned function, and disabled if the pool is paused.
      * Emits the PerformanceUpdateIntervalChanged event.
-     */
+    */
+    // TODO: add boundaries for all setter values
     function setPerfUpdateInterval(uint256 performanceUpdateInterval) external authenticate whenNotPaused {
         _setPerfUpdateInterval(performanceUpdateInterval);
     }
@@ -560,6 +621,54 @@ abstract contract SafeGuardBasePool is SignatureSafeguard, BasePool, IMinimalSwa
         );
 
         emit PerformanceUpdateIntervalChanged(performanceUpdateInterval);
+    }    
+    
+    function setMaxTVLoffset(uint256 maxTVLoffset) external authenticate whenNotPaused {
+        _setMaxTVLoffset(maxTVLoffset);
+    }
+    
+    function _setMaxTVLoffset(uint256 maxTVLoffset) internal {
+        _packedPerfParameters = _packedPerfParameters.insertUint(
+            maxTVLoffset,
+            _MAX_TVL_OFFSET_BIT_OFFSET,
+            _MAX_TVL_OFFSET_BIT_LENGTH
+        );
+    }
+    
+    function setMaxBalOffset(uint256 maxBalOffset) external authenticate whenNotPaused {
+        _setMaxBalOffset(maxBalOffset);
+    }
+    
+    function _setMaxBalOffset(uint256 maxBalOffset) internal {
+        _packedPerfParameters = _packedPerfParameters.insertUint(
+            maxBalOffset,
+            _MAX_BAL_OFFSET_BIT_OFFSET,
+            _MAX_BAL_OFFSET_BIT_LENGTH
+        );
+    }
+    
+    function setMaxQuoteOffset(uint256 maxQuoteOffset) external authenticate whenNotPaused {
+        _setMaxQuoteOffset(maxQuoteOffset);
+    }
+    
+    function _setMaxQuoteOffset(uint256 maxQuoteOffset) internal {
+        _packedPricingParameters = _packedPricingParameters.insertUint(
+            maxQuoteOffset,
+            _MAX_QUOTE_OFFSET_BIT_OFFSET,
+            _MAX_QUOTE_OFFSET_BIT_LENGTH
+        );
+    }
+    
+    function setMaxPriceOffet(uint256 maxPriceOffet) external authenticate whenNotPaused {
+        _setMaxPriceOffet(maxPriceOffet);
+    }
+    
+    function _setMaxPriceOffet(uint256 maxPriceOffet) internal {
+        _packedPricingParameters = _packedPricingParameters.insertUint(
+            maxPriceOffet,
+            _MAX_PRICE_OFFSET_BIT_OFFSET,
+            _MAX_PRICE_OFFSET_BIT_LENGTH
+        );
     }
 
     function updatePerformance() external nonReentrant {
