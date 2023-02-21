@@ -23,22 +23,36 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     // "SwapStruct(SwapKind kind,bytes32 poolId,address tokenIn,address tokenOut,
     // uint256 amountIn,uint256 amountOut,uint256 quoteBalanceIn,uint256 quoteBalanceOut,address to,uint256 deadline)"
     bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x198c90b68f8baaa35d2652c0c1d8cdce8d5a7e910ad965dd4b730ce10b1b7b74;
-
+    
+    bytes32 public constant JOINSTRUCT_TYPEHASH = 0x0; 
+    
     mapping(bytes32 => bool) internal _usedQuotes;
 
-    function _signatureDeadlineSafeguard(
+    function _decodeSignedUserData(bytes memory userData) internal pure 
+    returns(uint256 deadline, bytes memory extraData, bytes memory signature){
+        // TODO check if uint128 uses less gas than uint256 
+        (
+            deadline,
+            extraData,
+            signature
+        ) = abi.decode(userData, (uint256, bytes, bytes));
+    }
+
+    function _swapSignatureSafeguard(
         IVault.SwapKind kind,
         bytes32 poolId,
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 quoteBalanceIn,
-        uint256 quoteBalanceOut,
-        address to,
-        uint256 deadline,
-        bytes memory signature
-    ) internal {
+        IERC20 tokenIn,
+        IERC20 tokenOut,
+        uint256 amount,
+        address receiver,
+        bytes memory userData
+    ) internal returns (uint256, bytes memory) {
+
+        (
+            uint256 deadline,
+            bytes memory swapData,
+            bytes memory signature
+        ) = _decodeSignedUserData(userData);
 
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
 
@@ -48,14 +62,11 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             poolId,
             tokenIn,
             tokenOut,
-            amountIn,
-            amountOut,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            to,
+            amount,
+            receiver,
+            swapData,
             deadline
         ));
-
 
         // TODO add appropriate error code
         _require(!_usedQuotes[digest], 0);
@@ -63,6 +74,83 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
 
         _usedQuotes[digest] = true;
 
+        return (deadline, swapData);
+    }
+
+
+    // TODO this is temporary, it should be moved elsewhere to an interface
+    enum JoinKind { INIT, TOKEN_IN_FOR_EXACT_BPT_OUT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT }
+
+    function _swapSignatureSafeguard(
+        JoinKind kind,
+        bytes32 poolId,
+        IERC20 tokenIn,
+        IERC20 tokenOut,
+        uint256 amount,
+        address receiver,
+        bytes memory userData
+    ) internal returns (uint256, bytes memory) {
+
+        (
+            uint256 deadline,
+            bytes memory swapData,
+            bytes memory signature
+        ) = _decodeSignedUserData(userData);
+
+        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
+
+        bytes32 digest = keccak256(abi.encode(
+            SWAPSTRUCT_TYPEHASH,
+            kind,
+            poolId,
+            tokenIn,
+            tokenOut,
+            amount,
+            receiver,
+            swapData,
+            deadline
+        ));
+
+        // TODO add appropriate error code
+        _require(!_usedQuotes[digest], 0);
+        _require(_isValidSignature(signer(), digest, signature), 0);
+
+        _usedQuotes[digest] = true;
+
+        return (deadline, swapData);
+    }
+
+    function _joinPoolSignatureSafeguard(
+        JoinKind kind,
+        bytes32 poolId,
+        address receiver,
+        bytes memory userData
+    ) internal returns (uint256, bytes memory) {
+
+        (
+            uint256 deadline,
+            bytes memory joinPoolData,
+            bytes memory signature
+        ) = _decodeSignedUserData(userData);
+
+        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
+
+        bytes32 digest = keccak256(abi.encode(
+            JOINSTRUCT_TYPEHASH,
+            kind,
+            poolId,
+            receiver,
+            joinPoolData,
+            deadline
+        ));
+
+        // TODO add appropriate error code
+        _require(!_usedQuotes[digest], 0);
+        _require(_isValidSignature(signer(), digest, signature), 0);
+
+        _usedQuotes[digest] = true;
+
+        return (deadline, joinPoolData);
     }
 
     function signer() public view virtual returns(address);
