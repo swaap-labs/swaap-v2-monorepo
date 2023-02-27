@@ -79,7 +79,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
 
 
     // TODO this is temporary, it should be moved elsewhere to an interface
-    enum JoinKind { INIT, TOKEN_IN_FOR_EXACT_BPT_OUT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT }
+    enum JoinKind { INIT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, EXACT_TOKENS_IN_FOR_BPT_OUT }
 
     function _swapSignatureSafeguard(
         JoinKind kind,

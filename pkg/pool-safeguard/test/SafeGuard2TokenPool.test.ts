@@ -23,36 +23,26 @@ import {
   FP_100_PCT,
 } from '@balancer-labs/v2-helpers/src/numbers';
 import { MAX_UINT112, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
-import { RawStablePoolDeployment } from '@balancer-labs/v2-helpers/src/models/pools/stable/types';
+import { RawSafeguardPoolDeployment } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types';
 import { currentTimestamp, advanceTime, MONTH, WEEK, DAY } from '@balancer-labs/v2-helpers/src/time';
 import Token from '@balancer-labs/v2-helpers/src/models/tokens/Token';
 import TokenList from '@balancer-labs/v2-helpers/src/models/tokens/TokenList';
-import StablePool from '@balancer-labs/v2-helpers/src/models/pools/stable/StablePool';
-import { calculateInvariant } from '@balancer-labs/v2-helpers/src/models/pools/stable/math';
+import Oracle from '@balancer-labs/v2-helpers/src/models/oracles/Oracle';
+import SafeguardPool from '@balancer-labs/v2-helpers/src/models/pools/safeguard/SafeguardPool';
 import { actionId } from '@balancer-labs/v2-helpers/src/models/misc/actions';
 import { ProtocolFee } from '@balancer-labs/v2-helpers/src/models/vault/types';
 import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
 
-describe('ComposableStablePool', () => {
+describe('SafeGuardPool', () => {
   let lp: SignerWithAddress,
     owner: SignerWithAddress,
     recipient: SignerWithAddress,
     admin: SignerWithAddress,
+    signer: SignerWithAddress,
     other: SignerWithAddress;
 
-  const AMPLIFICATION_PARAMETER = bn(200);
-  const PREMINTED_BPT = MAX_UINT112.div(2);
-  const AMP_PRECISION = 1e3;
-
   sharedBeforeEach('setup signers', async () => {
-    [, lp, owner, recipient, admin, other] = await ethers.getSigners();
-  });
-
-  context('for a 1 token pool', () => {
-    it('reverts', async () => {
-      const tokens = await TokenList.create(1);
-      await expect(StablePool.create({ tokens })).to.be.revertedWith('MIN_TOKENS');
-    });
+    [, lp, owner, recipient, admin, signer, other] = await ethers.getSigners();
   });
 
   context('for a 2 token pool', () => {
@@ -73,7 +63,7 @@ describe('ComposableStablePool', () => {
 
   context('for a 6 token pool', () => {
     it('reverts', async () => {
-      const tokens = await TokenList.create(6, { sorted: true });
+      const tokens = await TokenList.create(2, { sorted: true });
       await expect(StablePool.create({ tokens })).to.be.revertedWith('MAX_TOKENS');
     });
   });
