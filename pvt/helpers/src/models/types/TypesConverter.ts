@@ -25,6 +25,12 @@ import {
   TokenDeployment,
   RawTokenDeployment,
 } from '../tokens/types';
+import {
+  RawSafeguardPoolDeployment,
+  SafeguardPoolDeployment,
+  InitialSafeguardParams
+} from '../pools/safeguard/types';
+import { getSigner } from '../../../../../pkg/deployments/src';
 
 export function computeDecimalsFromIndex(i: number): number {
   // Produces repeating series (0..18)
@@ -165,6 +171,68 @@ export default {
       owner: params.owner,
       version,
     };
+  },
+
+  toSafeguardPoolDeployment(params: RawSafeguardPoolDeployment): SafeguardPoolDeployment {
+    let {
+      tokens,
+      oracles,
+      assetManagers,
+      swapFeePercentage,
+      pauseWindowDuration,
+      bufferPeriodDuration,
+      swapEnabledOnStart,
+      mustAllowlistLPs,
+      factoryVersion,
+      poolVersion,
+      signer,
+      maxTVLoffset,
+      maxBalOffset,
+      perfUpdateInterval,
+      maxQuoteOffset,
+      maxPriceOffet,
+    } = params;
+    if (!params.owner) params.owner = ZERO_ADDRESS;
+    if (!tokens) tokens = new TokenList();
+    if (!oracles) oracles = Array(tokens.length).fill(ZERO_ADDRESS);
+    if (!swapFeePercentage) swapFeePercentage = bn(1e16);
+    if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
+    if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
+    if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
+    if(!maxTVLoffset) maxTVLoffset = fp(1);
+    if(!maxBalOffset) maxBalOffset = fp(1);
+    if(!perfUpdateInterval) perfUpdateInterval = 1 * DAY;
+    if(!maxQuoteOffset) maxQuoteOffset = fp(1);
+    if(!maxPriceOffet) maxPriceOffet = fp(1);
+    if (undefined == swapEnabledOnStart) swapEnabledOnStart = true;
+    if (undefined == mustAllowlistLPs) mustAllowlistLPs = false;
+    if (undefined == factoryVersion) factoryVersion = 'default factory version';
+    if (undefined == poolVersion) poolVersion = 'default pool version';
+    
+    let safeguardParameters: InitialSafeguardParams = {
+      signer: signer,
+      maxTVLoffset: maxTVLoffset,
+      maxBalOffset: maxBalOffset,
+      perfUpdateInterval: perfUpdateInterval,
+      maxQuoteOffset: maxQuoteOffset,
+      maxPriceOffet: maxPriceOffet
+    };
+
+    return {
+      tokens: tokens,
+      assetManagers: assetManagers,
+      swapFeePercentage: swapFeePercentage,
+      pauseWindowDuration: pauseWindowDuration,
+      bufferPeriodDuration: bufferPeriodDuration,
+      swapEnabledOnStart: swapEnabledOnStart,
+      mustAllowlistLPs: mustAllowlistLPs,
+      owner: this.toAddress(params.owner),
+      from: params.from,
+      factoryVersion: factoryVersion,
+      poolVersion: poolVersion,
+      oracles: oracles,
+      safeguardParameters: safeguardParameters      
+   };
   },
 
   /***

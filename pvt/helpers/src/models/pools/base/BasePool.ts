@@ -104,6 +104,18 @@ export default class BasePool {
     return this.vault.getPoolTokens(this.poolId);
   }
 
+  async getTokenBalance(tokenAddress: string | undefined): Promise<BigNumber> {
+    const { tokens, balances } = await this.getTokens();
+    
+    const balanceIndex = tokens.findIndex((token) => token == tokenAddress);
+
+    if (balanceIndex  == -1) {
+      throw 'token not found in the pool';
+    }
+
+    return balances[balanceIndex];
+  }
+
   async getBalances(): Promise<BigNumber[]> {
     const { balances } = await this.getTokens();
     return balances;
