@@ -81,20 +81,46 @@ describe('SafeguardPool', function () {
         maxPriceOffet: maxPriceOffet
       };
 
-      pool = await SafeguardPool.create({
-        ...poolConstructor
-      });
+      pool = await SafeguardPool.create(poolConstructor);
 
       await pool.init({ initialBalances, recipient: lp });
+
+      let chainId = (await ethers.getDefaultProvider().getNetwork()).chainId;
+
+      await pool.joinGivenIn({
+        receiver: lp.address,
+        chainId: chainId,
+        sellToken: allTokens.tokens[0].address,
+        amountsIn: [fp(10), 0],
+        maxSwapAmountIn: fp(10),
+        variableAmount: fp(10),
+        signer: signer
+      });
     });
 
     context('Init join pool', () => {
+      
       it('sets the lastPostJoinInvariant to the current invariant', async () => {        
         const currentBalances = await pool.getBalances();
         for(let i = 0; i < currentBalances.length; i++){
           expect(currentBalances[i]).to.be.equal(initialBalances[i]);
         }
       });
+      
+      it('joinExactTokensForBptOut', async() => {
+        // let chainId = (await ethers.getDefaultProvider().getNetwork()).chainId;
+
+        // await pool.joinGivenIn({
+        //   receiver: lp.address,
+        //   chainId: chainId,
+        //   sellToken: allTokens.tokens[0].address,
+        //   amountsIn: [fp(10), 0],
+        //   maxSwapAmountIn: fp(10),
+        //   variableAmount: fp(10),
+        //   signer: signer
+        // });
+      });
+    
     });
   });
 
