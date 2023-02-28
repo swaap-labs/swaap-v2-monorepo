@@ -27,6 +27,14 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     using FixedPoint for uint256;
     using WordCodec for bytes32;
 
+    struct JoinSwapStruct {
+        uint256 minBptAmountOut;
+        IERC20 expectedExcessTokenIn;
+        uint256 maxSwapAmountIn;
+        uint256[] joinAmountsIn;
+        bytes swapData;
+    }
+
     uint256 private constant _NUM_TOKENS = 2;
     uint256 private constant _INITIAL_BPT = 100 ether;
 
@@ -154,57 +162,50 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         uint256 balanceTokenOut
     ) external override onlyVault(request.poolId) returns (uint256) {
         
-        IERC20Metadata tokenIn = IERC20Metadata(address(request.tokenIn));
-
         (uint256 deadline, bytes memory swapData) = _swapSignatureSafeguard(
             request.kind,
             request.poolId,
-            tokenIn,
+            request.tokenIn,
             request.tokenOut,
             request.amount,
             request.to,
             request.userData
         );
 
+        (
+            uint256 amountIn,
+            uint256 amountOut
+        ) = _getAmountsInOutAfterSlippage(request.kind, request.amount, deadline, swapData);
+
+        (
+            uint256 quoteBalanceIn,
+            uint256 quoteBalanceOut
+        ) = _decodeQuoteBalanceData(swapData);
+
         return _simulateSwap(
-            swapData,
-            request.kind,
-            tokenIn,
-            request.amount,
+            request.tokenIn,
             balanceTokenIn,
             balanceTokenOut,
-            deadline
+            quoteBalanceIn,
+            quoteBalanceOut,
+            amountIn,
+            amountOut,
+            totalSupply()
         );
 
     }
 
     function _simulateSwap(
-        bytes memory swapData,
-        IVault.SwapKind kind,
-        IERC20Metadata tokenIn,
-        uint256 amount,
+        IERC20  tokenIn,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
-        uint256 deadline
+        uint256 quoteBalanceIn,
+        uint256 quoteBalanceOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 totalSupply
     ) private returns(uint256) {
         
-        (
-            uint256 variableAmount,
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut,
-            uint256 slippageParameter // TODO add slippage
-        ) = _decodeSwapUserData(swapData);
-
-        
-        (uint256 amountIn, uint256 amountOut) = _applySlippage(
-            kind,
-            amount,
-            variableAmount,
-            slippageParameter,
-            startTime,
-            deadline,
-        );
-
         (uint256 maxQuoteOffset, uint256 maxPriceOffset) = _getPricingParameters();
 
         _QuoteBalanceSafeguard(
@@ -231,7 +232,8 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
                 balanceTokenOut,
                 amountIn,
                 amountOut,
-                relativePrice
+                relativePrice,
+                totalSupply
             );
         }
 
@@ -371,23 +373,95 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
                 signedJoinData
         );
 
-        return (0, balances);
+        JoinSwapStruct memory decodedJoinSwapData = _decodeJoinPoolUserData(joinData);
+
+        (, uint256 maxSwapAmountOut) = _getAmountsInOutAfterSlippage(
+            IVault.SwapKind.GIVEN_IN,
+            decodedJoinSwapData.maxSwapAmountIn,
+            deadline,
+            decodedJoinSwapData.swapData
+        );
+
+        (
+            uint256 rOpt
+        ) = _calcROptGivenExactTokenIn(
+            balances,
+            decodedJoinSwapData.joinAmountsIn,
+            decodedJoinSwapData.expectedExcessTokenIn,
+            decodedJoinSwapData.maxSwapAmountIn,
+            maxSwapAmountOut
+        );
+        
+        uint256 totalSupply = totalSupply();
+        
+        uint256 bptAmountOut = totalSupply.mulDown(rOpt);
+        totalSupply += bptAmountOut; // will be checked for overflow when minting
+        
+        require(bptAmountOut >= decodedJoinSwapData.minBptAmountOut, "error: not enough bpt out");
+        
+        rOpt = rOpt.add(FixedPoint.ONE);
+        uint256 rOptBalanceIn =  balances[0].mulDown(rOpt);
+        uint256 rOptBalanceOut =  balances[1].mulDown(rOpt);
+
+        (
+            uint256 quoteBalanceIn,
+            uint256 quoteBalanceOut
+        ) = _decodeQuoteBalanceData(decodedJoinSwapData.swapData);
+
+        _simulateSwap(
+            decodedJoinSwapData.expectedExcessTokenIn,
+            rOptBalanceIn,
+            rOptBalanceOut,
+            quoteBalanceIn,
+            quoteBalanceOut,
+            decodedJoinSwapData.maxSwapAmountIn, // TODO we may want to use the actual swap amount
+            maxSwapAmountOut, // TODO we may want to use the actual swap amount
+            totalSupply
+        );
+
+        return (bptAmountOut, decodedJoinSwapData.joinAmountsIn);
 
     }
 
-    function _getBptAmoutGivenExactTokenIn(
-        uint256 balance0,
-        uint256 balance1,
-        uint256 deadline,
-        bytes memory joinData
-    ) internal returns (uint256 bptAmountOut) {
-        // should I increase or decrease the relative price?
-        // (
-        //     uint256 relativePrice,
-        //     uint256 slippageParam,
-        //     uint
-        // )
-
+    function _calcROptGivenExactTokenIn(
+        uint256[] memory initialBalances,
+        uint256[] memory joinAmountsIn,
+        IERC20  expectedExcessTokenIn,
+        uint256 maxSwapAmountIn,
+        uint256 maxSwapAmountOut
+    ) internal view returns (
+        uint256 rOpt
+        // uint256 swappedAmountIn,
+        // uint256 swappedAmountOut
+    ) {
+        uint256 j0b1 = joinAmountsIn[0].mulDown(initialBalances[1]);
+        uint256 j1b0 = joinAmountsIn[1].divDown(initialBalances[0]);
+        uint256 swappedAmountIn;
+        uint256 swappedAmountOut;
+        // TODO: simplify and add into one function
+        if(j0b1 > j1b0) {
+            require(expectedExcessTokenIn == _token0, "error: wrong swap side");
+            uint256 relativePrice = maxSwapAmountOut.divUp(maxSwapAmountIn);
+            {
+                uint256 num = j0b1 - j1b0;
+                uint256 denom = initialBalances[1] + relativePrice.mulUp(initialBalances[0]);
+                swappedAmountIn = num.divUp(denom);
+            }
+            require(swappedAmountIn <= maxSwapAmountIn, "error: max swap exceeded when join pool");
+            swappedAmountOut = swappedAmountIn.mulDown(relativePrice);
+            rOpt = (joinAmountsIn[1].add(swappedAmountOut)).divUp(initialBalances[1]);
+        } else {
+            require(expectedExcessTokenIn == _token1, "error: wrong swap side");
+            uint256 relativePrice = maxSwapAmountOut.divUp(maxSwapAmountIn);
+            {
+                uint256 num = j1b0 - j0b1;
+                uint256 denom = initialBalances[0] + relativePrice.mulUp(initialBalances[1]);
+                swappedAmountIn = num.divUp(denom);
+            }
+            require(swappedAmountIn <= maxSwapAmountIn, "error: max swap exceeded when join pool");
+            swappedAmountOut = swappedAmountIn.mulDown(relativePrice);
+            rOpt = (joinAmountsIn[0].add(swappedAmountOut)).divUp(initialBalances[0]);
+        }
     }
 
     // function _joinExactTokensInForBPTOut(
@@ -418,7 +492,8 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     //     uint256 r0 = amountIn0.divDown(balances[0]);
     //     uint256 r1 = amountIn1.divDown(balances[1]);
-    //     (uint256 rMin, uint256 rDiff, IERC20Metadata tokenInExcess) = r0 > r1? (r0, r1 - r0, _token0) : (r1, r0 - r1, _token1); 
+    //     (uint256 rMin, uint256 rDiff, IERC20Metadata tokenInExcess) = 
+    //             r0 > r1? (r0, r1 - r0, _token0) : (r1, r0 - r1, _token1); 
         
     //     require(tokenInExcess == sellToken, "error: wrong defaulted token");
 
@@ -529,54 +604,46 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     function _decodeJoinPoolUserData(bytes memory joinPoolData)
     internal pure
     returns(
-        uint256 minBptAmountOut,
-        IERC20Metadata sellToken, // add enum SELL TOKEN0 OR BUY TOKEN0
-        uint256 maxSwapAmountIn, // TODO This should be signed
-        uint256 amountIn0,
-        uint256 amountIn1,
-        bytes memory swapUserData
+        JoinSwapStruct memory decodedJoinSwapData
     ){
         
-        (
-            minBptAmountOut,
-            sellToken, // add enum SELL TOKEN0 OR BUY TOKEN0
-            maxSwapAmountIn, // TODO This should be signed
-            amountIn0,
-            amountIn1,
-            swapUserData
-        ) = abi.decode(joinPoolData, (uint256, IERC20Metadata, uint256, uint256, uint256, bytes));
+        decodedJoinSwapData = abi.decode(joinPoolData, (JoinSwapStruct));
     }
+
     // function _decodeJoinPoolUserData(bytes memory joinPoolData)
     // internal pure
     // returns(
     //     uint256 minBptAmountOut,
-    //     IERC20Metadata sellToken, // add enum SELL TOKEN0 OR BUY TOKEN0
+    //     IERC20  expectedExcessTokenIn, // add enum SELL TOKEN0 OR BUY TOKEN0
     //     uint256 maxSwapAmountIn, // TODO This should be signed
-    //     uint256 amountIn0,
-    //     uint256 amountIn1,
+    //     uint256[] memory joinAmountsIn,
     //     bytes memory swapUserData
     // ){
         
     //     (
     //         minBptAmountOut,
-    //         sellToken, // add enum SELL TOKEN0 OR BUY TOKEN0
+    //         expectedExcessTokenIn, // add enum SELL TOKEN0 OR BUY TOKEN0
     //         maxSwapAmountIn, // TODO This should be signed
-    //         amountIn0,
-    //         amountIn1,
+    //         joinAmountsIn,
     //         swapUserData
-    //     ) = abi.decode(joinPoolData, (uint256, IERC20Metadata, uint256, uint256, uint256, bytes));
-
+    //     ) = abi.decode(joinPoolData, (uint256, IERC20, uint256, uint256[], bytes));
     // }
 
     function _decodeSwapUserData(bytes memory swapData) internal pure 
-    returns(uint256 limit, uint256 quoteBalance0, uint256 quoteBalance1, uint256 slippageParameter){
-        // TODO check if uint128 uses less gas than uint256 
+    returns(
+        uint256 variableAmount,
+        uint256 slippageParameter,
+        uint256 startTime,
+        uint256 quoteBalance0,
+        uint256 quoteBalance1
+    ){
         (
-            limit,
+            variableAmount,
+            slippageParameter,
+            startTime,
             quoteBalance0,
-            quoteBalance1,
-            slippageParameter
-        ) = abi.decode(swapData, (uint256, uint256, uint256, uint256));
+            quoteBalance1
+        ) = abi.decode(swapData, (uint256, uint256, uint256, uint256, uint256));
     }
 
     /**
@@ -607,12 +674,13 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     }
 
     function _perfBalancesSafeguard(
-        IERC20Metadata tokenIn,
+        IERC20  tokenIn,
         uint256 currentBalanceIn,
         uint256 currentBalanceOut,
         uint256 amountIn,
         uint256 amountOut,
-        uint256 relativePrice
+        uint256 relativePrice,
+        uint256 totalSupply
     ) internal {
 
         (   uint256 maxTVLOffset,
@@ -623,7 +691,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
         // lastPerfUpdate & perfUpdateInterval are stored in 64 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
-            _updatePerformance(currentBalanceIn, currentBalanceOut, relativePrice);
+            _updatePerformance(currentBalanceIn, currentBalanceOut, relativePrice, totalSupply);
         }
 
         uint256 perfBalPerPTIn;
@@ -636,8 +704,6 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
                 (perfBalPerPT0, perfBalPerPT1) :
                 (perfBalPerPT1, perfBalPerPT0); 
         }
-
-        uint256 totalSupply = totalSupply();
 
         uint256 newBalanceInPerPT = (currentBalanceIn + amountIn).divDown(totalSupply);
         uint256 newBalanceOutPerPT = (currentBalanceOut + amountOut).divDown(totalSupply);
@@ -765,12 +831,15 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
             uint256[] memory balances,
         ) = getVault().getPoolTokens(getPoolId());
 
-        _updatePerformance(balances[0], balances[1], relativePrice); 
+        _updatePerformance(balances[0], balances[1], relativePrice, totalSupply()); 
     }
 
-    function _updatePerformance(uint256 balance0, uint256 balance1, uint256 relativePrice) private {
-        
-        uint256 totalSupply = totalSupply();
+    function _updatePerformance(
+        uint256 balance0,
+        uint256 balance1,
+        uint256 relativePrice,
+        uint256 totalSupply
+    ) private {
         
         balance0 = balance0.divDown(totalSupply);
         balance1 = balance1.divDown(totalSupply);
@@ -831,7 +900,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     
     }
 
-    function _getRelativePrice(IERC20Metadata tokenIn) internal view returns(uint256) {
+    function _getRelativePrice(IERC20 tokenIn) internal view returns(uint256) {
         
         uint256 price0 = ChainlinkUtils.getLatestPrice(_oracle0);
         uint256 price1 = ChainlinkUtils.getLatestPrice(_oracle1);
@@ -926,9 +995,62 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         // }
     }
 
+    function _getAmountsInOutAfterSlippage(
+        IVault.SwapKind kind,
+        uint256 fixedAmount,
+        uint256 deadline,
+        bytes memory swapData
+    ) internal pure returns(uint256 amountIn, uint256 amountOut){
+        (
+            uint256 variableAmount,
+            uint256 slippageParameter,
+            uint256 startTime
+        ) = _decodeSwapSlippageData(swapData);
+
+        (amountIn, amountOut) = _applySlippage(
+            kind,
+            fixedAmount,
+            variableAmount,
+            slippageParameter,
+            startTime,
+            deadline
+        );
+    }
+
+    function _decodeSwapSlippageData(bytes memory swapData)
+    internal pure 
+    returns(
+        uint256 variableAmount,
+        uint256 slippageParameter,
+        uint256 startTime
+    ) {
+        (
+            variableAmount,
+            slippageParameter,
+            startTime
+        ) = abi.decode(swapData, (uint256, uint256, uint256));
+    }
+
+    function _decodeQuoteBalanceData(bytes memory swapData)
+    internal pure
+    returns(
+        uint256 quoteBalanceIn,
+        uint256 quoteBalanceOut
+    ) {
+        (
+            ,
+            ,
+            ,
+            quoteBalanceIn,
+            quoteBalanceOut
+        ) = abi.decode(swapData, (uint256, uint256, uint256, uint256, uint256));
+    }
+
     // Missing implementations:
+
+
     function _applySlippage(
-        SwapKind kind,
+        IVault.SwapKind kind,
         uint256 fixedAmount,
         uint256 variableAmount,
         uint256 slippageParameter,
@@ -949,15 +1071,16 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         uint256 slippageParameter,
         uint256 startTime,
         uint256 deadline
-    ) internal view returns(uint256){
+    ) internal pure returns(uint256){
         return(amountOut);
     }
     
     function _increaseAmountIn(
         uint256 amountIn,
         uint256 slippageParameter,
+        uint256 startTime,
         uint256 deadline
-    ) internal view returns(uint256) {
+    ) internal pure returns(uint256) {
         return (amountIn);
     }
 
