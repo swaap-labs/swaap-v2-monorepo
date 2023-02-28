@@ -1,0 +1,5 @@
+@balancer-labs/v2-interfaces/=./pkg/interfaces/
+@balancer-labs/v2-solidity-utils/=./pkg/solidity-utils/
+@balancer-labs/standalone-utils/=./pkg/standalone-utils/
+@balancer-labs/pool-utils/=./pkg/pool-utils/
+@balancer-labs/v2-vault/=./pkg/vault/
