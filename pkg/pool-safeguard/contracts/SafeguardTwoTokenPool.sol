@@ -381,9 +381,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
             decodedJoinSwapData.swapData
         );
 
-        (
-            uint256 rOpt
-        ) = _calcROptGivenExactTokenIn(
+        uint256 rOpt = _calcROptGivenExactTokenIn(
             balances,
             decodedJoinSwapData.joinAmountsIn,
             decodedJoinSwapData.expectedExcessTokenIn,
