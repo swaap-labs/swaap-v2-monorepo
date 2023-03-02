@@ -161,7 +161,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         uint256 balanceTokenIn,
         uint256 balanceTokenOut
     ) external override onlyVault(request.poolId) returns (uint256) {
-        
+
         (uint256 deadline, bytes memory swapData) = _swapSignatureSafeguard(
             request.kind,
             request.poolId,
@@ -740,21 +740,18 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         uint256 totalSupply
     ) private {
         
-        balance0 = balance0.divDown(totalSupply);
-        balance1 = balance1.divDown(totalSupply);
-        
-        uint256 currentTVL = balance0.add(balance1.mulDown(relativePrice));
+        uint256 currentTVLPerPT = (balance0.add(balance1.mulDown(relativePrice))).divDown(totalSupply);
         
         (uint256 perfBalPerPT0, uint256 perfBalPerPT1) = getPerfBalancesPerPT();
         
-        uint256 oldTVL = perfBalPerPT0.add(perfBalPerPT1.mulDown(relativePrice));
+        uint256 oldTVLPerPT = perfBalPerPT0.add(perfBalPerPT1.mulDown(relativePrice));
         
-        uint256 ratio = currentTVL.divDown(oldTVL);
+        uint256 ratio = currentTVLPerPT.divDown(oldTVLPerPT);
 
-        balance0 = balance0.mulDown(ratio);
-        balance1 = balance1.mulDown(ratio);
+        perfBalPerPT0 = perfBalPerPT0.mulDown(ratio);
+        perfBalPerPT1 = perfBalPerPT1.mulDown(ratio);
 
-        _setPerfBalancesPerPT(balance0, balance0);
+        _setPerfBalancesPerPT(perfBalPerPT0, perfBalPerPT1);
     }
 
     function _setPerfBalancesPerPT(uint256 perfBalancePerPT0, uint256 perfBalancePerPT1) private {
