@@ -182,7 +182,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
             uint256 quoteBalanceOut
         ) = _decodeQuoteBalanceData(swapData);
 
-        return _simulateSwap(
+        _simulateSwap(
             request.tokenIn,
             balanceTokenIn,
             balanceTokenOut,
@@ -192,6 +192,12 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
             amountOut,
             totalSupply()
         );
+
+        if(request.kind == IVault.SwapKind.GIVEN_IN) {
+            return amountOut;
+        }
+
+        return amountIn;
 
     }
 
@@ -204,7 +210,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         uint256 amountIn,
         uint256 amountOut,
         uint256 totalSupply
-    ) private returns(uint256) {
+    ) private {
         
         (uint256 maxQuoteOffset, uint256 maxPriceOffset) = _getPricingParameters();
 
