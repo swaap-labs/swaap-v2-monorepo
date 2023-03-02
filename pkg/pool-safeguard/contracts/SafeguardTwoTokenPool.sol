@@ -628,7 +628,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         }
 
         uint256 newBalanceInPerPT = (currentBalanceIn + amountIn).divDown(totalSupply);
-        uint256 newBalanceOutPerPT = (currentBalanceOut + amountOut).divDown(totalSupply);
+        uint256 newBalanceOutPerPT = (currentBalanceOut - amountOut).divDown(totalSupply);
 
         require(newBalanceOutPerPT >= perfBalPerPTOut.mulUp(maxBalOffset), "error: min balance out is not met");
 
