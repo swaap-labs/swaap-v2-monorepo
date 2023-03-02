@@ -432,7 +432,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         // uint256 swappedAmountOut
     ) {
         uint256 j0b1 = joinAmountsIn[0].mulDown(initialBalances[1]);
-        uint256 j1b0 = joinAmountsIn[1].divDown(initialBalances[0]);
+        uint256 j1b0 = joinAmountsIn[1].mulDown(initialBalances[0]);
         uint256 swappedAmountIn;
         uint256 swappedAmountOut;
         // TODO: simplify and add into one function
