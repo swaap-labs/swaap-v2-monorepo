@@ -557,22 +557,22 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     //     ) = abi.decode(joinPoolData, (uint256, IERC20, uint256, uint256[], bytes));
     // }
 
-    function _decodeSwapUserData(bytes memory swapData) internal pure 
-    returns(
-        uint256 variableAmount,
-        uint256 slippageParameter,
-        uint256 startTime,
-        uint256 quoteBalance0,
-        uint256 quoteBalance1
-    ){
-        (
-            variableAmount,
-            slippageParameter,
-            startTime,
-            quoteBalance0,
-            quoteBalance1
-        ) = abi.decode(swapData, (uint256, uint256, uint256, uint256, uint256));
-    }
+    // function _decodeSwapUserData(bytes memory swapData) internal pure 
+    // returns(
+    //     uint256 variableAmount,
+    //     uint256 slippageParameter,
+    //     uint256 startTime,
+    //     uint256 quoteBalance0,
+    //     uint256 quoteBalance1
+    // ){
+    //     (
+    //         variableAmount,
+    //         slippageParameter,
+    //         startTime,
+    //         quoteBalance0,
+    //         quoteBalance1
+    //     ) = abi.decode(swapData, (uint256, uint256, uint256, uint256, uint256));
+    // }
 
     /**
         Safeguards
@@ -583,10 +583,10 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         uint256 quoteBalanceIn,
         uint256 quoteBalanceOut,
         uint256 maxQuoteOffset
-    ) internal pure {
+    ) internal pure {      
         // TODO: add special cases if in the right direction or not
-        require(quoteBalanceIn.divDown(oldBalanceIn) > maxQuoteOffset, "error: quote balance no longer valid");
-        require(quoteBalanceOut.divDown(oldBalanceOut) > maxQuoteOffset, "error: quote balance no longer valid");
+        require(quoteBalanceIn.divDown(oldBalanceIn) >= maxQuoteOffset, "error: quote balance no longer valid");
+        require(quoteBalanceOut.divDown(oldBalanceOut) >= maxQuoteOffset, "error: quote balance no longer valid");
     }
 
     function _fairPricingSafeguard(
