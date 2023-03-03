@@ -1,4 +1,4 @@
-import { BigNumber, ContractReceipt } from 'ethers';
+import { BigNumber, ContractReceipt, Signer } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
 import { BigNumberish } from '../../../numbers';
@@ -61,14 +61,42 @@ export type InitialSafeguardParams = {
   maxPriceOffet: BigNumberish;
 };
 
+
+/**
+ * 
+ * 
+ *  chainId: number,
+    contractAddress: string,
+    kind: SafeguardPoolSwapKind,
+    poolId: string,
+    tokenIn: string,
+    tokenOut: string,
+    amount: BigNumberish,
+    receiver: string,
+    deadline: BigNumberish,
+    variableAmount: BigNumberish,
+    slippageParameter: BigNumberish,
+    startTime: BigNumberish,
+    quoteBalance0: BigNumberish,
+    quoteBalance1:BigNumberish,
+    signer: SignerWithAddress
+ * 
+ * 
+ */
 export type SwapSafeguardPool = {
+  chainId: number,
   in: number | Token;
   out: number | Token;
   amount: BigNumberish;
-  recipient?: Account;
+  recipient?: string;
   from?: SignerWithAddress;
   lastChangeBlock?: BigNumberish;
-  data?: string;
+  deadline?: BigNumberish;
+  variableAmount: BigNumberish;
+  slippageParameter?: BigNumberish;
+  startTime?: BigNumberish;
+  quoteBalances?: BigNumberish[];
+  signer: SignerWithAddress;
 };
 
 export type JoinExitSafeguardPool = {
@@ -86,23 +114,6 @@ export type InitSafeguardPool = {
   recipient?: Account;
   protocolFeePercentage?: BigNumberish;
 };
-
-// contractAddress: string,
-// poolId: string,
-// receiver: SignerWithAddress,
-// chainId: number,
-// startTime: BigNumberish,
-// deadline: BigNumberish,
-// minBptAmountOut: BigNumberish,
-// sellToken: string,
-// maxSwapAmountIn: BigNumberish,
-// amountIn0: BigNumberish,
-// amountIn1: BigNumberish,
-// variableAmount: BigNumberish,
-// quoteBalanceIn: BigNumberish,
-// quoteBalanceOut: BigNumberish,
-// slippageParameter: BigNumberish,
-// signer: SignerWithAddress,
 
 export type JoinGivenInSafeguardPool = {
   from?                   : SignerWithAddress;

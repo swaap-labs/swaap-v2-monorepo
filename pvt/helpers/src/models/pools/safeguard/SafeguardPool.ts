@@ -275,18 +275,43 @@ export default class SafeguardPool extends BasePool {
     const { tokens } = await this.vault.getPoolTokens(this.poolId);
     const tokenIn = typeof params.in === 'number' ? tokens[params.in] : params.in.address;
     const tokenOut = typeof params.out === 'number' ? tokens[params.out] : params.out.address;
+    const recipient = params.recipient ?? ZERO_ADDRESS;
+    const deadline = params.deadline?? MAX_UINT256;
+    const slippageParameter = params.slippageParameter?? MAX_UINT256;
+    const startTime = params.startTime?? MAX_UINT256;
+    const quoteBalance0 = params.quoteBalances? params.quoteBalances[0] : currentBalances[0];
+    const quoteBalance1 = params.quoteBalances? params.quoteBalances[1] : currentBalances[1];
+
+    const data = await SafeguardPoolEncoder.swap(
+      params.chainId,
+      this.address,
+      kind,
+      await this.getPoolId(),
+      tokenIn,
+      tokenOut,
+      params.amount,
+      recipient,
+      deadline,
+      params.variableAmount,
+      slippageParameter,
+      startTime,
+      quoteBalance0,
+      quoteBalance1,
+      params.signer
+    )
+
     return {
       kind,
       poolAddress: this.address,
       poolId: this.poolId,
       from: params.from,
-      to: params.recipient ?? ZERO_ADDRESS,
+      to: recipient,
       tokenIn: tokenIn ?? ZERO_ADDRESS,
       tokenOut: tokenOut ?? ZERO_ADDRESS,
       balanceTokenIn: currentBalances[tokens.indexOf(tokenIn)] || bn(0),
       balanceTokenOut: currentBalances[tokens.indexOf(tokenOut)] || bn(0),
       lastChangeBlock: params.lastChangeBlock ?? 0,
-      data: params.data ?? '0x',
+      data: data,
       amount: params.amount,
     };
   }
@@ -301,7 +326,7 @@ export default class SafeguardPool extends BasePool {
       protocolFeePercentage: params.protocolFeePercentage,
       data: SafeguardPoolEncoder.joinInit(amountsIn),
     };
-  }
+  };
 
   private async _buildJoinGivenInParams(params: JoinGivenInSafeguardPool): Promise<JoinExitSafeguardPool> {
     // const { amountsIn: amounts } = params;
@@ -316,7 +341,7 @@ export default class SafeguardPool extends BasePool {
     const poolId = this.poolId;
     const receiver = params.receiver;
     const chainId = params.chainId;
-    const startTime = params.startTime || 0;
+    const startTime = params.startTime || MAX_UINT256;
     const deadline = params.deadline  || MAX_UINT256;
     const minBptAmountOut = params.minBptAmountOut || 0;
     const sellToken = params.sellToken;
@@ -336,10 +361,10 @@ export default class SafeguardPool extends BasePool {
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
       data: await SafeguardPoolEncoder.joinExactTokensInForBPTOut(
+        chainId,
         contractAddress,
         poolId,
         receiver,
-        chainId,
         startTime,
         deadline,
         minBptAmountOut,

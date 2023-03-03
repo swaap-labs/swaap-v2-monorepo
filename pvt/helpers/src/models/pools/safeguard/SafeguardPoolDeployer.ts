@@ -12,7 +12,7 @@ import { ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import { ProtocolFee } from '../../vault/types';
 import { MONTH } from '../../../time';
 
-const NAME = 'Swaap Pool Token';
+const NAME = 'Pool Safeguard';
 const SYMBOL = 'SPT';
 
 export default {
