@@ -20,11 +20,14 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 
 abstract contract SignatureSafeguard is EOASignaturesValidator {
 
-    // "SwapStruct(SwapKind kind,bytes32 poolId,address tokenIn,address tokenOut,
-    // uint256 amountIn,uint256 amountOut,uint256 quoteBalanceIn,uint256 quoteBalanceOut,address to,uint256 deadline)"
-    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x198c90b68f8baaa35d2652c0c1d8cdce8d5a7e910ad965dd4b730ce10b1b7b74;
+    event Swap(bytes32 digest);
+    event JoinSwap(bytes32 digest);
+
+    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,uint256 amount,address receiver,uint256 deadline,bytes swapData)")
+    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x1b69f9bd02dd47e80d3e6fa5788c7ce1125263c904bea51563a5ce054d35a0e2;
     
-    bytes32 public constant JOINSTRUCT_TYPEHASH = 0x0; 
+    // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address receiver,uint256 deadline,bytes joinData)")
+    bytes32 public constant JOINSTRUCT_TYPEHASH = 0xf3497e39bd0a6e26c884818f17836b589e816134556f0584fb2c1c53e94994d9;
     
     mapping(bytes32 => bool) internal _usedQuotes;
 
@@ -54,9 +57,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             bytes memory signature
         ) = _decodeSignedUserData(userData);
 
-        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
-
-        bytes32 digest = keccak256(abi.encode(
+        bytes32 structHash = keccak256(abi.encode(
             SWAPSTRUCT_TYPEHASH,
             kind,
             poolId,
@@ -64,61 +65,25 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             tokenOut,
             amount,
             receiver,
-            swapData,
-            deadline
+            deadline,
+            keccak256(swapData)
         ));
 
-        // TODO add appropriate error code
-        _require(!_usedQuotes[digest], 0);
-        _require(_isValidSignature(signer(), digest, signature), 0);
+        bytes32 digest = _ensureValidSignatureNoNonce(
+            structHash,
+            signature,
+            deadline,
+            0 // TODO add proper error code
+        );
 
-        _usedQuotes[digest] = true;
+        emit Swap(digest);
 
         return (deadline, swapData);
     }
 
 
     // TODO this is temporary, it should be moved elsewhere to an interface
-    enum JoinKind { INIT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, EXACT_TOKENS_IN_FOR_BPT_OUT }
-
-    function _swapSignatureSafeguard(
-        JoinKind kind,
-        bytes32 poolId,
-        IERC20 tokenIn,
-        IERC20 tokenOut,
-        uint256 amount,
-        address receiver,
-        bytes memory userData
-    ) internal returns (uint256, bytes memory) {
-
-        (
-            uint256 deadline,
-            bytes memory swapData,
-            bytes memory signature
-        ) = _decodeSignedUserData(userData);
-
-        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
-
-        bytes32 digest = keccak256(abi.encode(
-            SWAPSTRUCT_TYPEHASH,
-            kind,
-            poolId,
-            tokenIn,
-            tokenOut,
-            amount,
-            receiver,
-            swapData,
-            deadline
-        ));
-
-        // TODO add appropriate error code
-        _require(!_usedQuotes[digest], 0);
-        _require(_isValidSignature(signer(), digest, signature), 0);
-
-        _usedQuotes[digest] = true;
-
-        return (deadline, swapData);
-    }
+    enum JoinKind { INIT, EXACT_TOKENS_IN_FOR_BPT_OUT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT }
 
     function _joinPoolSignatureSafeguard(
         JoinKind kind,
@@ -133,24 +98,46 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             bytes memory signature
         ) = _decodeSignedUserData(userData);
 
-        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
-
-        bytes32 digest = keccak256(abi.encode(
+        bytes32 structHash = keccak256(abi.encode(
             JOINSTRUCT_TYPEHASH,
             kind,
             poolId,
             receiver,
-            joinPoolData,
-            deadline
+            deadline,
+            keccak256(joinPoolData)
         ));
 
-        // TODO add appropriate error code
-        _require(!_usedQuotes[digest], 0);
-        _require(_isValidSignature(signer(), digest, signature), 0);
+        bytes32 digest = _ensureValidSignatureNoNonce(
+            structHash,
+            signature,
+            deadline,
+            0 // TODO add proper error code
+        );
 
-        _usedQuotes[digest] = true;
+        emit JoinSwap(digest);
 
         return (deadline, joinPoolData);
+    }
+
+    function _ensureValidSignatureNoNonce(
+        bytes32 structHash,
+        bytes memory signature,
+        uint256 deadline,
+        uint256 errorCode
+    ) internal returns(bytes32) {
+        bytes32 digest = _hashTypedDataV4(structHash);
+        _require(_isValidSignature(signer(), digest, signature), errorCode);
+        
+        // We could check for the deadline before validating the signature, but this leads to saner error processing (as
+        // we only care about expired deadlines if the signature is correct) and only affects the gas cost of the revert
+        // scenario, which will only occur infrequently, if ever.
+        // The deadline is timestamp-based: it should not be relied upon for sub-minute accuracy.
+        // solhint-disable-next-line not-rely-on-time
+        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
+        
+        // TODO add proper error code
+        _require(!_usedQuotes[digest], 0);
+        _usedQuotes[digest] = true;
     }
 
     function signer() public view virtual returns(address);
