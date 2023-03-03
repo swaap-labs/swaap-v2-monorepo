@@ -3,17 +3,22 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } from './kinds';
 
 const DOMAIN_NAME = 'Pool Safeguard';
-const DOMAIN_VERSION = '1.0.0';
+const DOMAIN_VERSION = '1';
 
 export async function signSwapData(
+    chainId: number,
     contractAddress: string,
+    kind: SafeguardPoolSwapKind,
+    poolId: string,
+    tokenIn: string,
+    tokenOut: string,
+    amount: BigNumberish,
+    receiver: string,
     deadline: BigNumberish,
     swapData: string,   
     signer: SignerWithAddress,
-    chainId: number
   ): Promise<string> {
     // All properties on a domain are optional
-    // const { chainId } = await ethers.provider.getNetwork();
 
     const domain = {
       name: DOMAIN_NAME,
@@ -25,13 +30,25 @@ export async function signSwapData(
     // The named list of all type definitions
     const types = {
       SwapStruct: [
+          { name: 'kind'    , type: 'uint8'   },
+          { name: 'poolId'  , type: 'bytes32' },
+          { name: 'tokenIn' , type: 'address' },
+          { name: 'tokenOut', type: 'address' },
+          { name: 'amount'  , type: 'uint256' },
+          { name: 'receiver', type: 'address' },
           { name: 'deadline', type: 'uint256' },
-          { name: 'swapData', type: 'bytes' },
+          { name: 'swapData', type: 'bytes'   },
       ]
     };
 
     // The data to sign
     const value = {
+        kind: kind,
+        poolId: poolId,
+        tokenIn: tokenIn,
+        tokenOut: tokenOut,
+        amount: amount,
+        receiver: receiver,
         deadline: deadline,
         swapData: swapData,
     };
@@ -41,16 +58,15 @@ export async function signSwapData(
 }
 
 export async function signJoinExactTokensData(
+    chainId: number,
     contractAddress: string,
     poolId: string,
     receiver: string,
     deadline: BigNumberish,
     joinData: string,
     signer: SignerWithAddress,
-    chainId: number
   ): Promise<string> {
     // All properties on a domain are optional
-    // const { chainId } = await ethers.provider.getNetwork();
 
     const domain = {
       name: DOMAIN_NAME,
@@ -62,15 +78,14 @@ export async function signJoinExactTokensData(
     // The named list of all type definitions
     const types = {
       JoinExactTokensStruct: [
-          { name: 'kind'    , type: 'uint8'   }, // TODO check enum type
+          { name: 'kind'    , type: 'uint8'   }, // TODO check e  num type
           { name: 'poolId'  , type: 'bytes32' },
           { name: 'receiver', type: 'address' },
           { name: 'deadline', type: 'uint256' },
-          { name: 'joinData', type: 'bytes'   },
+          { name: 'joinData', type: 'bytes'   }
       ]
     };
 
-    // The data to sign
     const value = {
         kind: SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
         poolId: poolId,

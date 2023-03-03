@@ -45,10 +45,10 @@ export class SafeguardPoolEncoder {
    */
   static async joinExactTokensInForBPTOut
     (
+      chainId: number,
       contractAddress: string,
       poolId: string,
       receiver: string,
-      chainId: number,
       startTime: BigNumberish,
       deadline: BigNumberish,
       minBptAmountOut: BigNumberish,
@@ -62,8 +62,8 @@ export class SafeguardPoolEncoder {
       slippageParameter: BigNumberish,
       signer: SignerWithAddress,
     ): Promise<string>
-  {  
-    console.log("Okay")
+  {
+
     let swapData: string = defaultAbiCoder.encode(
       ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
       [quoteBalanceIn, quoteBalanceOut, variableAmount, slippageParameter, startTime]
@@ -75,13 +75,13 @@ export class SafeguardPoolEncoder {
     );
     
     let signature: string = await signJoinExactTokensData(
+      chainId,
       contractAddress,
       poolId,
       receiver,
       deadline,
       joinData,
-      signer,
-      chainId
+      signer
     );
 
     let signedJoinData: string = defaultAbiCoder.encode(
@@ -94,34 +94,82 @@ export class SafeguardPoolEncoder {
       [SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, signedJoinData]
     );
   }
+
+  static async swap
+  (
+    chainId: number,
+    contractAddress: string,
+    kind: SafeguardPoolSwapKind,
+    poolId: string,
+    tokenIn: string,
+    tokenOut: string,
+    amount: BigNumberish,
+    receiver: string,
+    deadline: BigNumberish,
+    variableAmount: BigNumberish,
+    slippageParameter: BigNumberish,
+    startTime: BigNumberish,
+    quoteBalance0: BigNumberish,
+    quoteBalance1:BigNumberish,
+    signer: SignerWithAddress
+  ): Promise<string>
+{
+
+  let swapData: string = defaultAbiCoder.encode(
+    ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+    [quoteBalance0, quoteBalance1, variableAmount, slippageParameter, startTime]
+  );
+
+  let signature: string = await signSwapData(
+    chainId,
+    contractAddress,
+    kind,
+    poolId,
+    tokenIn,
+    tokenOut,
+    amount,
+    receiver,
+    deadline,
+    swapData,   
+    signer
+  );
+
+  return defaultAbiCoder.encode(
+    ['uint256', 'bytes', 'bytes'],
+    [deadline, swapData, signature]
+  );
+
+}
+
+
   /**
    * Encodes the userData parameter for exiting a WeightedPool by removing a single token in return for an exact amount of BPT
    * @param bptAmountIn - the amount of BPT to be burned
    * @param enterTokenIndex - the index of the token to removed from the pool
    */
-  static exitExactBPTInForOneTokenOut = (bptAmountIn: BigNumberish, exitTokenIndex: number): string =>
-    defaultAbiCoder.encode(
-      ['uint256', 'uint256', 'uint256'],
-      [SafeguardPoolExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, bptAmountIn, exitTokenIndex]
-    );
+  // static exitExactBPTInForOneTokenOut = (bptAmountIn: BigNumberish, exitTokenIndex: number): string =>
+  //   defaultAbiCoder.encode(
+  //     ['uint256', 'uint256', 'uint256'],
+  //     [SafeguardPoolExitKind.EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, bptAmountIn, exitTokenIndex]
+  //   );
 
   /**
    * Encodes the userData parameter for exiting a WeightedPool by removing tokens in return for an exact amount of BPT
    * @param bptAmountIn - the amount of BPT to be burned
    */
-  static exitExactBPTInForTokensOut = (bptAmountIn: BigNumberish): string =>
-    defaultAbiCoder.encode(['uint256', 'uint256'], [SafeguardPoolExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, bptAmountIn]);
+  // static exitExactBPTInForTokensOut = (bptAmountIn: BigNumberish): string =>
+  //   defaultAbiCoder.encode(['uint256', 'uint256'], [SafeguardPoolExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, bptAmountIn]);
 
   /**
    * Encodes the userData parameter for exiting a WeightedPool by removing exact amounts of tokens
    * @param amountsOut - the amounts of each token to be withdrawn from the pool
    * @param maxBPTAmountIn - the minimum acceptable BPT to burn in return for withdrawn tokens
    */
-  static exitBPTInForExactTokensOut = (amountsOut: BigNumberish[], maxBPTAmountIn: BigNumberish): string =>
-    defaultAbiCoder.encode(
-      ['uint256', 'uint256[]', 'uint256'],
-      [SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
-    );
+  // static exitBPTInForExactTokensOut = (amountsOut: BigNumberish[], maxBPTAmountIn: BigNumberish): string =>
+  //   defaultAbiCoder.encode(
+  //     ['uint256', 'uint256[]', 'uint256'],
+  //     [SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, maxBPTAmountIn]
+  //   );
 }
 
 export class ManagedPoolEncoder {
