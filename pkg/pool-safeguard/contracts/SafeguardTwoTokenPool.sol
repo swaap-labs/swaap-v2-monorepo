@@ -663,42 +663,6 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     }
 
-    // function _decodeJoinPoolUserData(bytes memory joinPoolData)
-    // internal pure
-    // returns(
-    //     uint256 minBptAmountOut,
-    //     IERC20  expectedTokenIn, // add enum SELL TOKEN0 OR BUY TOKEN0
-    //     uint256 maxSwapAmountIn, // TODO This should be signed
-    //     uint256[] memory joinAmountsIn,
-    //     bytes memory swapUserData
-    // ){
-        
-    //     (
-    //         minBptAmountOut,
-    //         expectedTokenIn, // add enum SELL TOKEN0 OR BUY TOKEN0
-    //         maxSwapAmountIn, // TODO This should be signed
-    //         joinAmountsIn,
-    //         swapUserData
-    //     ) = abi.decode(joinPoolData, (uint256, IERC20, uint256, uint256[], bytes));
-    // }
-
-    // function _decodeSwapUserData(bytes memory swapData) internal pure 
-    // returns(
-    //     uint256 variableAmount,
-    //     uint256 slippageSlope,
-    //     uint256 startTime,
-    //     uint256 quoteBalance0,
-    //     uint256 quoteBalance1
-    // ){
-    //     (
-    //         variableAmount,
-    //         slippageSlope,
-    //         startTime,
-    //         quoteBalance0,
-    //         quoteBalance1
-    //     ) = abi.decode(swapData, (uint256, uint256, uint256, uint256, uint256));
-    // }
-
     /**
         Safeguards
     */
