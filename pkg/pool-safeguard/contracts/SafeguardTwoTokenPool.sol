@@ -685,14 +685,14 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     // function _decodeSwapUserData(bytes memory swapData) internal pure 
     // returns(
     //     uint256 variableAmount,
-    //     uint256 slippageParameter,
+    //     uint256 slippageSlope,
     //     uint256 startTime,
     //     uint256 quoteBalance0,
     //     uint256 quoteBalance1
     // ){
     //     (
     //         variableAmount,
-    //         slippageParameter,
+    //         slippageSlope,
     //         startTime,
     //         quoteBalance0,
     //         quoteBalance1
@@ -864,6 +864,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         _updatePerformance(balances[0], balances[1], relativePrice, totalSupply()); 
     }
 
+    // TODO we may add a (off-chain) reference price to prevent the update of the performance with a faulty oracle price
     function _updatePerformance(
         uint256 balance0,
         uint256 balance1,
@@ -1026,10 +1027,10 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         IVault.SwapKind kind,
         uint256 fixedAmount,
         bytes memory swapData
-    ) internal pure returns(uint256 amountIn, uint256 amountOut){
+    ) internal view returns(uint256 amountIn, uint256 amountOut){
         (
             uint256 variableAmount,
-            uint256 slippageParameter,
+            uint256 slippageSlope,
             uint256 startTime
         ) = _decodeSwapSlippageData(swapData);
 
@@ -1037,7 +1038,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
             kind,
             fixedAmount,
             variableAmount,
-            slippageParameter,
+            slippageSlope,
             startTime
         );
     }
@@ -1046,14 +1047,14 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     internal pure 
     returns(
         uint256 variableAmount,
-        uint256 slippageParameter,
+        uint256 slippageSlope,
         uint256 startTime
     ) {
         (
             ,
             ,
             variableAmount,
-            slippageParameter,
+            slippageSlope,
             startTime
         ) = abi.decode(swapData, (uint256, uint256, uint256, uint256, uint256));
     }
@@ -1070,45 +1071,68 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         ) = abi.decode(swapData, (uint256, uint256));
     }
 
-    // Missing implementations:
     function _applySlippage(
         IVault.SwapKind kind,
         uint256 fixedAmount,
         uint256 variableAmount,
-        uint256 slippageParameter,
+        uint256 slippageSlope,
         uint256 startTime
-    ) internal pure returns(uint256 amountIn, uint256 amountOut) {
+    ) internal view returns(uint256 amountIn, uint256 amountOut) {
+
+        uint256 currentTimestamp = block.timestamp;
 
         if (kind == IVault.SwapKind.GIVEN_IN) {
-            return (fixedAmount, _decreaseAmountOut(variableAmount, slippageParameter, startTime));
+            return (fixedAmount, _decreaseAmountOut(variableAmount, slippageSlope, startTime, currentTimestamp));
         }
 
-        return (_increaseAmountIn(variableAmount, slippageParameter, startTime) , fixedAmount);
+        return (_increaseAmountIn(variableAmount, slippageSlope, startTime, currentTimestamp) , fixedAmount);
 
     }
     
     function _decreaseAmountOut(
         uint256 amountOut,
-        uint256 slippageParameter,
-        uint256 startTime
+        uint256 slippageSlope,
+        uint256 startTime,
+        uint256 currentTimestamp
     ) internal pure returns(uint256){
-        return(amountOut);
+
+        if(currentTimestamp <= startTime) {
+            return(amountOut);
+        }
+
+        uint256 penalty = Math.mul(slippageSlope, currentTimestamp.sub(startTime));
+        return amountOut.sub(penalty);
     }
     
     function _increaseAmountIn(
         uint256 amountIn,
-        uint256 slippageParameter,
-        uint256 startTime
+        uint256 slippageSlope,
+        uint256 startTime,
+        uint256 currentTimestamp
     ) internal pure returns(uint256) {
-        return (amountIn);
+        
+        if(currentTimestamp <= startTime) {
+            return(amountIn);
+        }
+
+        uint256 penalty = Math.mul(slippageSlope, currentTimestamp.sub(startTime));
+        return amountIn.add(penalty);
     }
 
+    function _getTotalTokens() internal pure override returns (uint256) {
+        return _NUM_TOKENS;
+    }
+
+    function _getMaxTokens() internal pure override returns (uint256) {
+        return _NUM_TOKENS;
+    }
+
+    // Missing implementations:
     function _scalingFactors() internal override view returns (uint256[] memory) {
         uint256[] memory a;
         return a;
     }
 
-        // Missing implementations:
     function _scalingFactor(IERC20 token) internal override view returns (uint256) {
         return 0;
     }
@@ -1155,14 +1179,6 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         bytes memory userData
     ) internal override returns (uint256 bptAmountIn, uint256[] memory amountsOut) {
         return (bptAmountIn, amountsOut);
-    }
-
-    function _getTotalTokens() internal view override returns (uint256) {
-        return _NUM_TOKENS;
-    }
-
-    function _getMaxTokens() internal pure override returns (uint256) {
-        return _NUM_TOKENS;
     }
 
 }
