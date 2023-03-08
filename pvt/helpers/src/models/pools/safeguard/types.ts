@@ -75,7 +75,7 @@ export type InitialSafeguardParams = {
     receiver: string,
     deadline: BigNumberish,
     variableAmount: BigNumberish,
-    slippageParameter: BigNumberish,
+    slippageSlope: BigNumberish,
     startTime: BigNumberish,
     quoteBalance0: BigNumberish,
     quoteBalance1:BigNumberish,
@@ -93,7 +93,7 @@ export type SwapSafeguardPool = {
   lastChangeBlock?: BigNumberish;
   deadline?: BigNumberish;
   variableAmount: BigNumberish;
-  slippageParameter?: BigNumberish;
+  slippageSlope?: BigNumberish;
   startTime?: BigNumberish;
   quoteBalances?: BigNumberish[];
   signer: SignerWithAddress;
@@ -131,7 +131,7 @@ export type JoinGivenInSafeguardPool = {
   variableAmount          : BigNumberish;
   quoteBalanceIn?         : BigNumberish;
   quoteBalanceOut?        : BigNumberish;
-  slippageParameter?      : BigNumberish;
+  slippageSlope?      : BigNumberish;
   signer                  : SignerWithAddress;
 };
 
@@ -154,14 +154,24 @@ export type JoinAllGivenOutWeightedPool = {
   protocolFeePercentage?: BigNumberish;
 };
 
-export type ExitGivenOutWeightedPool = {
-  amountsOut: NAry<BigNumberish>;
-  maximumBptIn?: BigNumberish;
-  recipient?: Account;
-  from?: SignerWithAddress;
-  lastChangeBlock?: BigNumberish;
-  currentBalances?: BigNumberish[];
-  protocolFeePercentage?: BigNumberish;
+export type ExitGivenOutSafeguardPool = {
+  from?                   : SignerWithAddress;
+  lastChangeBlock?        : BigNumberish;
+  currentBalances?        : BigNumberish[];
+  protocolFeePercentage?  : BigNumberish;
+  receiver                : string;
+  chainId                 : number;
+  startTime?              : BigNumberish;
+  deadline?               : BigNumberish;
+  sellToken               : string;
+  maxBptAmountIn?         : BigNumberish;
+  maxSwapAmountIn         : BigNumberish;
+  amountsOut              : NAry<BigNumberish>;
+  variableAmount          : BigNumberish;
+  quoteBalanceIn?         : BigNumberish;
+  quoteBalanceOut?        : BigNumberish;
+  slippageSlope?      : BigNumberish;
+  signer                  : SignerWithAddress;
 };
 
 export type SingleExitGivenInWeightedPool = {
