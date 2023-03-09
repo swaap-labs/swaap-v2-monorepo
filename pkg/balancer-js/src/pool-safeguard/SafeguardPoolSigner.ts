@@ -97,3 +97,44 @@ export async function signJoinExactTokensData(
     const signature = await signer._signTypedData(domain, types, value);
     return signature;
 }
+
+export async function signExitExactTokensData(
+  chainId: number,
+  contractAddress: string,
+  poolId: string,
+  receiver: string,
+  deadline: BigNumberish,
+  exitData: string,
+  signer: SignerWithAddress,
+): Promise<string> {
+  // All properties on a domain are optional
+
+  const domain = {
+    name: DOMAIN_NAME,
+    version: DOMAIN_VERSION,
+    chainId: chainId,
+    verifyingContract: contractAddress
+  };
+
+  // The named list of all type definitions
+  const types = {
+    ExitExactTokensStruct: [
+        { name: 'kind'    , type: 'uint8'   }, // TODO check e  num type
+        { name: 'poolId'  , type: 'bytes32' },
+        { name: 'receiver', type: 'address' },
+        { name: 'deadline', type: 'uint256' },
+        { name: 'exitData', type: 'bytes'   }
+    ]
+  };
+
+  const value = {
+      kind: SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
+      poolId: poolId,
+      receiver: receiver,
+      deadline: deadline,
+      exitData: exitData,
+  };
+
+  const signature = await signer._signTypedData(domain, types, value);
+  return signature;
+}

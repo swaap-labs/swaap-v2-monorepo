@@ -2,7 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { BigNumberish } from '@ethersproject/bignumber';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { stringify } from 'querystring';
-import { signSwapData, signJoinExactTokensData } from './SafeguardPoolSigner';
+import { signSwapData, signJoinExactTokensData, signExitExactTokensData } from './SafeguardPoolSigner';
 import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } from './kinds';
 
 export class SafeguardPoolEncoder {
@@ -59,14 +59,14 @@ export class SafeguardPoolEncoder {
       variableAmount: BigNumberish,
       quoteBalanceIn: BigNumberish,
       quoteBalanceOut: BigNumberish,
-      slippageParameter: BigNumberish,
+      slippageSlope: BigNumberish,
       signer: SignerWithAddress,
     ): Promise<string>
   {
 
     let swapData: string = defaultAbiCoder.encode(
       ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-      [quoteBalanceIn, quoteBalanceOut, variableAmount, slippageParameter, startTime]
+      [quoteBalanceIn, quoteBalanceOut, variableAmount, slippageSlope, startTime]
     );
     
     let joinData: string = defaultAbiCoder.encode(
@@ -95,6 +95,58 @@ export class SafeguardPoolEncoder {
     );
   }
 
+  static async exitBPTInForExactTokensOut
+    (
+      chainId: number,
+      contractAddress: string,
+      poolId: string,
+      receiver: string,
+      startTime: BigNumberish,
+      deadline: BigNumberish,
+      maxBptAmountIn: BigNumberish,
+      sellToken: string,
+      maxSwapAmountIn: BigNumberish,
+      amountOut0: BigNumberish,
+      amountOut1: BigNumberish,
+      variableAmount: BigNumberish,
+      quoteBalanceIn: BigNumberish,
+      quoteBalanceOut: BigNumberish,
+      slippageSlope: BigNumberish,
+      signer: SignerWithAddress,
+    ): Promise<string>
+  {
+
+    let swapData: string = defaultAbiCoder.encode(
+      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+      [quoteBalanceIn, quoteBalanceOut, variableAmount, slippageSlope, startTime]
+    );
+    
+    let exitData: string = defaultAbiCoder.encode(
+      ['uint256', 'address', 'uint256', 'uint256[]', 'bytes'],
+      [maxBptAmountIn, sellToken, maxSwapAmountIn, [amountOut0, amountOut1], swapData]
+    );
+
+    let signature: string = await signExitExactTokensData(
+      chainId,
+      contractAddress,
+      poolId,
+      receiver,
+      deadline,
+      exitData,
+      signer
+    );
+
+    let signedExitData: string = defaultAbiCoder.encode(
+      ['uint256', 'bytes', 'bytes'],
+      [deadline, exitData, signature]
+    );
+
+    return defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, signedExitData]
+    );
+  }
+
   static async swap
   (
     chainId: number,
@@ -107,7 +159,7 @@ export class SafeguardPoolEncoder {
     receiver: string,
     deadline: BigNumberish,
     variableAmount: BigNumberish,
-    slippageParameter: BigNumberish,
+    slippageSlope: BigNumberish,
     startTime: BigNumberish,
     quoteBalance0: BigNumberish,
     quoteBalance1:BigNumberish,
@@ -117,7 +169,7 @@ export class SafeguardPoolEncoder {
 
   let swapData: string = defaultAbiCoder.encode(
     ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-    [quoteBalance0, quoteBalance1, variableAmount, slippageParameter, startTime]
+    [quoteBalance0, quoteBalance1, variableAmount, slippageSlope, startTime]
   );
 
   let signature: string = await signSwapData(
@@ -184,6 +236,6 @@ export class ManagedPoolEncoder {
    * Encodes the userData parameter for exiting a ManagedPool to remove a token.
    * This can only be done by the pool owner.
    */
-  static exitForRemoveToken = (tokenIndex: BigNumberish): string =>
-    defaultAbiCoder.encode(['uint256', 'uint256'], [SafeguardPoolExitKind.REMOVE_TOKEN, tokenIndex]);
+  // static exitForRemoveToken = (tokenIndex: BigNumberish): string =>
+  //   defaultAbiCoder.encode(['uint256', 'uint256'], [SafeguardPoolExitKind.REMOVE_TOKEN, tokenIndex]);
 }
