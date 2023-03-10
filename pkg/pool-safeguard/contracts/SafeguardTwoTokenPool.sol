@@ -330,7 +330,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
         if(kind == JoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT) {
 
-            return _joinAllTokensInForExactBPTOut(balances, joinData);
+            return _joinAllTokensInForExactBPTOut(balances, totalSupply(), joinData);
 
         } else if (kind == JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT) {
 
@@ -344,23 +344,15 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     function _joinAllTokensInForExactBPTOut(
         uint256[] memory balances,
+        uint256 totalSupply,
         bytes memory joinData
-    ) internal view returns (uint256, uint256[] memory) {
-        (
-            uint256 exactBptAmountOut,
-            uint256[] memory maxAmountsIn
-        ) = abi.decode(joinData, (uint256, uint256[]));
-        
-        uint256 ratio = exactBptAmountOut.divUp(totalSupply());
-        
-        uint256[] memory amountsIn = new uint256[](_NUM_TOKENS);
-        
-        for(uint256 i; i < _NUM_TOKENS; ++i){
-            amountsIn[i] = balances[i].mulUp(ratio);
-            require(amountsIn[i] <= maxAmountsIn[i], "error: max amount in exceeded");
-        }
+    ) private pure returns (uint256, uint256[] memory) {
+        uint256 bptAmountOut = abi.decode(joinData, (uint256));
+        // Note that there is no maximum amountsIn parameter: this is handled by `IVault.joinPool`.
 
-        return (exactBptAmountOut, amountsIn);
+        uint256[] memory amountsIn = BasePoolMath.computeProportionalAmountsIn(balances, totalSupply, bptAmountOut);
+
+        return (bptAmountOut, amountsIn);
     }
 
     function _joinExactTokensInForBPTOut(
