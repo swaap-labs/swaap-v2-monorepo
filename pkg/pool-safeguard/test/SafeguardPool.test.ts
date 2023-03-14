@@ -35,6 +35,8 @@ let perfUpdateInterval: BigNumberish;
 let maxQuoteOffset: BigNumberish;
 let maxPriceOffet: BigNumberish
 
+const chainId = 31337;
+
 describe('SafeguardPool', function () {
 
   before('setup signers', async () => {
@@ -44,12 +46,12 @@ describe('SafeguardPool', function () {
   describe('join pool', () => {
     let pool: SafeguardPool;
 
-    const initialBalances = [fp(100), fp(15)];
-    const initPrices = [1, 1000];
+    const initialBalances = [fp(15), fp(15)];
+    const initPrices = [1, 1];
 
     sharedBeforeEach('deploy pool', async () => {
 
-      allTokens = await TokenList.create(2, { sorted: true, varyDecimals: true });
+      allTokens = await TokenList.create(2, { sorted: true, varyDecimals: false });
     
       allOracles = [
         await OraclesDeployer.deployOracle({
@@ -82,45 +84,72 @@ describe('SafeguardPool', function () {
       };
 
       pool = await SafeguardPool.create(poolConstructor);
-
+      console.log(initialBalances[0]);
+      console.log(initialBalances[0].div(100));
       await pool.init({ initialBalances, recipient: lp });
-
-      let chainId = (await ethers.getDefaultProvider().getNetwork()).chainId;
-
-      await pool.joinGivenIn({
-        receiver: lp.address,
-        chainId: chainId,
-        sellToken: allTokens.tokens[0].address,
-        amountsIn: [fp(10), 0],
-        maxSwapAmountIn: fp(10),
-        variableAmount: fp(10),
-        signer: signer
-      });
+    
     });
 
-    context('Init join pool', () => {
+    context('Init join exit pool', () => {
       
-      it('sets the lastPostJoinInvariant to the current invariant', async () => {        
+      it('Initial balances are correct', async () => {        
         const currentBalances = await pool.getBalances();
         for(let i = 0; i < currentBalances.length; i++){
           expect(currentBalances[i]).to.be.equal(initialBalances[i]);
         }
       });
       
-      it('joinExactTokensForBptOut', async() => {
-        // let chainId = (await ethers.getDefaultProvider().getNetwork()).chainId;
+      it('joinExactTokensForBptOut', async() => {        
+        const currentBalances = await pool.getBalances();
 
-        // await pool.joinGivenIn({
-        //   receiver: lp.address,
-        //   chainId: chainId,
-        //   sellToken: allTokens.tokens[0].address,
-        //   amountsIn: [fp(10), 0],
-        //   maxSwapAmountIn: fp(10),
-        //   variableAmount: fp(10),
-        //   signer: signer
-        // });
+        const amountsIn = [fp(1.01), fp(1)];
+        const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
+
+        await pool.joinGivenIn({
+          receiver: lp.address,
+          chainId: chainId,
+          sellToken: allTokens.tokens[0].address,
+          amountsIn: amountsIn,
+          maxSwapAmountIn: fp(10),
+          variableAmount: fp(10),
+          signer: signer
+        });
+
+        const updatedBalances = await pool.getBalances();
+        
+        expect(updatedBalances[0]).to.be.equal(expectedBalances[0]);
+        expect(updatedBalances[1]).to.be.equal(expectedBalances[1]);
       });
-    
+      
+      it('exitBptInForExactTokensOut', async() => {
+        await pool.exitGivenOut({
+          from: lp,
+          receiver: lp.address,
+          chainId: chainId,
+          sellToken: allTokens.tokens[1].address,
+          amountsOut: [fp(1.1), fp(1)],
+          maxSwapAmountIn: fp(10),
+          variableAmount: fp(10),
+          signer: signer
+        });
+      });
+    });
+
+    context('Swap pool', () => {
+      
+      it('Swap given in', async () => {        
+        const amountIn = fp(0.5);
+        const amountOut = fp(0.5);
+        await pool.swapGivenIn({
+          chainId: chainId,
+          in: 0,
+          out: 1,
+          amount: amountIn,
+          variableAmount: amountOut,
+          signer: signer
+        });
+      });
+
     });
   });
 
