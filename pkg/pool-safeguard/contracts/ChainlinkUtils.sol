@@ -14,6 +14,8 @@
 pragma solidity ^0.7.0;
 
 import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 
 library ChainlinkUtils {
 
@@ -29,6 +31,15 @@ library ChainlinkUtils {
         
         require(latestPrice > 0, "error: non positive price");
         return uint256(latestPrice);
+    }
+
+    function computePriceScalingFactor(AggregatorV3Interface oracle) internal view returns (uint256) {
+        // Oracles that don't implement the `decimals` method are not supported.
+        uint256 oracleDecimals = oracle.decimals();
+
+        // Oracles with more than 18 decimals are not supported.
+        uint256 decimalsDifference = Math.sub(18, oracleDecimals);
+        return FixedPoint.ONE * 10**decimalsDifference;
     }
 
 }

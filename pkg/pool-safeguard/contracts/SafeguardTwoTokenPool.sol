@@ -21,13 +21,13 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IMinimalSwapInfoPool.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidator.sol";
 import "./SignatureSafeguard.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol";
-import "@balancer-labs/v2-interfaces/contracts/solidity-utils/openzeppelin/IERC20Metadata.sol";
 import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "hardhat/console.sol";
 
 contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     using FixedPoint for uint256;
     using WordCodec for bytes32;
+    using BasePoolUserData for bytes;
 
     struct InitialSafeguardParams {
         address signer;
@@ -49,14 +49,19 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     uint256 private constant _NUM_TOKENS = 2;
     uint256 private constant _INITIAL_BPT = 100 ether;
 
-    IERC20Metadata internal immutable _token0;
-    IERC20Metadata internal immutable _token1;
+    IERC20 internal immutable _token0;
+    IERC20 internal immutable _token1;
     
     AggregatorV3Interface internal immutable _oracle0;
     AggregatorV3Interface internal immutable _oracle1;
 
+    // tokens scale factor
     uint256 internal immutable _scaleFactor0;
     uint256 internal immutable _scaleFactor1;
+
+    // oracle price scale factor
+    uint256 internal immutable _priceScaleFactor0;
+    uint256 internal immutable _priceScaleFactor1;
 
     address private _signer;
     
@@ -133,21 +138,17 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         InputHelpers.ensureInputLengthMatch(tokens.length, _NUM_TOKENS);
         InputHelpers.ensureInputLengthMatch(oracles.length, _NUM_TOKENS);
     
-        _token0 = IERC20Metadata(address(tokens[0]));
-        _token1 = IERC20Metadata(address(tokens[1]));
+        _token0 = IERC20(address(tokens[0]));
+        _token1 = IERC20(address(tokens[1]));
 
         _oracle0 = oracles[0];
         _oracle1 = oracles[1];
 
-        // TODO: verify decimals < 77 ?
-        // 10**77 overflows
-        {
-            uint256 decimals0 = uint256(IERC20Metadata(address(tokens[0])).decimals()).add(oracles[0].decimals());
-            uint256 decimals1 = uint256(IERC20Metadata(address(tokens[1])).decimals()).add(oracles[1].decimals());
+        _scaleFactor0 = _computeScalingFactor(tokens[0]);
+        _scaleFactor1 = _computeScalingFactor(tokens[1]);
 
-            (_scaleFactor0, _scaleFactor1) = decimals0 > decimals1? 
-            (uint256(1), 10**(decimals0 - decimals1)) : (10**(decimals1 - decimals0), uint256(1));
-        }    
+        _priceScaleFactor0 = ChainlinkUtils.computePriceScalingFactor(oracles[0]);
+        _priceScaleFactor1 = ChainlinkUtils.computePriceScalingFactor(oracles[1]);
 
         _setSigner(safeguardParameters.signer);
         _setMaxTVLoffset(safeguardParameters.maxTVLoffset);
@@ -247,85 +248,38 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     }
 
-    // Join Pool
-
-    /**
-     * @notice Vault hook for adding liquidity to a pool (including the first time, "initializing" the pool).
-     * @dev This function can only be called from the Vault, from `joinPool`.
-     */
-    function onJoinPool(
+    function _onInitializePool(
         bytes32 poolId,
         address sender,
         address recipient,
-        uint256[] memory balances,
-        uint256, // lastChangeBlock
-        uint256 protocolSwapFeePercentage,
+        uint256[] memory scalingFactors,
         bytes memory userData
-    ) external override(BasePool, IBasePool) onlyVault(poolId) returns (uint256[] memory, uint256[] memory) {
-
-        if (totalSupply() == 0) {
-            (uint256 bptAmountOut, uint256[] memory amountsIn) = _onInitializePool(
-                poolId,
-                sender,
-                recipient,
-                userData
-            );
-
-            // On initialization, we lock _getMinimumBpt() by minting it for the zero address. This BPT acts as a
-            // minimum as it will never be burned, which reduces potential issues with rounding, and also prevents the
-            // Pool from ever being fully drained.
-            _require(bptAmountOut >= _getMinimumBpt(), Errors.MINIMUM_BPT);
-            _mintPoolTokens(address(0), _getMinimumBpt());
-            _mintPoolTokens(recipient, bptAmountOut - _getMinimumBpt());
-
-            return (amountsIn, new uint256[](balances.length));
-        } else {
-
-            (uint256 bptAmountOut, uint256[] memory amountsIn) = _onJoinPool(
-                poolId,
-                recipient,
-                balances,
-                inRecoveryMode() ? 0 : protocolSwapFeePercentage, // Protocol fees are disabled while in recovery mode
-                userData
-            );
-
-            // Note we no longer use `balances` after calling `_onJoinPool`, which may mutate it.
-
-            _mintPoolTokens(recipient, bptAmountOut);
-
-            // This Pool ignores the `dueProtocolFees` return value, so we simply return a zeroed-out array.
-            return (amountsIn, new uint256[](balances.length));
-        }
-    }
-
-    function _onInitializePool(
-        bytes32,
-        address,
-        address,
-        bytes memory userData
-    ) internal returns (uint256 bptAmountOut, uint256[] memory amountsIn) {
-        JoinKind kind;
+    ) internal override returns (uint256, uint256[] memory) {
         
-        (kind, amountsIn) = abi.decode(userData, (JoinKind, uint256[]));
+        (JoinKind kind, uint256[] memory amountsIn) = abi.decode(userData, (JoinKind, uint256[]));
         
         _require(kind == JoinKind.INIT, Errors.UNINITIALIZED);
         _require(amountsIn.length == _NUM_TOKENS, Errors.TOKENS_LENGTH_MUST_BE_2);
+        
+        _upscaleArray(amountsIn, scalingFactors);
 
-        bptAmountOut = _INITIAL_BPT;
+        // set perf balances & set last perf update time to current block.timestamp
+        _setPerfBalancesPerPT(amountsIn[0].divDown(_INITIAL_BPT), amountsIn[1].divDown(_INITIAL_BPT));
 
-        // set perf balances & set last perf update time to block.timestamp
-        _setPerfBalancesPerPT(amountsIn[0].divDown(bptAmountOut), amountsIn[1].divDown(bptAmountOut));
+        return (_INITIAL_BPT, amountsIn);
         
     }
 
     function _onJoinPool(
         bytes32 poolId,
-        address receiver,
+        address, // sender,
+        address recipient,
         uint256[] memory balances,
-        uint256, // protocolFees, // TODO is protocol fees needed / recovery mode needed?
+        uint256, // lastChangeBlock,
+        uint256, // protocolSwapFeePercentage,
+        uint256[] memory, // scalingFactors,
         bytes memory userData
-    ) internal returns (uint256, uint256[] memory) {
-
+    ) internal override returns (uint256 bptAmountOut, uint256[] memory amountsIn) {
         (JoinKind kind, bytes memory joinData) = abi.decode(userData, (JoinKind, bytes));
 
         if(kind == JoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT) {
@@ -334,12 +288,11 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
         } else if (kind == JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT) {
 
-            return _joinExactTokensInForBPTOut(poolId, receiver, balances, joinData);
+            return _joinExactTokensInForBPTOut(poolId, recipient, balances, joinData);
 
         } else {
             _revert(Errors.UNHANDLED_JOIN_KIND);
         }
-
     }
 
     function _joinAllTokensInForExactBPTOut(
@@ -357,7 +310,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     function _joinExactTokensInForBPTOut(
         bytes32 poolId,
-        address receiver,
+        address recipient,
         uint256[] memory balances,
         bytes memory signedJoinData
     ) internal returns (uint256, uint256[] memory) {
@@ -365,7 +318,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         bytes memory joinData = _joinPoolSignatureSafeguard(
                 JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
                 poolId,
-                receiver,
+                recipient,
                 signedJoinData
         );
 
@@ -416,49 +369,25 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     }
 
-    /**
-     * @notice Vault hook for removing liquidity from a pool.
-     * @dev This function can only be called from the Vault, from `exitPool`.
-     */
-    function onExitPool(
-        bytes32 poolId,
-        address sender,
-        address recipient,
+    function _doRecoveryModeExit(
         uint256[] memory balances,
-        uint256, // lastChangeBlock,
-        uint256 protocolSwapFeePercentage,
+        uint256 totalSupply,
         bytes memory userData
-    ) external override(BasePool, IBasePool) onlyVault(poolId) returns (uint256[] memory, uint256[] memory) {
-        uint256[] memory amountsOut;
-        uint256 bptAmountIn;
-
-        if (totalSupply() != 0) {
-
-            (bptAmountIn, amountsOut) = _onExitPool(
-                poolId,
-                recipient,
-                balances,
-                inRecoveryMode() ? 0 : protocolSwapFeePercentage, // Protocol fees are disabled while in recovery mode
-                userData
-            );
-
-        }
-
-        // Note we no longer use `balances` after calling `_onExitPool`, which may mutate it.
-
-        _burnPoolTokens(sender, bptAmountIn);
-
-        // This Pool ignores the `dueProtocolFees` return value, so we simply return a zeroed-out array.
-        return (amountsOut, new uint256[](balances.length));
+    ) internal pure override returns (uint256 bptAmountIn, uint256[] memory amountsOut) {
+        bptAmountIn = userData.recoveryModeExit();
+        amountsOut = BasePoolMath.computeProportionalAmountsOut(balances, totalSupply, bptAmountIn);
     }
 
     function _onExitPool(
         bytes32 poolId,
-        address receiver,
+        address, // sender,
+        address recipient,
         uint256[] memory balances,
-        uint256, // protocolFees, // TODO is protocol fees needed / recovery mode needed?
+        uint256, // lastChangeBlock,
+        uint256, // protocolSwapFeePercentage,
+        uint256[] memory, // scalingFactors,
         bytes memory userData
-    ) internal returns (uint256, uint256[] memory) {
+    ) internal override returns (uint256 bptAmountIn, uint256[] memory amountsOut) {
         (ExitKind kind, bytes memory exitData) = abi.decode(userData, (ExitKind, bytes));
 
         if(kind == ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT) {
@@ -467,7 +396,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
         } else if (kind == ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT) {
 
-            return _exitBPTInForExactTokensOut(poolId, receiver, balances, exitData);
+            return _exitBPTInForExactTokensOut(poolId, recipient, balances, exitData);
 
         } else {
             _revert(Errors.UNHANDLED_EXIT_KIND);
@@ -489,7 +418,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
     function _exitBPTInForExactTokensOut(
         bytes32 poolId,
-        address receiver,
+        address recipient,
         uint256[] memory balances,
         bytes memory signedExitData
     ) internal returns (uint256, uint256[] memory) {
@@ -498,7 +427,7 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         bytes memory exitData = _exitPoolSignatureSafeguard(
                 ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
                 poolId,
-                receiver,
+                recipient,
                 signedExitData
         );
 
@@ -810,12 +739,14 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
 
         require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
 
-        uint256 relativePrice = _getRelativePrice(_token0);
-
         (
             ,
             uint256[] memory balances,
         ) = getVault().getPoolTokens(getPoolId());
+
+        _upscaleArray(balances, _scalingFactors());
+
+        uint256 relativePrice = _getRelativePrice(_token0);
 
         _updatePerformance(balances[0], balances[1], relativePrice, totalSupply()); 
     }
@@ -885,18 +816,12 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
     }
 
     function _getRelativePrice(IERC20 tokenIn) internal view returns(uint256) {
-        
+
         uint256 price0 = ChainlinkUtils.getLatestPrice(_oracle0);
         uint256 price1 = ChainlinkUtils.getLatestPrice(_oracle1);
 
-        // uint256 scalingFactorTokenIn = _scalingFactor(request.tokenIn);
-        // uint256 scalingFactorTokenOut = _scalingFactor(request.tokenOut);
-
-        // balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
-        // balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
-        // TODO check for overflow
-        price0 *= _scaleFactor0;
-        price1 *= _scaleFactor1;
+        price0 = _upscale(price0, _priceScaleFactor0);
+        price1 = _upscale(price1, _priceScaleFactor1);
         
         return tokenIn == _token0? price1.divDown(price0) : price0.divDown(price1); 
     }
@@ -1083,58 +1008,18 @@ contract SafeguardTwoTokenPool is SignatureSafeguard, BasePool, IMinimalSwapInfo
         return _NUM_TOKENS;
     }
 
-    // Missing implementations:
-    function _scalingFactors() internal override view returns (uint256[] memory) {
-        uint256[] memory a;
-        return a;
+    function _scalingFactors() internal view override returns (uint256[] memory) {
+        uint256[] memory scalingFactors = new uint256[](_NUM_TOKENS);
+        scalingFactors[0] = _scaleFactor0;
+        scalingFactors[1] = _scaleFactor1;
+        return scalingFactors;
     }
 
-    function _scalingFactor(IERC20 token) internal override view returns (uint256) {
-        return 0;
-    }
-
-    function _onJoinPool(
-        bytes32 poolId,
-        address sender,
-        address recipient,
-        uint256[] memory balances,
-        uint256 lastChangeBlock,
-        uint256 protocolSwapFeePercentage,
-        uint256[] memory scalingFactors,
-        bytes memory userData
-    ) internal override returns (uint256 bptAmountOut, uint256[] memory amountsIn){
-
-    }
-
-    function _onExitPool(
-        bytes32 poolId,
-        address sender,
-        address recipient,
-        uint256[] memory balances,
-        uint256 lastChangeBlock,
-        uint256 protocolSwapFeePercentage,
-        uint256[] memory scalingFactors,
-        bytes memory userData
-    ) internal override returns (uint256 bptAmountIn, uint256[] memory amountsOut){
-
-    }
-
-    function _onInitializePool(
-        bytes32 poolId,
-        address sender,
-        address recipient,
-        uint256[] memory scalingFactors,
-        bytes memory userData
-    ) internal override returns (uint256 bptAmountOut, uint256[] memory amountsIn) {
-        return (bptAmountOut, amountsIn);
-    }
-
-    function _doRecoveryModeExit(
-        uint256[] memory balances,
-        uint256 totalSupply,
-        bytes memory userData
-    ) internal override returns (uint256 bptAmountIn, uint256[] memory amountsOut) {
-        return (bptAmountIn, amountsOut);
+    function _scalingFactor(IERC20 token) internal view override returns (uint256) {
+        if (token == _token0) {
+            return _scaleFactor0;
+        }
+        return _scaleFactor1;
     }
 
 }
