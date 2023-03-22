@@ -337,7 +337,7 @@ export default class SafeguardPool extends BasePool {
 
     const contractAddress = this.address;
     const poolId = this.poolId;
-    const receiver = params.receiver;
+    const recipient = params.recipient;
     const chainId = params.chainId;
     const startTime = params.startTime || MAX_UINT256;
     const deadline = params.deadline  || MAX_UINT256;
@@ -354,7 +354,7 @@ export default class SafeguardPool extends BasePool {
 
     return {
       from: params.from,
-      recipient: params.receiver,
+      recipient: params.recipient,
       lastChangeBlock: params.lastChangeBlock,
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
@@ -362,7 +362,7 @@ export default class SafeguardPool extends BasePool {
         chainId,
         contractAddress,
         poolId,
-        receiver,
+        recipient,
         startTime,
         deadline,
         minBptAmountOut,
@@ -411,7 +411,7 @@ export default class SafeguardPool extends BasePool {
 
     const contractAddress = this.address;
     const poolId = this.poolId;
-    const receiver = params.receiver;
+    const recipient = params.recipient;
     const chainId = params.chainId;
     const startTime = params.startTime || MAX_UINT256;
     const deadline = params.deadline  || MAX_UINT256;
@@ -428,7 +428,7 @@ export default class SafeguardPool extends BasePool {
 
     return {
       from: params.from,
-      recipient: params.receiver,
+      recipient: params.recipient,
       lastChangeBlock: params.lastChangeBlock,
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
@@ -436,7 +436,7 @@ export default class SafeguardPool extends BasePool {
         chainId,
         contractAddress,
         poolId,
-        receiver,
+        recipient,
         startTime,
         deadline,
         maxBptAmountIn,

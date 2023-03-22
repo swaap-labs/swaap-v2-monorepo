@@ -17,10 +17,14 @@ import { deploy, getArtifact } from '@balancer-labs/v2-helpers/src/contract';
 import { MAX_UINT256, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
 import { DAY } from '@balancer-labs/v2-helpers/src/time';
+import '@balancer-labs/v2-common/setupTests'
+import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
 
+let vault: Vault;
 let allTokens: TokenList;
 let allOracles: Oracle[];
-let lp: SignerWithAddress,
+let deployer: SignerWithAddress, 
+  lp: SignerWithAddress,
   owner: SignerWithAddress,
   recipient: SignerWithAddress,
   admin: SignerWithAddress,
@@ -33,14 +37,20 @@ let maxTVLoffset: BigNumberish;
 let maxBalOffset: BigNumberish;
 let perfUpdateInterval: BigNumberish;
 let maxQuoteOffset: BigNumberish;
-let maxPriceOffet: BigNumberish
+let maxPriceOffet: BigNumberish;
 
 const chainId = 31337;
 
 describe('SafeguardPool', function () {
 
   before('setup signers', async () => {
-    [, lp, owner, recipient, admin, signer, other, trader] = await ethers.getSigners();
+    [deployer, lp, owner, recipient, admin, signer, other, trader] = await ethers.getSigners();
+  });
+
+  sharedBeforeEach('mint tokens', async () => {
+    let tokens = await TokenList.create(['DAI', 'MKR'], { sorted: true });
+    await tokens.mint({ to: trader, amount: fp(100) });
+    await tokens.approve({ to: trader, from: trader });
   });
 
   describe('join pool', () => {
@@ -50,9 +60,16 @@ describe('SafeguardPool', function () {
     const initPrices = [1, 1];
 
     sharedBeforeEach('deploy pool', async () => {
+      vault = await VaultDeployer.deploy({mocked: false});
 
       allTokens = await TokenList.create(2, { sorted: true, varyDecimals: false });
     
+      await allTokens.tokens[0].mint(deployer, fp(1000));
+      await allTokens.tokens[1].mint(deployer, fp(1000));
+
+      await allTokens.tokens[0].approve(vault, fp(1000), {from: deployer});
+      await allTokens.tokens[1].approve(vault, fp(1000), {from: deployer});
+
       allOracles = [
         await OraclesDeployer.deployOracle({
           description: "low",
@@ -74,6 +91,7 @@ describe('SafeguardPool', function () {
 
       let poolConstructor: RawSafeguardPoolDeployment = {
         tokens: allTokens,
+        vault: vault,
         oracles: allOracles,
         signer: signer,
         maxTVLoffset: maxTVLoffset,
@@ -84,10 +102,8 @@ describe('SafeguardPool', function () {
       };
 
       pool = await SafeguardPool.create(poolConstructor);
-      console.log(initialBalances[0]);
-      console.log(initialBalances[0].div(100));
       await pool.init({ initialBalances, recipient: lp });
-    
+
     });
 
     context('Init join exit pool', () => {
@@ -97,6 +113,8 @@ describe('SafeguardPool', function () {
         for(let i = 0; i < currentBalances.length; i++){
           expect(currentBalances[i]).to.be.equal(initialBalances[i]);
         }
+        await allTokens.tokens[0].mint(other, fp(1));
+
       });
       
       it('joinExactTokensForBptOut', async() => {        
@@ -106,7 +124,7 @@ describe('SafeguardPool', function () {
         const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
 
         await pool.joinGivenIn({
-          receiver: lp.address,
+          recipient: lp.address,
           chainId: chainId,
           sellToken: allTokens.tokens[0].address,
           amountsIn: amountsIn,
@@ -124,7 +142,7 @@ describe('SafeguardPool', function () {
       it('exitBptInForExactTokensOut', async() => {
         await pool.exitGivenOut({
           from: lp,
-          receiver: lp.address,
+          recipient: lp.address,
           chainId: chainId,
           sellToken: allTokens.tokens[1].address,
           amountsOut: [fp(1.1), fp(1)],
@@ -146,7 +164,9 @@ describe('SafeguardPool', function () {
           out: 1,
           amount: amountIn,
           variableAmount: amountOut,
-          signer: signer
+          signer: signer,
+          from: deployer,
+          recipient: lp.address
         });
       });
 

@@ -1,5 +1,5 @@
 {
-  "name": "@balancer-labs/pool-safeguard",
+  "name": "@balancer-labs/v2-pool-safeguard",
   "devDependencies": {
     "@balancer-labs/balancer-js": "workspace:*",
     "@balancer-labs/v2-common": "workspace:*",
@@ -12,6 +12,7 @@
     "@swaap-labs/swaap-core-v1": "^1.0.0",
     "@typechain/hardhat": "^6.1.5",
     "@types/mocha": "^10",
+    "eth-gas-reporter": "^0.2.25",
     "hardhat": "^2.12.7",
     "hardhat-gas-reporter": "^1.0.9",
     "mocha": "^10.2.0",

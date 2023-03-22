@@ -48,7 +48,7 @@ export class SafeguardPoolEncoder {
       chainId: number,
       contractAddress: string,
       poolId: string,
-      receiver: string,
+      recipient: string,
       startTime: BigNumberish,
       deadline: BigNumberish,
       minBptAmountOut: BigNumberish,
@@ -78,21 +78,18 @@ export class SafeguardPoolEncoder {
       chainId,
       contractAddress,
       poolId,
-      receiver,
+      recipient,
       deadline,
       joinData,
       signer
     );
 
     let signedJoinData: string = defaultAbiCoder.encode(
-      ['uint256', 'bytes', 'bytes'],
-      [deadline, joinData, signature]
+      ['uint8', 'uint256', 'bytes', 'bytes'],
+      [SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, deadline, joinData, signature]
     );
 
-    return defaultAbiCoder.encode(
-      ['uint256', 'bytes'],
-      [SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, signedJoinData]
-    );
+    return signedJoinData;
   }
 
   static async exitBPTInForExactTokensOut
@@ -100,7 +97,7 @@ export class SafeguardPoolEncoder {
       chainId: number,
       contractAddress: string,
       poolId: string,
-      receiver: string,
+      recipient: string,
       startTime: BigNumberish,
       deadline: BigNumberish,
       maxBptAmountIn: BigNumberish,
@@ -130,21 +127,18 @@ export class SafeguardPoolEncoder {
       chainId,
       contractAddress,
       poolId,
-      receiver,
+      recipient,
       deadline,
       exitData,
       signer
     );
 
     let signedExitData: string = defaultAbiCoder.encode(
-      ['uint256', 'bytes', 'bytes'],
-      [deadline, exitData, signature]
+      ['uint8', 'uint256', 'bytes', 'bytes'],
+      [SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, deadline, exitData, signature]
     );
 
-    return defaultAbiCoder.encode(
-      ['uint256', 'bytes'],
-      [SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, signedExitData]
-    );
+    return signedExitData;
   }
 
   static async swap
@@ -156,7 +150,7 @@ export class SafeguardPoolEncoder {
     tokenIn: string,
     tokenOut: string,
     amount: BigNumberish,
-    receiver: string,
+    recipient: string,
     deadline: BigNumberish,
     variableAmount: BigNumberish,
     slippageSlope: BigNumberish,
@@ -180,7 +174,7 @@ export class SafeguardPoolEncoder {
     tokenIn,
     tokenOut,
     amount,
-    receiver,
+    recipient,
     deadline,
     swapData,   
     signer

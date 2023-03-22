@@ -72,7 +72,7 @@ export type InitialSafeguardParams = {
     tokenIn: string,
     tokenOut: string,
     amount: BigNumberish,
-    receiver: string,
+    recipient: string,
     deadline: BigNumberish,
     variableAmount: BigNumberish,
     slippageSlope: BigNumberish,
@@ -120,7 +120,7 @@ export type JoinGivenInSafeguardPool = {
   lastChangeBlock?        : BigNumberish;
   currentBalances?        : BigNumberish[];
   protocolFeePercentage?  : BigNumberish;
-  receiver                : string;
+  recipient                : string;
   chainId                 : number;
   startTime?              : BigNumberish;
   deadline?               : BigNumberish;
@@ -159,7 +159,7 @@ export type ExitGivenOutSafeguardPool = {
   lastChangeBlock?        : BigNumberish;
   currentBalances?        : BigNumberish[];
   protocolFeePercentage?  : BigNumberish;
-  receiver                : string;
+  recipient                : string;
   chainId                 : number;
   startTime?              : BigNumberish;
   deadline?               : BigNumberish;

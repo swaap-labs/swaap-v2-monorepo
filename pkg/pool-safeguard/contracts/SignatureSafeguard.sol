@@ -17,33 +17,26 @@ pragma experimental ABIEncoderV2;
 
 import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidator.sol";
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
+import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 
 abstract contract SignatureSafeguard is EOASignaturesValidator {
+
+    using SafeguardPoolUserData for bytes;
 
     event Swap(bytes32 digest);
     event JoinSwap(bytes32 digest);
     event ExitSwap(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,uint256 amount,address receiver,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x1b69f9bd02dd47e80d3e6fa5788c7ce1125263c904bea51563a5ce054d35a0e2;
+    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,uint256 amount,address recipient,uint256 deadline,bytes swapData)")
+    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x3e18a4ed3faa139f3326657dbfc1411b7e0d111febc834beabc3d8cacd78bd57;
     
-    // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address receiver,uint256 deadline,bytes joinData)")
-    bytes32 public constant JOINSTRUCT_TYPEHASH = 0xf3497e39bd0a6e26c884818f17836b589e816134556f0584fb2c1c53e94994d9;
+    // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address recipient,uint256 deadline,bytes joinData)")
+    bytes32 public constant JOINSTRUCT_TYPEHASH = 0xb2810ba9b71137cd7b645f3bc911fabba5619c0ca665ac39bad760ce2da633a4;
     
-    // keccak256("ExitExactTokensStruct(uint8 kind,bytes32 poolId,address receiver,uint256 deadline,bytes exitData)")
-    bytes32 public constant EXITSTRUCT_TYPEHASH = 0x0a312806f986e49d3a3d2accc3e1861b88c3e73dc656e27176f6e97c53a43674;
+    // keccak256("ExitExactTokensStruct(uint8 kind,bytes32 poolId,address recipient,uint256 deadline,bytes exitData)")
+    bytes32 public constant EXITSTRUCT_TYPEHASH = 0x90657d56982aa61ad28f373b03c0a6fbe64cf50ce2e3e72ce65edfe3caa400f8;
 
     mapping(bytes32 => bool) internal _usedQuotes;
-
-    function _decodeSignedUserData(bytes memory userData) internal pure 
-    returns(uint256 deadline, bytes memory extraData, bytes memory signature){
-        // TODO check if uint128 uses less gas than uint256 
-        (
-            deadline,
-            extraData,
-            signature
-        ) = abi.decode(userData, (uint256, bytes, bytes));
-    }
 
     function _swapSignatureSafeguard(
         IVault.SwapKind kind,
@@ -51,7 +44,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         IERC20 tokenIn,
         IERC20 tokenOut,
         uint256 amount,
-        address receiver,
+        address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
 
@@ -59,7 +52,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             uint256 deadline,
             bytes memory swapData,
             bytes memory signature
-        ) = _decodeSignedUserData(userData);
+        ) = userData.decodeSignedSwapData();
 
         bytes32 structHash = keccak256(abi.encode(
             SWAPSTRUCT_TYPEHASH,
@@ -68,7 +61,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             tokenIn,
             tokenOut,
             amount,
-            receiver,
+            recipient,
             deadline,
             keccak256(swapData)
         ));
@@ -85,28 +78,24 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         return swapData;
     }
 
-
-    // TODO this is temporary, it should be moved elsewhere to an interface
-    enum JoinKind { INIT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, EXACT_TOKENS_IN_FOR_BPT_OUT }
-
     function _joinPoolSignatureSafeguard(
-        JoinKind kind,
         bytes32 poolId,
-        address receiver,
+        address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
 
         (
+            SafeguardPoolUserData.JoinKind kind,
             uint256 deadline,
             bytes memory joinPoolData,
             bytes memory signature
-        ) = _decodeSignedUserData(userData);
+        ) = userData.decodeSignedJoinData();
 
         bytes32 structHash = keccak256(abi.encode(
             JOINSTRUCT_TYPEHASH,
             kind,
             poolId,
-            receiver,
+            recipient,
             deadline,
             keccak256(joinPoolData)
         ));
@@ -123,27 +112,24 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         return joinPoolData;
     }
 
-    // TODO this is temporary, it should be moved elsewhere to an interface
-    enum ExitKind { EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT }
-
     function _exitPoolSignatureSafeguard(
-        ExitKind kind,
         bytes32 poolId,
-        address receiver,
+        address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
 
         (
+            SafeguardPoolUserData.ExitKind kind,
             uint256 deadline,
             bytes memory exitPoolData,
             bytes memory signature
-        ) = _decodeSignedUserData(userData);
+        ) = userData.decodeSignedExitData();
 
         bytes32 structHash = keccak256(abi.encode(
             EXITSTRUCT_TYPEHASH,
             kind,
             poolId,
-            receiver,
+            recipient,
             deadline,
             keccak256(exitPoolData)
         ));

@@ -10,7 +10,7 @@ class OraclesDeployer {
   async deployOracle(params: OracleDeployment): Promise<Oracle> {
     const sender = (await ethers.getSigners())[0];
 
-    let instance = await deploy('pool-safeguard/TestOracle', {
+    let instance = await deploy('v2-pool-safeguard/TestOracle', {
       from: sender,
       args: [params.description, params.price, params.decimals],
     });
