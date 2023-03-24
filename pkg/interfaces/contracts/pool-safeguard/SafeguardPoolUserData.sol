@@ -14,6 +14,8 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "./ISafeguardPool.sol";
+
 library SafeguardPoolUserData {
     // In order to preserve backwards compatibility, make sure new join and exit kinds are added at the end of the enum.
     enum JoinKind { INIT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, EXACT_TOKENS_IN_FOR_BPT_OUT }
@@ -30,8 +32,57 @@ library SafeguardPoolUserData {
 
     // Swaps
 
+    function slippageParameters(bytes memory self) internal pure
+    returns(
+        uint256 quoteBalanceIn,
+        uint256 quoteBalanceOut,
+        uint256 variableAmountInOut,
+        uint256 timeBasedSlippage,
+        uint256 startTime
+    ) {
+        (
+            quoteBalanceIn,
+            quoteBalanceOut,
+            variableAmountInOut,
+            timeBasedSlippage,
+            startTime
+        ) = abi.decode(self, (uint256, uint256, uint256, uint256, uint256));
+    }
+    
+    function priceParameters(bytes memory self) internal pure
+    returns(
+        uint256 maxSwappableAmountIn,
+        uint256 quoteRelativePrice,
+        uint256 balanceChangeTolerance,
+        uint256 quoteBalanceIn,
+        uint256 quoteBalanceOut,
+        uint256 balanceBasedSlippage,
+        uint256 timeBasedSlippage,
+        uint256 startTime
+    ) {
+        (
+            maxSwappableAmountIn,
+            quoteRelativePrice,
+            balanceChangeTolerance,
+            quoteBalanceIn,
+            quoteBalanceOut,
+            balanceBasedSlippage,
+            timeBasedSlippage,
+            startTime
+        ) = abi.decode(self, (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256));
+    }
+
+    function maxSwapAmount(bytes memory self) internal pure returns(uint256) {
+        return abi.decode(self, (uint256));
+    }
+
+    function quoteBalances(bytes memory self) internal pure
+    returns(uint256 quoteBalanceIn, uint256 quoteBalanceOut) {
+        (quoteBalanceIn, quoteBalanceOut) = abi.decode(self, (uint256, uint256));
+    }
+
     function decodeSignedSwapData(bytes memory self) internal pure 
-    returns(uint256 deadline, bytes memory extraData, bytes memory signature){
+    returns(uint256 deadline, bytes memory extraData, bytes memory signature) {
         (
             deadline,
             extraData,
@@ -60,6 +111,24 @@ library SafeguardPoolUserData {
         ) = abi.decode(self, (JoinKind, uint256, bytes, bytes));
     }
 
+    function joinExitSwapStruct(bytes memory self) internal pure 
+    returns (ISafeguardPool.JoinExitSwapStruct memory decodedJoinExitSwapData) {
+        (
+            uint256 limitBptAmount, // minBptAmountOut or maxBptAmountIn
+            IERC20 expectedTokenIn,
+            uint256 maxSwapAmountIn,
+            uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
+            bytes memory swapData
+        ) = abi.decode(
+                self, (uint, IERC20, uint, uint[], bytes)
+        );
+
+        decodedJoinExitSwapData.limitBptAmount = limitBptAmount; // minBptAmountOut or maxBptAmountIn
+        decodedJoinExitSwapData.expectedTokenIn = expectedTokenIn;
+        decodedJoinExitSwapData.maxSwapAmountIn = maxSwapAmountIn;
+        decodedJoinExitSwapData.joinExitAmounts = joinExitAmounts; // join amountsIn or exit amounts Out
+        decodedJoinExitSwapData.swapData = swapData;
+    }
 
     // Exits
 

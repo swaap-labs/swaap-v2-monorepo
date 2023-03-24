@@ -51,23 +51,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
     address private _signer;
     
-    // [ max quote offset | max price offet | free slot ]
-    // [     64 bits      |      64 bits    |  128 bits ]
-    // [ MSB                                        LSB ]
-    bytes32 private _packedPricingParameters;
-
-    // used to determine if the on-chain balance is close from the quoted one
-    uint256 private constant _MAX_QUOTE_OFFSET_BIT_OFFSET = 192;
-    uint256 private constant _MAX_QUOTE_OFFSET_BIT_LENGTH = 64;
-
-    // used to determine if the trade is fairly compared to an oracle
-    uint256 private constant _MAX_PRICE_OFFSET_BIT_OFFSET = 128;
-    uint256 private constant _MAX_PRICE_OFFSET_BIT_LENGTH = 64;
-
-    // [ max TVL offset | max perf balance offset | perf update interval | last perf update ]
-    // [     64 bits    |         64 bits         |        64 bits       |      64 bits     ]
+    // [ max TVL offset | max perf balance offset | max price offset | perf update interval | last perf update ]
+    // [     64 bits    |         64 bits         |      64 bits     |        32 bits       |      32 bits     ]
     // [ MSB                                                                            LSB ]
-    bytes32 private _packedPerfParameters;
+    bytes32 private _packedPoolParameters;
 
     // used to determine if the pool is underperforming
     uint256 private constant _MAX_TVL_OFFSET_BIT_OFFSET = 192;
@@ -77,10 +64,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     uint256 private constant _MAX_BAL_OFFSET_BIT_OFFSET = 128;
     uint256 private constant _MAX_BAL_OFFSET_BIT_LENGTH = 64;
 
+    // used to determine if the pool is underperforming
+    uint256 private constant _MAX_PRICE_OFFSET_BIT_OFFSET = 96;
+    uint256 private constant _MAX_PRICE_OFFSET_BIT_LENGTH = 64;
+
     // used to determine if a performance update is needed before a swap / one-asset-join / one-asset-exit
-    uint256 private constant _PERF_UPDATE_INTERVAL_BIT_OFFSET = 64;
+    uint256 private constant _PERF_UPDATE_INTERVAL_BIT_OFFSET = 32;
     uint256 private constant _PERF_LAST_UPDATE_BIT_OFFSET = 0;
-    uint256 private constant _PERF_TIME_BIT_LENGTH = 64;
+    uint256 private constant _PERF_TIME_BIT_LENGTH = 32;
     
     // min balance = performance balance * (1-_maxPerformanceOffset)
     // [ min balance 0 per PT | min balance 1 per PT ]
@@ -140,8 +131,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         _setMaxTVLoffset(safeguardParameters.maxTVLoffset);
         _setMaxBalOffset(safeguardParameters.maxBalOffset);
         _setPerfUpdateInterval(safeguardParameters.perfUpdateInterval);
-        _setMaxQuoteOffset(safeguardParameters.maxQuoteOffset);
-        _setMaxPriceOffet(safeguardParameters.maxPriceOffet);
+        _setMaxPriceOffset(safeguardParameters.maxPriceOffet);
   
     }
 
@@ -151,86 +141,221 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenOut
     ) external override onlyVault(request.poolId) returns (uint256) {
 
+        _beforeSwapJoinExit();
+
         bytes memory swapData = _swapSignatureSafeguard(
             request.kind,
             request.poolId,
             request.tokenIn,
             request.tokenOut,
-            request.amount,
             request.to,
             request.userData
         );
+        {
+            // uint256 scalingFactorTokenIn = _scalingFactor(request.tokenIn);
+            // uint256 scalingFactorTokenOut = _scalingFactor(request.tokenOut);
 
-        (
-            uint256 amountIn,
-            uint256 amountOut
-        ) = _getAmountsInOutAfterSlippage(request.kind, request.amount, swapData);
-        
-        (
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut
-        ) = swapData.quoteBalances();
-
-        _simulateSwap(
-            request.tokenIn,
-            balanceTokenIn,
-            balanceTokenOut,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            amountIn,
-            amountOut,
-            totalSupply()
-        );
-
-        if(request.kind == IVault.SwapKind.GIVEN_IN) {
-            return amountOut;
+            balanceTokenIn = _upscale(balanceTokenIn, _scalingFactor(request.tokenIn));
+            balanceTokenOut = _upscale(balanceTokenOut, _scalingFactor(request.tokenOut));
         }
+        uint256 quoteRelativePrice = _getQuoteRelativePrice(swapData, balanceTokenIn, balanceTokenOut);
 
-        return amountIn;
+        require(request.amount <= swapData.maxSwapAmount(), "error: max amount exceeded");
+        
+        if(request.kind == IVault.SwapKind.GIVEN_IN) {
+            return _onSwapGivenIn(request.tokenIn, balanceTokenIn, balanceTokenOut, request.amount, quoteRelativePrice);
+        }
+        
+        return _onSwapGivenOut(request.tokenIn, balanceTokenIn, balanceTokenOut, request.amount, quoteRelativePrice);
 
     }
 
-    function _simulateSwap(
+    function _onSwapGivenIn(
+        IERC20 tokenIn,
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        uint256 amountIn,
+        uint256 quoteRelativePrice
+    ) internal returns(uint256) {
+        uint256 amountOut = amountIn.mulDown(quoteRelativePrice);
+
+        _validateSwap(
+            tokenIn,
+            balanceTokenIn,
+            balanceTokenOut,
+            amountIn,
+            amountOut,
+            quoteRelativePrice
+        );
+
+        return amountOut;
+    }
+
+    function _onSwapGivenOut(
+        IERC20 tokenIn,
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        uint256 amountOut,
+        uint256 quoteRelativePrice
+    ) internal returns(uint256) {
+        uint256 amountIn = amountOut.divUp(quoteRelativePrice);
+
+        _validateSwap(
+            tokenIn,
+            balanceTokenIn,
+            balanceTokenOut,
+            amountIn,
+            amountOut,
+            quoteRelativePrice
+        );
+
+        return amountIn;
+    }
+
+    function _validateSwap(
         IERC20  tokenIn,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
-        uint256 quoteBalanceIn,
-        uint256 quoteBalanceOut,
         uint256 amountIn,
         uint256 amountOut,
-        uint256 totalSupply
+        uint256 quoteRelativePrice
     ) private {
         
-        (uint256 maxQuoteOffset, uint256 maxPriceOffset) = _getPricingParameters();
+        uint256 onChainRelativePrice = _getOnChainRelativePrice(tokenIn);
 
-        _QuoteBalanceSafeguard(
-            balanceTokenIn,
-            balanceTokenOut,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            maxQuoteOffset
+        _fairPricingSafeguard(
+            quoteRelativePrice,
+            onChainRelativePrice
         );
 
-        {        
-            uint256 relativePrice = _getRelativePrice(tokenIn);
+        _perfBalancesSafeguard(
+            tokenIn,
+            balanceTokenIn,
+            balanceTokenOut,
+            balanceTokenIn.add(amountIn),
+            balanceTokenOut.sub(amountOut),
+            onChainRelativePrice
+        );
 
-            _fairPricingSafeguard(
-                amountIn,
-                amountOut,
-                relativePrice,
-                maxPriceOffset
-            );
+    }
 
-            _perfBalancesSafeguard(
-                tokenIn,
-                balanceTokenIn,
-                balanceTokenOut,
-                amountIn,
-                amountOut,
-                relativePrice,
-                totalSupply
-            );
+    function _fairPricingSafeguard(
+        uint256 quoteRelativePrice,
+        uint256 onChainRelativePrice
+    ) internal view {
+        uint256 maxPriceOffset = _getMaxPriceOffset();
+        require(onChainRelativePrice.divDown(quoteRelativePrice) >= maxPriceOffset, "error: unfair price");
+    }
+
+    function _perfBalancesSafeguard(
+        IERC20  tokenIn,
+        uint256 currentBalanceIn,
+        uint256 currentBalanceOut,
+        uint256 newBalanceIn,
+        uint256 newBalanceOut,
+        uint256 onChainRelativePrice
+    ) internal {
+
+        uint256 totalSupply = totalSupply();
+
+        (
+            uint256 maxTVLOffset,
+            uint256 maxBalOffset,
+            uint256 lastPerfUpdate,
+            uint256 perfUpdateInterval
+        ) = _getPerfParameters();
+
+        // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
+        if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
+            _updatePerformance(currentBalanceIn, currentBalanceOut, onChainRelativePrice, totalSupply);
         }
+
+        uint256 perfBalPerPTIn;
+        uint256 perfBalPerPTOut;
+
+        {        
+            (uint256 perfBalPerPT0, uint256 perfBalPerPT1) = getPerfBalancesPerPT();
+
+            (perfBalPerPTIn, perfBalPerPTOut) = tokenIn == _token0?
+                (perfBalPerPT0, perfBalPerPT1) :
+                (perfBalPerPT1, perfBalPerPT0); 
+        }
+
+        uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
+        uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
+
+        require(newBalanceOutPerPT >= perfBalPerPTOut.mulUp(maxBalOffset), "error: min balance out is not met");
+
+        uint256 newTVLPerPT = (newBalanceInPerPT.mulDown(onChainRelativePrice)).add(newBalanceOutPerPT);
+        uint256 oldTVLPerPT = (perfBalPerPTIn.mulDown(onChainRelativePrice)).add(perfBalPerPTOut);
+
+        require(newTVLPerPT >= oldTVLPerPT.mulUp(maxTVLOffset), "error: low tvl");
+    }
+
+    function _getQuoteRelativePrice(
+        bytes memory swapData,
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut
+    ) internal view returns (uint256) {
+        (
+            ,
+            uint256 quoteRelativePrice,
+            uint256 maxBalanceChangeTolerance,
+            uint256 quoteBalanceIn,
+            uint256 quoteBalanceOut,
+            uint256 balanceBasedSlippage,
+            uint256 timeBasedSlippage,
+            uint256 startTime
+        ) = swapData.priceParameters();
+
+        uint256 penalty = _getTimeSlippagePenalty(timeBasedSlippage, startTime);
+        
+        penalty = penalty.add(_getBalanceSlippagePenalty(
+            balanceTokenIn,
+            balanceTokenOut,
+            maxBalanceChangeTolerance,
+            quoteBalanceIn,
+            quoteBalanceOut,
+            balanceBasedSlippage
+        ));
+
+        return quoteRelativePrice.divDown(FixedPoint.ONE.add(penalty));
+    }
+
+    function _getBalanceSlippagePenalty(
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        uint256 maxBalanceChangeTolerance,
+        uint256 quoteBalanceIn,
+        uint256 quoteBalanceOut,
+        uint256 balanceBasedSlippage
+    ) internal pure returns (uint256) {
+        
+        uint256 offsetIn = balanceTokenIn <= quoteBalanceIn ?
+            0 : (quoteBalanceIn - balanceTokenIn).divDown(quoteBalanceIn);
+
+        uint256 offsetOut = balanceTokenOut <= quoteBalanceOut ?
+            0 : (quoteBalanceOut - balanceTokenOut).divDown(quoteBalanceOut);
+
+        uint256 maxOffset = Math.max(offsetIn, offsetOut);
+
+        require(maxOffset <= maxBalanceChangeTolerance, "error: quote balance no longer valid");
+    
+        return balanceBasedSlippage.mulUp(maxOffset);
+    }
+
+
+    function _getTimeSlippagePenalty(
+        uint256 timeBasedSlippage,
+        uint256 startTime
+    ) internal view returns(uint256) {
+        uint256 currentTimestamp = block.timestamp;
+
+        if(currentTimestamp <= startTime) {
+            return 0;
+        }
+
+        return Math.mul(timeBasedSlippage, (currentTimestamp - startTime));
 
     }
 
@@ -309,11 +434,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         JoinExitSwapStruct memory decodedJoinSwapData = joinData.joinExitSwapStruct();
 
-        (, uint256 maxSwapAmountOut) = _getAmountsInOutAfterSlippage(
-            IVault.SwapKind.GIVEN_IN,
-            decodedJoinSwapData.maxSwapAmountIn,
-            decodedJoinSwapData.swapData
-        );
+        uint256 maxSwapAmountOut = _decreaseAmountOut(balances[0], balances[1], decodedJoinSwapData.swapData);
 
         (uint256 rOpt, uint256 swappedAmountIn, uint256 swappedAmountOut) = _calcROptGivenExactTokensIn(
             balances,
@@ -334,20 +455,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 rOptBalanceIn = balances[0].mulDown(rOpt);
         uint256 rOptBalanceOut = balances[1].mulDown(rOpt);
 
-        (
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut
-        ) = decodedJoinSwapData.swapData.quoteBalances();
-
-        _simulateSwap(
+        _validateSwap(
             decodedJoinSwapData.expectedTokenIn,
             rOptBalanceIn,
             rOptBalanceOut,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            swappedAmountIn, // TODO we may want to use the actual swap amount
-            swappedAmountOut, // TODO we may want to use the actual swap amount
-            totalSupply
+            swappedAmountIn,
+            swappedAmountOut,
+            swappedAmountOut.divDown(swappedAmountIn)
         );
 
         return (bptAmountOut, decodedJoinSwapData.joinExitAmounts);
@@ -416,11 +530,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         JoinExitSwapStruct memory decodedExitSwapData = exitData.joinExitSwapStruct();
 
-        (, uint256 maxSwapAmountOut) = _getAmountsInOutAfterSlippage(
-            IVault.SwapKind.GIVEN_IN,
-            decodedExitSwapData.maxSwapAmountIn,
-            decodedExitSwapData.swapData
-        );
+        uint256 maxSwapAmountOut = _decreaseAmountOut(balances[0], balances[1], decodedExitSwapData.swapData);
 
         (uint256 rOpt, uint256 swappedAmountIn, uint256 swappedAmountOut) = _calcROptGivenExactTokensOut(
             balances,
@@ -440,21 +550,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         rOpt = (FixedPoint.ONE).sub(rOpt);
         uint256 rOptBalanceIn =  balances[0].mulDown(rOpt);
         uint256 rOptBalanceOut = balances[1].mulDown(rOpt);
-                
-        (
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut
-        ) = decodedExitSwapData.swapData.quoteBalances();
 
-        _simulateSwap(
+        _validateSwap(
             decodedExitSwapData.expectedTokenIn,
             rOptBalanceIn,
             rOptBalanceOut,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            swappedAmountIn, // TODO we may want to use the actual swap amount
-            swappedAmountOut, // TODO we may want to use the actual swap amount
-            totalSupply
+            swappedAmountIn,
+            swappedAmountOut,
+            swappedAmountOut.divDown(swappedAmountIn)
         );
 
         return (bptAmountIn, decodedExitSwapData.joinExitAmounts);
@@ -567,49 +670,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         require(isfairPrice, "error: unfair price");
     }
 
-    function _perfBalancesSafeguard(
-        IERC20  tokenIn,
-        uint256 currentBalanceIn,
-        uint256 currentBalanceOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 relativePrice,
-        uint256 totalSupply
-    ) internal {
-
-        (   uint256 maxTVLOffset,
-            uint256 maxBalOffset,
-            uint256 lastPerfUpdate,
-            uint256 perfUpdateInterval
-        ) = _getPerfParameters();
-
-        // lastPerfUpdate & perfUpdateInterval are stored in 64 bits so they cannot overflow
-        if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
-            _updatePerformance(currentBalanceIn, currentBalanceOut, relativePrice, totalSupply);
-        }
-
-        uint256 perfBalPerPTIn;
-        uint256 perfBalPerPTOut;
-
-        {        
-            (uint256 perfBalPerPT0, uint256 perfBalPerPT1) = getPerfBalancesPerPT();
-
-            (perfBalPerPTIn, perfBalPerPTOut) = tokenIn == _token0?
-                (perfBalPerPT0, perfBalPerPT1) :
-                (perfBalPerPT1, perfBalPerPT0); 
-        }
-
-        uint256 newBalanceInPerPT = (currentBalanceIn + amountIn).divDown(totalSupply);
-        uint256 newBalanceOutPerPT = (currentBalanceOut - amountOut).divDown(totalSupply);
-
-        require(newBalanceOutPerPT >= perfBalPerPTOut.mulUp(maxBalOffset), "error: min balance out is not met");
-
-        uint256 newTVLPerPT = newBalanceInPerPT.add(newBalanceOutPerPT.mulDown(relativePrice));
-        uint256 oldTVLPerPT = perfBalPerPTIn.add(perfBalPerPTOut.mulDown(relativePrice));
-
-        require(newTVLPerPT >= oldTVLPerPT.mulUp(maxTVLOffset), "error: low tvl");
-    }
-
     /**
     * Setters
     */
@@ -627,9 +687,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _setPerfUpdateInterval(uint256 performanceUpdateInterval) internal {
-
         // insertUint checks if the new value exceeds the given bit slot
-        _packedPerfParameters = _packedPerfParameters.insertUint(
+        _packedPoolParameters = _packedPoolParameters.insertUint(
             performanceUpdateInterval,
             _PERF_UPDATE_INTERVAL_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
@@ -643,7 +702,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
     
     function _setMaxTVLoffset(uint256 maxTVLoffset) internal {
-        _packedPerfParameters = _packedPerfParameters.insertUint(
+        _packedPoolParameters = _packedPoolParameters.insertUint(
             maxTVLoffset,
             _MAX_TVL_OFFSET_BIT_OFFSET,
             _MAX_TVL_OFFSET_BIT_LENGTH
@@ -655,31 +714,19 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
     
     function _setMaxBalOffset(uint256 maxBalOffset) internal {
-        _packedPerfParameters = _packedPerfParameters.insertUint(
+        _packedPoolParameters = _packedPoolParameters.insertUint(
             maxBalOffset,
             _MAX_BAL_OFFSET_BIT_OFFSET,
             _MAX_BAL_OFFSET_BIT_LENGTH
         );
     }
-    
-    function setMaxQuoteOffset(uint256 maxQuoteOffset) external authenticate whenNotPaused {
-        _setMaxQuoteOffset(maxQuoteOffset);
+      
+    function setMaxPriceOffset(uint256 maxPriceOffset) external authenticate whenNotPaused {
+        _setMaxPriceOffset(maxPriceOffset);
     }
     
-    function _setMaxQuoteOffset(uint256 maxQuoteOffset) internal {
-        _packedPricingParameters = _packedPricingParameters.insertUint(
-            maxQuoteOffset,
-            _MAX_QUOTE_OFFSET_BIT_OFFSET,
-            _MAX_QUOTE_OFFSET_BIT_LENGTH
-        );
-    }
-    
-    function setMaxPriceOffet(uint256 maxPriceOffet) external authenticate whenNotPaused {
-        _setMaxPriceOffet(maxPriceOffet);
-    }
-    
-    function _setMaxPriceOffet(uint256 maxPriceOffet) internal {
-        _packedPricingParameters = _packedPricingParameters.insertUint(
+    function _setMaxPriceOffset(uint256 maxPriceOffet) internal {
+        _packedPoolParameters = _packedPoolParameters.insertUint(
             maxPriceOffet,
             _MAX_PRICE_OFFSET_BIT_OFFSET,
             _MAX_PRICE_OFFSET_BIT_LENGTH
@@ -687,7 +734,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function updatePerformance() external nonReentrant {
-        (   ,
+        (   
+            ,
             ,
             uint256 lastPerfUpdate,
             uint256 perfUpdateInterval
@@ -702,7 +750,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _upscaleArray(balances, _scalingFactors());
 
-        uint256 relativePrice = _getRelativePrice(_token0);
+        uint256 relativePrice = _getOnChainRelativePrice(_token0);
 
         _updatePerformance(balances[0], balances[1], relativePrice, totalSupply()); 
     }
@@ -745,7 +793,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _perfBalancesPerPT = perfBalancesPerPT;
 
-        _packedPerfParameters = _packedPerfParameters.insertUint(
+        _packedPoolParameters = _packedPoolParameters.insertUint(
             block.timestamp,
             _PERF_LAST_UPDATE_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
@@ -771,7 +819,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     
     }
 
-    function _getRelativePrice(IERC20 tokenIn) internal view returns(uint256) {
+    /**
+    * @notice returns the relative price such as: amountOut = relativePrice * amountIn
+    */
+    function _getOnChainRelativePrice(IERC20 tokenIn) internal view returns(uint256) {
 
         uint256 price0 = ChainlinkUtils.getLatestPrice(_oracle0);
         uint256 price1 = ChainlinkUtils.getLatestPrice(_oracle1);
@@ -779,78 +830,86 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         price0 = _upscale(price0, _priceScaleFactor0);
         price1 = _upscale(price1, _priceScaleFactor1);
         
-        return tokenIn == _token0? price1.divDown(price0) : price0.divDown(price1); 
+        return tokenIn == _token0? price0.divDown(price1) : price1.divDown(price0); 
     }
 
-    function _getPerfParameters() internal view
-    returns(
+    function getPoolParameters() public view
+    returns (
         uint256 maxTVLOffset,
         uint256 maxBalOffset,
+        uint256 maxPriceOffset,
         uint256 lastPerfUpdate,
         uint256 perfUpdateInterval
     ) {
 
-        bytes32 packedPerfParameters = _packedPerfParameters;
+        bytes32 packedPoolParameters = _packedPoolParameters;
 
-        maxTVLOffset = packedPerfParameters.decodeUint(
+        maxTVLOffset = packedPoolParameters.decodeUint(
             _MAX_TVL_OFFSET_BIT_OFFSET,
             _MAX_TVL_OFFSET_BIT_LENGTH
         );
 
-        maxBalOffset = packedPerfParameters.decodeUint(
+        maxBalOffset = packedPoolParameters.decodeUint(
             _MAX_BAL_OFFSET_BIT_OFFSET,
             _MAX_BAL_OFFSET_BIT_LENGTH
         );
 
-        lastPerfUpdate = packedPerfParameters.decodeUint(
+        maxPriceOffset = packedPoolParameters.decodeUint(
+            _MAX_PRICE_OFFSET_BIT_OFFSET,
+            _MAX_PRICE_OFFSET_BIT_LENGTH
+        );
+
+        lastPerfUpdate = packedPoolParameters.decodeUint(
             _PERF_LAST_UPDATE_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
         );
 
-        perfUpdateInterval = packedPerfParameters.decodeUint(
+        perfUpdateInterval = packedPoolParameters.decodeUint(
             _PERF_UPDATE_INTERVAL_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
         );
 
     }
 
-    function _getPricingParameters() internal view
-    returns(
-        uint256 maxQuoteOffset,
-        uint256 maxPriceOffset
-    ) {
+    function _getMaxPriceOffset() internal view returns (uint256 maxPriceOffset) {
 
-        bytes32 packedPricingParameters = _packedPricingParameters;
-
-        maxQuoteOffset = packedPricingParameters.decodeUint(
-            _MAX_QUOTE_OFFSET_BIT_OFFSET,
-            _MAX_QUOTE_OFFSET_BIT_LENGTH
-        );
-        
-        maxPriceOffset = packedPricingParameters.decodeUint(
-            _MAX_QUOTE_OFFSET_BIT_OFFSET,
-            _MAX_QUOTE_OFFSET_BIT_LENGTH
+        maxPriceOffset = _packedPoolParameters.decodeUint(
+            _MAX_PRICE_OFFSET_BIT_OFFSET,
+            _MAX_PRICE_OFFSET_BIT_LENGTH
         );
 
     }
 
-    function getPoolParameters() public view
+    function _getPerfParameters() internal view
     returns (
-        uint256 maxQuoteOffset,
-        uint256 maxPriceOffset,
         uint256 maxTVLOffset,
         uint256 maxBalOffset,
         uint256 lastPerfUpdate,
         uint256 perfUpdateInterval
     ) {
-        (maxQuoteOffset, maxPriceOffset) = _getPricingParameters();
 
-        (
-            maxTVLOffset,
-            maxBalOffset,
-            lastPerfUpdate,
-            perfUpdateInterval
-        ) = _getPerfParameters();
+        bytes32 packedPoolParameters = _packedPoolParameters;
+
+        maxTVLOffset = packedPoolParameters.decodeUint(
+            _MAX_TVL_OFFSET_BIT_OFFSET,
+            _MAX_TVL_OFFSET_BIT_LENGTH
+        );
+
+        maxBalOffset = packedPoolParameters.decodeUint(
+            _MAX_BAL_OFFSET_BIT_OFFSET,
+            _MAX_BAL_OFFSET_BIT_LENGTH
+        );
+
+        lastPerfUpdate = packedPoolParameters.decodeUint(
+            _PERF_LAST_UPDATE_BIT_OFFSET,
+            _PERF_TIME_BIT_LENGTH
+        );
+
+        perfUpdateInterval = packedPoolParameters.decodeUint(
+            _PERF_UPDATE_INTERVAL_BIT_OFFSET,
+            _PERF_TIME_BIT_LENGTH
+        );
+
     }
 
     function signer() public view override returns(address signerAddress){
@@ -860,66 +919,41 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         // }
     }
 
-    function _getAmountsInOutAfterSlippage(
-        IVault.SwapKind kind,
-        uint256 fixedAmount,
+    function _decreaseAmountOut(
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
         bytes memory swapData
-    ) internal view returns(uint256 amountIn, uint256 amountOut){
+    ) internal view returns(uint256){
+
         (
-            uint256 variableAmount,
+            uint256 quoteBalanceIn,
+            uint256 quoteBalanceOut,
+            uint256 amountOut, // expressed in 18 decimals even if the token has less than 18 decimals
+            uint256 timeBasedSlippage,
+            uint256 startTime
+        ) = swapData.slippageParameters();
+
+
+        return amountOut;
+        // return amountOut.sub(penalty);
+    }
+    
+    function _increaseAmountIn(
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        bytes memory swapData
+    ) internal view returns(uint256) {
+        
+        (
+            uint256 quoteBalanceIn,
+            uint256 quoteBalanceOut,
+            uint256 amountIn, // expressed in 18 decimals even if the token has less than 18 decimals
             uint256 slippageSlope,
             uint256 startTime
         ) = swapData.slippageParameters();
 
-        (amountIn, amountOut) = _applySlippage(
-            kind,
-            fixedAmount,
-            variableAmount,
-            slippageSlope,
-            startTime
-        );
-    }
-
-    function _applySlippage(
-        IVault.SwapKind kind,
-        uint256 fixedAmount,
-        uint256 variableAmount,
-        uint256 slippageSlope,
-        uint256 startTime
-    ) internal view returns(uint256 amountIn, uint256 amountOut) {
-
         uint256 currentTimestamp = block.timestamp;
 
-        if (kind == IVault.SwapKind.GIVEN_IN) {
-            return (fixedAmount, _decreaseAmountOut(variableAmount, slippageSlope, startTime, currentTimestamp));
-        }
-
-        return (_increaseAmountIn(variableAmount, slippageSlope, startTime, currentTimestamp) , fixedAmount);
-
-    }
-    
-    function _decreaseAmountOut(
-        uint256 amountOut,
-        uint256 slippageSlope,
-        uint256 startTime,
-        uint256 currentTimestamp
-    ) internal pure returns(uint256){
-
-        if(currentTimestamp <= startTime) {
-            return(amountOut);
-        }
-
-        uint256 penalty = Math.mul(slippageSlope, currentTimestamp.sub(startTime));
-        return amountOut.sub(penalty);
-    }
-    
-    function _increaseAmountIn(
-        uint256 amountIn,
-        uint256 slippageSlope,
-        uint256 startTime,
-        uint256 currentTimestamp
-    ) internal pure returns(uint256) {
-        
         if(currentTimestamp <= startTime) {
             return(amountIn);
         }

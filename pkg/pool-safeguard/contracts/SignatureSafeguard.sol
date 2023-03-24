@@ -27,8 +27,8 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     event JoinSwap(bytes32 digest);
     event ExitSwap(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,uint256 amount,address recipient,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x3e18a4ed3faa139f3326657dbfc1411b7e0d111febc834beabc3d8cacd78bd57;
+    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,address recipient,uint256 deadline,bytes swapData)")
+    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x632f9fdfa76c71faa8fe349c975dab628bbbc376bb16eac98f7c9976154e0a4f;
     
     // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address recipient,uint256 deadline,bytes joinData)")
     bytes32 public constant JOINSTRUCT_TYPEHASH = 0xb2810ba9b71137cd7b645f3bc911fabba5619c0ca665ac39bad760ce2da633a4;
@@ -43,7 +43,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes32 poolId,
         IERC20 tokenIn,
         IERC20 tokenOut,
-        uint256 amount,
         address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
@@ -60,7 +59,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             poolId,
             tokenIn,
             tokenOut,
-            amount,
             recipient,
             deadline,
             keccak256(swapData)
