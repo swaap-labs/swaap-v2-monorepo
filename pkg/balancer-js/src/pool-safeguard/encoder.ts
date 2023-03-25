@@ -152,18 +152,22 @@ export class SafeguardPoolEncoder {
     amount: BigNumberish,
     recipient: string,
     deadline: BigNumberish,
-    variableAmount: BigNumberish,
-    slippageSlope: BigNumberish,
+    maxSwapAmount: BigNumberish,
+    quoteRelativePrice: BigNumberish,
+    maxBalanceChangeTolerance: BigNumberish,
+    quoteBalanceIn: BigNumberish,
+    quoteBalanceOut:BigNumberish,
+    balanceBasedSlippage: BigNumberish,
+    timeBasedSlippageSlope: BigNumberish,
     startTime: BigNumberish,
-    quoteBalance0: BigNumberish,
-    quoteBalance1:BigNumberish,
     signer: SignerWithAddress
   ): Promise<string>
 {
 
   let swapData: string = defaultAbiCoder.encode(
-    ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-    [quoteBalance0, quoteBalance1, variableAmount, slippageSlope, startTime]
+    ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+    [maxSwapAmount, quoteRelativePrice, maxBalanceChangeTolerance, quoteBalanceIn,
+      quoteBalanceOut, balanceBasedSlippage, timeBasedSlippageSlope, startTime]
   );
 
   let signature: string = await signSwapData(
@@ -173,7 +177,6 @@ export class SafeguardPoolEncoder {
     poolId,
     tokenIn,
     tokenOut,
-    amount,
     recipient,
     deadline,
     swapData,   

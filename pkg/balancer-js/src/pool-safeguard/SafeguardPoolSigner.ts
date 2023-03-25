@@ -12,11 +12,10 @@ export async function signSwapData(
     poolId: string,
     tokenIn: string,
     tokenOut: string,
-    amount: BigNumberish,
     recipient: string,
     deadline: BigNumberish,
     swapData: string,   
-    signer: SignerWithAddress,
+    signer: SignerWithAddress
   ): Promise<string> {
     // All properties on a domain are optional
 
@@ -34,7 +33,6 @@ export async function signSwapData(
           { name: 'poolId'  , type: 'bytes32' },
           { name: 'tokenIn' , type: 'address' },
           { name: 'tokenOut', type: 'address' },
-          { name: 'amount'  , type: 'uint256' },
           { name: 'recipient', type: 'address' },
           { name: 'deadline', type: 'uint256' },
           { name: 'swapData', type: 'bytes'   },
@@ -47,7 +45,6 @@ export async function signSwapData(
         poolId: poolId,
         tokenIn: tokenIn,
         tokenOut: tokenOut,
-        amount: amount,
         recipient: recipient,
         deadline: deadline,
         swapData: swapData,

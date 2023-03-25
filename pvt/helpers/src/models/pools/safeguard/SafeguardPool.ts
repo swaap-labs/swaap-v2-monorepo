@@ -38,6 +38,8 @@ import { Account, accountToAddress, SwapKind, SafeguardPoolEncoder } from '@bala
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import BasePool from '../base/BasePool';
 import { currentTimestamp } from '../../../time';
+import { fromBNish, toBNish } from './helpers';
+import { start } from 'repl';
 
 const MAX_IN_RATIO = fp(0.3);
 const MAX_OUT_RATIO = fp(0.3);
@@ -269,6 +271,29 @@ export default class SafeguardPool extends BasePool {
     );
   }
 
+  /*
+  * relative price = priceIn / priceOut | amountOut = relative price * amountIn
+  */
+  async getRelativePrice(tokenIn: string): Promise<BigNumberish> {
+    
+    const tokens = (await this.getTokens()).tokens;
+    const tokenInIndex = tokens.findIndex((token) => token == tokenIn);
+
+    if (tokenInIndex  == -1) {
+      throw 'token not found in the pool';
+    }
+
+    const oracleIn = this.oracles[tokenInIndex]
+    let priceIn = fromBNish(await oracleIn.latestAnswer(), oracleIn.decimals);
+
+    const oracleOut = this.oracles[tokenInIndex == 0? 1 : 0];
+    let priceOut = fromBNish(await oracleOut.latestAnswer(), oracleOut.decimals);
+
+    const relativePrice = fp(priceIn.div(priceOut));
+
+    return relativePrice;
+  }
+
   private async _buildSwapParams(kind: number, params: SwapSafeguardPool): Promise<MinimalSwap> {
     const currentBalances = await this.getBalances();
     const { tokens } = await this.vault.getPoolTokens(this.poolId);
@@ -276,10 +301,14 @@ export default class SafeguardPool extends BasePool {
     const tokenOut = typeof params.out === 'number' ? tokens[params.out] : params.out.address;
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const deadline = params.deadline?? MAX_UINT256;
-    const slippageSlope = params.slippageSlope?? MAX_UINT256;
+    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
+    const quoteRelativePrice = params.quoteRelativePrice?? await this.getRelativePrice(tokenIn);
+    const maxBalanceChangeTolerance = params.quoteRelativePrice?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? tokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
+    const quoteBalanceOut = params.quoteBalanceOut?? tokenOut == tokens[0]? currentBalances[0] : currentBalances[1];;
+    const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
+    const timeBasedSlippageSlope = params.timeBasedSlippageSlope?? 0;
     const startTime = params.startTime?? MAX_UINT256;
-    const quoteBalance0 = params.quoteBalances? params.quoteBalances[0] : currentBalances[0];
-    const quoteBalance1 = params.quoteBalances? params.quoteBalances[1] : currentBalances[1];
 
     const data = await SafeguardPoolEncoder.swap(
       params.chainId,
@@ -291,11 +320,14 @@ export default class SafeguardPool extends BasePool {
       params.amount,
       recipient,
       deadline,
-      params.variableAmount,
-      slippageSlope,
+      maxSwapAmount,
+      quoteRelativePrice,
+      maxBalanceChangeTolerance,
+      quoteBalanceIn,
+      quoteBalanceOut,
+      balanceBasedSlippage,
+      timeBasedSlippageSlope,
       startTime,
-      quoteBalance0,
-      quoteBalance1,
       params.signer
     )
 

@@ -1,4 +1,4 @@
-import { BigNumber, Contract, ContractTransaction } from 'ethers';
+import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers';
 
 import { decimal } from '../../numbers';
 import Decimal from 'decimal.js';
@@ -29,6 +29,10 @@ export default class Oracle {
 
   async latestAnswer(): Promise<BigNumber> {
     return this.instance.latestAnswer();
+  }
+
+  getDecimals(): BigNumberish {
+    return this.decimals;
   }
 
   async setPrice(price: Decimal): Promise<ContractTransaction> {

@@ -92,10 +92,14 @@ export type SwapSafeguardPool = {
   from?: SignerWithAddress;
   lastChangeBlock?: BigNumberish;
   deadline?: BigNumberish;
-  variableAmount: BigNumberish;
-  slippageSlope?: BigNumberish;
+  maxSwapAmount?: BigNumberish;
+  quoteRelativePrice?: BigNumberish;
+  maxBalanceChangeTolerance?: BigNumberish;
+  quoteBalanceIn?: BigNumberish;
+  quoteBalanceOut?: BigNumberish;
+  balanceBasedSlippage?: BigNumberish;
+  timeBasedSlippageSlope?: BigNumberish;
   startTime?: BigNumberish;
-  quoteBalances?: BigNumberish[];
   signer: SignerWithAddress;
 };
 
