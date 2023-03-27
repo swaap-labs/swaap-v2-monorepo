@@ -151,13 +151,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             request.to,
             request.userData
         );
-        {
-            // uint256 scalingFactorTokenIn = _scalingFactor(request.tokenIn);
-            // uint256 scalingFactorTokenOut = _scalingFactor(request.tokenOut);
+        
+        uint256 scalingFactorTokenIn = _scalingFactor(request.tokenIn);
+        uint256 scalingFactorTokenOut = _scalingFactor(request.tokenOut);
 
-            balanceTokenIn = _upscale(balanceTokenIn, _scalingFactor(request.tokenIn));
-            balanceTokenOut = _upscale(balanceTokenOut, _scalingFactor(request.tokenOut));
-        }
+        balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
+        balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
+        
         uint256 quoteRelativePrice = _getQuoteRelativePrice(swapData, balanceTokenIn, balanceTokenOut);
         
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
@@ -167,7 +167,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
                 balanceTokenOut,
                 request.amount,
                 quoteRelativePrice,
-                swapData.maxSwapAmountIn()
+                swapData.maxSwapAmountIn(),
+                scalingFactorTokenIn,
+                scalingFactorTokenOut
             );
         }
         
@@ -177,7 +179,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut,
             request.amount,
             quoteRelativePrice,
-            swapData.maxSwapAmountIn()
+            swapData.maxSwapAmountIn(),
+            scalingFactorTokenIn,
+            scalingFactorTokenOut
         );
 
     }
@@ -188,9 +192,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenOut,
         uint256 amountIn,
         uint256 quoteRelativePrice,
-        uint256 maxSwapAmountIn
+        uint256 maxSwapAmountIn,
+        uint256 scalingFactorTokenIn,
+        uint256 scalingFactorTokenOut
     ) internal returns(uint256) {
-        
+        amountIn = _upscale(amountIn, scalingFactorTokenIn);
         uint256 amountOut = amountIn.mulDown(quoteRelativePrice);
 
         _validateSwap(
@@ -203,7 +209,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             maxSwapAmountIn
         );
 
-        return amountOut;
+        return _downscaleDown(amountOut, scalingFactorTokenOut);
     }
 
     function _onSwapGivenOut(
@@ -212,8 +218,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenOut,
         uint256 amountOut,
         uint256 quoteRelativePrice,
-        uint256 maxSwapAmountIn
+        uint256 maxSwapAmountIn,
+        uint256 scalingFactorTokenIn,
+        uint256 scalingFactorTokenOut
     ) internal returns(uint256) {
+        amountOut = _upscale(amountOut, scalingFactorTokenOut);
         uint256 amountIn = amountOut.divUp(quoteRelativePrice);
 
         _validateSwap(
@@ -226,7 +235,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             maxSwapAmountIn
         );
 
-        return amountIn;
+        return _downscaleUp(amountIn, scalingFactorTokenIn);
     }
 
     function _validateSwap(
