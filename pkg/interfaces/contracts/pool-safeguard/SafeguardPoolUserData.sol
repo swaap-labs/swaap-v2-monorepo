@@ -115,7 +115,7 @@ library SafeguardPoolUserData {
     returns (ISafeguardPool.JoinExitSwapStruct memory decodedJoinExitSwapData) {
         (
             uint256 limitBptAmount, // minBptAmountOut or maxBptAmountIn
-            IERC20 expectedTokenIn,
+            IERC20 swapTokenIn,
             uint256 maxSwapAmountIn,
             uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
             bytes memory swapData
@@ -124,7 +124,7 @@ library SafeguardPoolUserData {
         );
 
         decodedJoinExitSwapData.limitBptAmount = limitBptAmount; // minBptAmountOut or maxBptAmountIn
-        decodedJoinExitSwapData.expectedTokenIn = expectedTokenIn;
+        decodedJoinExitSwapData.swapTokenIn = swapTokenIn;
         decodedJoinExitSwapData.maxSwapAmountIn = maxSwapAmountIn;
         decodedJoinExitSwapData.joinExitAmounts = joinExitAmounts; // join amountsIn or exit amounts Out
         decodedJoinExitSwapData.swapData = swapData;

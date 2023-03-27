@@ -160,6 +160,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         }
         uint256 quoteRelativePrice = _getQuoteRelativePrice(swapData, balanceTokenIn, balanceTokenOut);
 
+        // TODO see if maxSwapAmount depends on GIVEN_IN or GIVEN_OUT or just based on tokenIn
         require(request.amount <= swapData.maxSwapAmount(), "error: max amount exceeded");
         
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
@@ -434,38 +435,95 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         JoinExitSwapStruct memory decodedJoinSwapData = joinData.joinExitSwapStruct();
 
-        uint256 maxSwapAmountOut = _decreaseAmountOut(balances[0], balances[1], decodedJoinSwapData.swapData);
+        (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedJoinSwapData.swapTokenIn == _token0?
+            (balances[0], balances[1]) : (balances[1], balances[0]);
 
-        (uint256 rOpt, uint256 swappedAmountIn, uint256 swappedAmountOut) = _calcROptGivenExactTokensIn(
-            balances,
-            decodedJoinSwapData.joinExitAmounts,
-            decodedJoinSwapData.expectedTokenIn,
-            decodedJoinSwapData.maxSwapAmountIn,
-            maxSwapAmountOut
+        uint256 quoteRelativePrice = _getQuoteRelativePrice(
+            decodedJoinSwapData.swapData,
+            excessTokenBalance,
+            limitTokenBalance
         );
+
+        (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = decodedJoinSwapData.swapTokenIn == _token0?
+            (decodedJoinSwapData.joinExitAmounts[0], decodedJoinSwapData.joinExitAmounts[1]) : 
+            (decodedJoinSwapData.joinExitAmounts[1], decodedJoinSwapData.joinExitAmounts[0]);
         
-        uint256 totalSupply = totalSupply();
-        
-        uint256 bptAmountOut = totalSupply.mulDown(rOpt);
-        totalSupply += bptAmountOut; // will be checked for overflow when minting
-        
-        require(bptAmountOut >= decodedJoinSwapData.limitBptAmount, "error: not enough bpt out");
-        
-        rOpt = rOpt.add(FixedPoint.ONE);
-        uint256 rOptBalanceIn = balances[0].mulDown(rOpt);
-        uint256 rOptBalanceOut = balances[1].mulDown(rOpt);
+        (
+            uint256 swapAmountIn,
+            uint256 swapAmountOut
+        ) = _calcJoinSwapAmounts(
+            excessTokenBalance,
+            limitTokenBalance,
+            excessTokenAmountIn,
+            limitTokenAmountIn,
+            quoteRelativePrice
+        );
+
+        require(swapAmountIn <= decodedJoinSwapData.swapData.maxSwapAmount(), "error: max amount exceeded");
 
         _validateSwap(
-            decodedJoinSwapData.expectedTokenIn,
-            rOptBalanceIn,
-            rOptBalanceOut,
-            swappedAmountIn,
-            swappedAmountOut,
-            swappedAmountOut.divDown(swappedAmountIn)
+            decodedJoinSwapData.swapTokenIn,
+            excessTokenBalance,
+            limitTokenBalance,
+            swapAmountIn,
+            swapAmountOut,
+            quoteRelativePrice
         );
+
+        uint256 rOpt = _calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
+        
+        uint256 bptAmountOut = totalSupply().mulDown(rOpt);        
+        require(bptAmountOut >= decodedJoinSwapData.limitBptAmount, "error: not enough bpt out");
 
         return (bptAmountOut, decodedJoinSwapData.joinExitAmounts);
 
+    }
+
+    /**********************************************************************************************
+    // aE = amountIn in excess                                                                   //
+    // aL = limiting amountIn                                                                    //
+    // bE = current balance of excess token                  /     aE * bL - aL * bE     \       //
+    // bL = current balance of limiting token         sIn = | --------------------------- |      //
+    // sIn = swap amount in needed before the join           \ bL + aL + p * ( bE + aE ) /       //
+    // sOut = swap amount out needed before the join                                             //
+    // p = relative price such that: sOut = p * sIn                                              //
+    **********************************************************************************************/
+    function _calcJoinSwapAmounts(
+        uint256 excessTokenBalance,
+        uint256 limitTokenBalance,
+        uint256 excessTokenAmountIn,
+        uint256 limitTokenAmountIn,
+        uint256 quoteRelativePrice
+    ) internal pure returns (uint256, uint256) {
+
+        uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
+        uint256 bar = limitTokenAmountIn.mulDown(excessTokenBalance);
+        require(foo >= bar, "error: wrong tokenIn in excess");
+        uint256 num = foo - bar;
+
+        uint256 denom = limitTokenBalance.add(limitTokenAmountIn);
+        denom = denom.add(quoteRelativePrice.mulDown(excessTokenAmountIn.add(limitTokenAmountIn)));
+
+        uint256 swapAmountIn = num.divDown(denom);
+        uint256 swapAmountOut = quoteRelativePrice.mulDown(swapAmountIn);
+
+        return (swapAmountIn, swapAmountOut);
+    }
+
+    /**********************************************************************************************
+    // aE = amountIn in excess                                                                   //
+    // bE = current balance of excess token                        / aE - sIn  \                 //
+    // sIn = swap amount in needed before the join         rOpt = | ----------- |                //
+    // rOpt = amountIn TV / current pool TVL                       \ bE + sIn  /                 //
+    **********************************************************************************************/
+    function _calcJoinSwapROpt(
+        uint256 excessTokenBalance,
+        uint256 excessTokenAmountIn,
+        uint256 swapAmountIn
+    ) internal pure returns (uint256) {
+        uint256 num   = excessTokenAmountIn.sub(swapAmountIn);
+        uint256 denom = excessTokenBalance.add(swapAmountIn);
+        return num.divDown(denom);
     }
 
     function _doRecoveryModeExit(
@@ -530,144 +588,96 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         JoinExitSwapStruct memory decodedExitSwapData = exitData.joinExitSwapStruct();
 
-        uint256 maxSwapAmountOut = _decreaseAmountOut(balances[0], balances[1], decodedExitSwapData.swapData);
+        (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedExitSwapData.swapTokenIn == _token0?
+            (balances[1], balances[0]) : (balances[0], balances[1]);
 
-        (uint256 rOpt, uint256 swappedAmountIn, uint256 swappedAmountOut) = _calcROptGivenExactTokensOut(
-            balances,
-            decodedExitSwapData.joinExitAmounts,
-            decodedExitSwapData.expectedTokenIn,
-            decodedExitSwapData.maxSwapAmountIn,
-            maxSwapAmountOut
+        uint256 quoteRelativePrice = _getQuoteRelativePrice(
+            decodedExitSwapData.swapData,
+            limitTokenBalance,
+            excessTokenBalance
         );
+
+        (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = decodedExitSwapData.swapTokenIn == _token0?
+            (decodedExitSwapData.joinExitAmounts[1], decodedExitSwapData.joinExitAmounts[0]) : 
+            (decodedExitSwapData.joinExitAmounts[0], decodedExitSwapData.joinExitAmounts[1]);
         
-        uint256 totalSupply = totalSupply();
-                
-        uint256 bptAmountIn = totalSupply.mulDown(rOpt);
-        totalSupply -= bptAmountIn; // will be checked for overflow when minting
-        
-        require(bptAmountIn <= decodedExitSwapData.limitBptAmount, "error: exceeded burned bpt");
-        
-        rOpt = (FixedPoint.ONE).sub(rOpt);
-        uint256 rOptBalanceIn =  balances[0].mulDown(rOpt);
-        uint256 rOptBalanceOut = balances[1].mulDown(rOpt);
+        (
+            uint256 swapAmountIn,
+            uint256 swapAmountOut
+        ) = _calcExitSwapAmounts(
+            excessTokenBalance,
+            limitTokenBalance,
+            excessTokenAmountOut,
+            limitTokenAmountOut,
+            quoteRelativePrice
+        );
+
+        require(swapAmountIn <= decodedExitSwapData.swapData.maxSwapAmount(), "error: max amount exceeded");
 
         _validateSwap(
-            decodedExitSwapData.expectedTokenIn,
-            rOptBalanceIn,
-            rOptBalanceOut,
-            swappedAmountIn,
-            swappedAmountOut,
-            swappedAmountOut.divDown(swappedAmountIn)
+            decodedExitSwapData.swapTokenIn,
+            limitTokenBalance,
+            excessTokenBalance,
+            swapAmountIn,
+            swapAmountOut,
+            quoteRelativePrice
         );
 
-        return (bptAmountIn, decodedExitSwapData.joinExitAmounts);
+        uint256 rOpt = _calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
+                
+        uint256 bptAmountOut = totalSupply().mulDown(rOpt);
+        
+        require(bptAmountOut <= decodedExitSwapData.limitBptAmount, "error: exceeded burned bpt");
+
+        return (bptAmountOut, decodedExitSwapData.joinExitAmounts);
 
     }
 
-    function _calcROptGivenExactTokensIn(
-        uint256[] memory initialBalances,
-        uint256[] memory joinAmountsIn,
-        IERC20  expectedTokenIn,
-        uint256 maxSwapAmountIn,
-        uint256 maxSwapAmountOut
-    ) internal view returns (
-        uint256 rOpt,
-        uint256 swappedAmountIn,
-        uint256 swappedAmountOut
-    ) {
-        uint256 j0b1 = joinAmountsIn[0].mulDown(initialBalances[1]);
-        uint256 j1b0 = joinAmountsIn[1].mulDown(initialBalances[0]);
+    /**********************************************************************************************
+    // aE = amountOut in excess                                                                  //
+    // aL = limiting amountOut                                                                   //
+    // bE = current balance of excess token                   /     aE * bL - aL * bE         \  //
+    // bL = current balance of limiting token         sOut = | ------------------------------- | //
+    // sIn = swap amount in needed before the exit            \ bL - aL + (1/p) * ( bE - aE ) /  //
+    // sOut = swap amount out needed before the exit                                             //
+    // p = relative price such that: sOut = p * sIn                                              //
+    **********************************************************************************************/
+    function _calcExitSwapAmounts(
+        uint256 excessTokenBalance,
+        uint256 limitTokenBalance,
+        uint256 excessTokenAmountIn,
+        uint256 limitTokenAmountIn,
+        uint256 quoteRelativePrice
+    ) internal pure returns (uint256, uint256) {
 
-        // TODO: simplify and add into one function
-        if(j0b1 > j1b0) {
-            require(expectedTokenIn == _token0, "error: wrong excess token");
-            uint256 relativePrice = maxSwapAmountOut.divUp(maxSwapAmountIn);
-            {
-                uint256 num = j0b1 - j1b0;
-                uint256 denom = initialBalances[1] + relativePrice.mulUp(initialBalances[0]);
-                swappedAmountIn = num.divUp(denom);
-            }
-            require(swappedAmountIn <= maxSwapAmountIn, "error: max swap exceeded when join pool");
-            swappedAmountOut = swappedAmountIn.mulDown(relativePrice);
-            rOpt = (joinAmountsIn[0].sub(swappedAmountIn)).divUp(initialBalances[0]);
-        } else {
-            require(expectedTokenIn == _token1, "error: wrong excess token");
-            uint256 relativePrice = maxSwapAmountOut.divUp(maxSwapAmountIn);
-            {
-                uint256 num = j1b0 - j0b1;
-                uint256 denom = initialBalances[0] + relativePrice.mulUp(initialBalances[1]);
-                swappedAmountIn = num.divUp(denom);
-            }
-            require(swappedAmountIn <= maxSwapAmountIn, "error: max swap exceeded when join pool");
-            swappedAmountOut = swappedAmountIn.mulDown(relativePrice);
-            rOpt = (joinAmountsIn[1].sub(swappedAmountIn)).divUp(initialBalances[1]);
-        }
+        uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
+        uint256 bar = limitTokenAmountIn.mulDown(excessTokenBalance);
+        require(foo >= bar, "error: wrong tokenOut in excess");
+        uint256 num = foo - bar;
+
+        uint256 denom = limitTokenBalance.sub(limitTokenAmountIn);
+        denom = denom.add(quoteRelativePrice.divDown(excessTokenAmountIn.sub(limitTokenAmountIn)));
+
+        uint256 swapAmountOut = num.divDown(denom);
+        uint256 swapAmountIn = quoteRelativePrice.divDown(swapAmountOut);
+
+        return (swapAmountIn, swapAmountOut);
     }
 
-    function _calcROptGivenExactTokensOut(
-        uint256[] memory initialBalances,
-        uint256[] memory exitAmountsOut,
-        IERC20  expectedTokenIn,
-        uint256 maxSwapAmountIn,
-        uint256 maxSwapAmountOut
-    ) internal view returns (
-        uint256 rOpt,
-        uint256 swappedAmountIn,
-        uint256 swappedAmountOut
-    ) {
-        uint256 a0b1 = exitAmountsOut[0].mulDown(initialBalances[1]);
-        uint256 a1b0 = exitAmountsOut[1].mulDown(initialBalances[0]);
-        uint256 relativePrice = maxSwapAmountIn.divUp(maxSwapAmountOut);
-
-        // TODO: simplify and add into one function
-        if(a0b1 > a1b0) {
-            require(expectedTokenIn == _token1, "error: wrong excess token");
-            {
-                uint256 num = a0b1 - a1b0;
-                uint256 denom = initialBalances[1] + relativePrice.mulUp(initialBalances[0]);
-                swappedAmountOut = num.divUp(denom);
-            }
-            swappedAmountIn = swappedAmountOut.mulDown(relativePrice);
-            require(swappedAmountIn <= maxSwapAmountIn, "error: max swap exceeded when join pool");
-            rOpt = (exitAmountsOut[0].sub(swappedAmountOut)).divUp(initialBalances[0]);
-        } else {
-            require(expectedTokenIn == _token0, "error: wrong excess token");
-            {
-                uint256 num = a1b0 - a0b1;
-                uint256 denom = initialBalances[0] + relativePrice.mulUp(initialBalances[1]);
-                swappedAmountOut = num.divUp(denom);
-            }
-            swappedAmountIn = swappedAmountOut.mulDown(relativePrice);
-            require(swappedAmountIn <= maxSwapAmountIn, "error: max swap exceeded when join pool");
-            rOpt = (exitAmountsOut[0].sub(swappedAmountOut)).divUp(initialBalances[0]);
-        }
-    }
-
-    /**
-        Safeguards
-    */
-    function _QuoteBalanceSafeguard(
-        uint256 oldBalanceIn,
-        uint256 oldBalanceOut,
-        uint256 quoteBalanceIn,
-        uint256 quoteBalanceOut,
-        uint256 maxQuoteOffset
-    ) internal pure {      
-        // TODO: add special cases if in the right direction or not
-        require(quoteBalanceIn.divDown(oldBalanceIn) >= maxQuoteOffset, "error: quote balance no longer valid");
-        require(quoteBalanceOut.divDown(oldBalanceOut) >= maxQuoteOffset, "error: quote balance no longer valid");
-    }
-
-    function _fairPricingSafeguard(
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 relativePrice,
-        uint256 maxPriceOffset
-    ) internal pure {
-        // TODO change logic to use amountIn / amountOut instead of relative price
-        uint256 relativeAmountOut = amountOut.mulUp(relativePrice);        
-        bool isfairPrice = relativeAmountOut <= amountIn? true : amountIn.mulDown(maxPriceOffset) >= relativeAmountOut;
-        require(isfairPrice, "error: unfair price");
+    /**********************************************************************************************
+    // aE = amountOut in excess                                                                  //
+    // bE = current balance of excess token                        / aE - sOut  \                //
+    // sOut = swap amount out needed before the exit       rOpt = | ----------- |                //
+    // rOpt = amountOut TV / current pool TVL                       \ bE - sOut  /                //
+    **********************************************************************************************/
+    function _calcExitSwapROpt(
+        uint256 excessTokenBalance,
+        uint256 excessTokenAmountOut,
+        uint256 swapAmountOut
+    ) internal pure returns (uint256) {
+        uint256 num   = excessTokenAmountOut.sub(swapAmountOut);
+        uint256 denom = excessTokenBalance.sub(swapAmountOut);
+        return num.divDown(denom);
     }
 
     /**
@@ -917,49 +927,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         // assembly {
         //     signerAddress := shr(sload(_packedData.slot), _SIGNER_ADDRESS_OFFSET)
         // }
-    }
-
-    function _decreaseAmountOut(
-        uint256 balanceTokenIn,
-        uint256 balanceTokenOut,
-        bytes memory swapData
-    ) internal view returns(uint256){
-
-        (
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut,
-            uint256 amountOut, // expressed in 18 decimals even if the token has less than 18 decimals
-            uint256 timeBasedSlippage,
-            uint256 startTime
-        ) = swapData.slippageParameters();
-
-
-        return amountOut;
-        // return amountOut.sub(penalty);
-    }
-    
-    function _increaseAmountIn(
-        uint256 balanceTokenIn,
-        uint256 balanceTokenOut,
-        bytes memory swapData
-    ) internal view returns(uint256) {
-        
-        (
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut,
-            uint256 amountIn, // expressed in 18 decimals even if the token has less than 18 decimals
-            uint256 slippageSlope,
-            uint256 startTime
-        ) = swapData.slippageParameters();
-
-        uint256 currentTimestamp = block.timestamp;
-
-        if(currentTimestamp <= startTime) {
-            return(amountIn);
-        }
-
-        uint256 penalty = Math.mul(slippageSlope, currentTimestamp.sub(startTime));
-        return amountIn.add(penalty);
     }
 
     function _getTotalTokens() internal pure override returns (uint256) {
