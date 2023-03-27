@@ -332,10 +332,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceBasedSlippage
     ) internal pure returns (uint256) {
         
-        uint256 offsetIn = balanceTokenIn <= quoteBalanceIn ?
+        uint256 offsetIn = balanceTokenIn >= quoteBalanceIn ?
             0 : (quoteBalanceIn - balanceTokenIn).divDown(quoteBalanceIn);
 
-        uint256 offsetOut = balanceTokenOut <= quoteBalanceOut ?
+        uint256 offsetOut = balanceTokenOut >= quoteBalanceOut ?
             0 : (quoteBalanceOut - balanceTokenOut).divDown(quoteBalanceOut);
 
         uint256 maxOffset = Math.max(offsetIn, offsetOut);
