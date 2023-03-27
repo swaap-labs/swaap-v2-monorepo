@@ -30,7 +30,6 @@ interface ISafeguardPool {
     struct JoinExitSwapStruct {
         uint256 limitBptAmount; // minBptAmountOut or maxBptAmountOut
         IERC20 swapTokenIn; // excess token in or limit token in
-        uint256 maxSwapAmountIn; // max swap amount in
         uint256[] joinExitAmounts; // join amountsIn or exit amounts Out
         bytes swapData;
     }

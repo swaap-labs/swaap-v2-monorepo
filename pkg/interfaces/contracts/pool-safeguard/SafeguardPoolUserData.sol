@@ -49,9 +49,9 @@ library SafeguardPoolUserData {
         ) = abi.decode(self, (uint256, uint256, uint256, uint256, uint256));
     }
     
-    function priceParameters(bytes memory self) internal pure
+    function pricingParameters(bytes memory self) internal pure
     returns(
-        uint256 maxSwappableAmountIn,
+        uint256 maxSwapAmountIn,
         uint256 quoteRelativePrice,
         uint256 balanceChangeTolerance,
         uint256 quoteBalanceIn,
@@ -61,7 +61,7 @@ library SafeguardPoolUserData {
         uint256 startTime
     ) {
         (
-            maxSwappableAmountIn,
+            maxSwapAmountIn,
             quoteRelativePrice,
             balanceChangeTolerance,
             quoteBalanceIn,
@@ -72,7 +72,7 @@ library SafeguardPoolUserData {
         ) = abi.decode(self, (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256));
     }
 
-    function maxSwapAmount(bytes memory self) internal pure returns(uint256) {
+    function maxSwapAmountIn(bytes memory self) internal pure returns(uint256) {
         return abi.decode(self, (uint256));
     }
 
@@ -116,16 +116,14 @@ library SafeguardPoolUserData {
         (
             uint256 limitBptAmount, // minBptAmountOut or maxBptAmountIn
             IERC20 swapTokenIn,
-            uint256 maxSwapAmountIn,
             uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
             bytes memory swapData
         ) = abi.decode(
-                self, (uint, IERC20, uint, uint[], bytes)
+                self, (uint, IERC20, uint[], bytes)
         );
 
         decodedJoinExitSwapData.limitBptAmount = limitBptAmount; // minBptAmountOut or maxBptAmountIn
         decodedJoinExitSwapData.swapTokenIn = swapTokenIn;
-        decodedJoinExitSwapData.maxSwapAmountIn = maxSwapAmountIn;
         decodedJoinExitSwapData.joinExitAmounts = joinExitAmounts; // join amountsIn or exit amounts Out
         decodedJoinExitSwapData.swapData = swapData;
     }

@@ -159,15 +159,26 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut = _upscale(balanceTokenOut, _scalingFactor(request.tokenOut));
         }
         uint256 quoteRelativePrice = _getQuoteRelativePrice(swapData, balanceTokenIn, balanceTokenOut);
-
-        // TODO see if maxSwapAmount depends on GIVEN_IN or GIVEN_OUT or just based on tokenIn
-        require(request.amount <= swapData.maxSwapAmount(), "error: max amount exceeded");
         
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
-            return _onSwapGivenIn(request.tokenIn, balanceTokenIn, balanceTokenOut, request.amount, quoteRelativePrice);
+            return _onSwapGivenIn(
+                request.tokenIn,
+                balanceTokenIn,
+                balanceTokenOut,
+                request.amount,
+                quoteRelativePrice,
+                swapData.maxSwapAmountIn()
+            );
         }
         
-        return _onSwapGivenOut(request.tokenIn, balanceTokenIn, balanceTokenOut, request.amount, quoteRelativePrice);
+        return _onSwapGivenOut(
+            request.tokenIn,
+            balanceTokenIn,
+            balanceTokenOut,
+            request.amount,
+            quoteRelativePrice,
+            swapData.maxSwapAmountIn()
+        );
 
     }
 
@@ -176,8 +187,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountIn,
-        uint256 quoteRelativePrice
+        uint256 quoteRelativePrice,
+        uint256 maxSwapAmountIn
     ) internal returns(uint256) {
+        
         uint256 amountOut = amountIn.mulDown(quoteRelativePrice);
 
         _validateSwap(
@@ -186,7 +199,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut,
             amountIn,
             amountOut,
-            quoteRelativePrice
+            quoteRelativePrice,
+            maxSwapAmountIn
         );
 
         return amountOut;
@@ -197,7 +211,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountOut,
-        uint256 quoteRelativePrice
+        uint256 quoteRelativePrice,
+        uint256 maxSwapAmountIn
     ) internal returns(uint256) {
         uint256 amountIn = amountOut.divUp(quoteRelativePrice);
 
@@ -207,7 +222,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut,
             amountIn,
             amountOut,
-            quoteRelativePrice
+            quoteRelativePrice,
+            maxSwapAmountIn
         );
 
         return amountIn;
@@ -219,9 +235,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenOut,
         uint256 amountIn,
         uint256 amountOut,
-        uint256 quoteRelativePrice
+        uint256 quoteRelativePrice,
+        uint256 maxSwapAmountIn
     ) private {
         
+        // TODO see if maxSwapAmount depends on GIVEN_IN or GIVEN_OUT or just based on tokenIn
+        require(amountIn <= maxSwapAmountIn, "error: max amount exceeded");
+
         uint256 onChainRelativePrice = _getOnChainRelativePrice(tokenIn);
 
         _fairPricingSafeguard(
@@ -307,7 +327,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             uint256 balanceBasedSlippage,
             uint256 timeBasedSlippage,
             uint256 startTime
-        ) = swapData.priceParameters();
+        ) = swapData.pricingParameters();
 
         uint256 penalty = _getTimeSlippagePenalty(timeBasedSlippage, startTime);
         
@@ -459,15 +479,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             quoteRelativePrice
         );
 
-        require(swapAmountIn <= decodedJoinSwapData.swapData.maxSwapAmount(), "error: max amount exceeded");
-
         _validateSwap(
             decodedJoinSwapData.swapTokenIn,
             excessTokenBalance,
             limitTokenBalance,
             swapAmountIn,
             swapAmountOut,
-            quoteRelativePrice
+            quoteRelativePrice,
+            decodedJoinSwapData.swapData.maxSwapAmountIn()
         );
 
         uint256 rOpt = _calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
@@ -612,15 +631,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             quoteRelativePrice
         );
 
-        require(swapAmountIn <= decodedExitSwapData.swapData.maxSwapAmount(), "error: max amount exceeded");
-
         _validateSwap(
             decodedExitSwapData.swapTokenIn,
             limitTokenBalance,
             excessTokenBalance,
             swapAmountIn,
             swapAmountOut,
-            quoteRelativePrice
+            quoteRelativePrice,
+            decodedExitSwapData.swapData.maxSwapAmountIn()
         );
 
         uint256 rOpt = _calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
