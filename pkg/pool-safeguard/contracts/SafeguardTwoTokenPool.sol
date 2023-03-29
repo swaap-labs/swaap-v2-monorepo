@@ -24,10 +24,15 @@ import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.
 import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/math/LogExpMath.sol";
+import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeCast.sol";
+
 // import "hardhat/console.sol";
 
 contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     using FixedPoint for uint256;
+    using SafeCast for uint256;
+    using SafeCast for int256;
     using WordCodec for bytes32;
     using BasePoolUserData for bytes;
     using SafeguardPoolUserData for bytes;
@@ -976,6 +981,32 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             return _scaleFactor0;
         }
         return _scaleFactor1;
+    }
+
+    /**
+    * Management fees
+    */
+
+    /**********************************************************************************************
+    // bptOut = bpt tokens to be minted as fees
+    // TS = total supply                                          TS
+    // a = yearly rate constant                     bptOut = ------------ - TS
+    // cT = currentTime                                      1 - e^(a.dT)
+    // lT = last time the fees were collected
+    // dT = cT - lT
+    **********************************************************************************************/
+    function _calcAccumulatedManagementFees(
+        uint256 previousTime,
+        uint256 currentTime,
+        uint256 yearlyRate,
+        uint256 currentSupply
+     ) internal pure returns(uint256) {
+        uint256 dT = currentTime.sub(previousTime);
+        uint256 expInput = yearlyRate.mulDown(dT);
+        int256  expResult = LogExpMath.exp(expInput.toInt256());
+        uint256 denom = FixedPoint.ONE.sub(uint256(expResult)); // TODO check if conversion is safe
+        uint256 bptAmountOut = (currentSupply.divDown(denom)).sub(currentSupply);
+        return bptAmountOut;
     }
 
 }
