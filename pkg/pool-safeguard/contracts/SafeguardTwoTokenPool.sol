@@ -1003,30 +1003,44 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     * Management fees
     */
 
-    /**
-    * @dev Applies management fees if necessary
-    */
     function _beforeJoinExit() private {
-        uint256 elapsedTime = block.timestamp.sub(uint256(_previousClaimTime));
+        _claimManagementFees();
+    }
+
+    /**
+    * @dev Claims management fees if necessary
+    */
+    function _claimManagementFees() private {
+        uint256 currentTime = block.timestamp;
+        uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
+        
         if(elapsedTime >= _CLAIM_FEES_FREQUENCY) {
-            _claimManagementFees(elapsedTime);
+            uint256 protocolFees = _calcAccumulatedManagementFees(elapsedTime, uint256(_yearlyRate), totalSupply());
+            _payProtocolFees(protocolFees);
+            _previousClaimTime = uint32(currentTime);
         }
     }
 
-    function _claimManagementFees(uint256 elapsedTime) private {
-        uint256 protocolFees = _calcAccumulatedManagementFees(elapsedTime, uint256(_yearlyRate), totalSupply());
-        _payProtocolFees(protocolFees);
-        _previousClaimTime = uint32(block.timestamp);
+    function setManagementFees(uint256 yearlyFees) external authenticate {
+        _setManagementFees(yearlyFees);
     }
-    
+
+    // TODO see if we update management fees according to the latest protocolSwapFeePercentage
+    function _setManagementFees(uint256 yearlyFees) private {
+        require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
+        
+        _claimManagementFees();
+        
+        _yearlyRate = uint32(_calcYearlyRate(yearlyFees));
+    }
+
     /**********************************************************************************************
     // f = yearly management fees percentage          /  ln(1 - f) \                             //
     // 1y = 1 year                             a = - | ------------ |                            //
     // a = yearly rate constant                       \     1y     /                             //
     **********************************************************************************************/
-    function _calcYearlyRateConstant(uint256 yearlyFees) private pure returns(uint256) {
-        require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
-        uint256 logInput = FixedPoint.ONE - yearlyFees;
+    function _calcYearlyRate(uint256 yearlyFees) private pure returns(uint256) {
+        uint256 logInput = FixedPoint.ONE - yearlyFees; // we assume yearlyFees is < 1e18
         // Since 0 < logInput <= 1 => logResult <= 0
         int256 logResult = LogExpMath.ln(int256(logInput));
         return(uint256(-logResult) / _ONE_YEAR);
