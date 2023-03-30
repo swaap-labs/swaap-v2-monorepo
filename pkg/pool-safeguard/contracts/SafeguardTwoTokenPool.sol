@@ -1004,13 +1004,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     */
 
     function _beforeJoinExit() private {
-        _claimManagementFees();
+        claimManagementFees();
     }
 
     /**
     * @dev Claims management fees if necessary
     */
-    function _claimManagementFees() private {
+    function claimManagementFees() public {
         uint256 currentTime = block.timestamp;
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
@@ -1029,7 +1029,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     function _setManagementFees(uint256 yearlyFees) private {
         require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
         
-        _claimManagementFees();
+        claimManagementFees();
         
         _yearlyRate = uint32(_calcYearlyRate(yearlyFees));
     }
