@@ -55,6 +55,16 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     uint256 internal immutable _priceScaleFactor1;
 
     address private _signer;
+
+    // Management fees related variables
+    uint32 private _previousClaimTime;
+    // For a max fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
+    uint32 private _yearlyRate;
+
+    uint256 private constant _ONE_YEAR = 365 days;
+    uint256 private constant _CLAIM_FEES_FREQUENCY = 1 hours;
+    uint256 private constant _MIN_YEARLY_FEES = 0;
+    uint256 private constant _MAX_YEARLY_FEES = 5e16; // corresponds to 5% fees
     
     // [ max TVL offset | max perf balance offset | max price offset | perf update interval | last perf update ]
     // [     64 bits    |         64 bits         |      64 bits     |        32 bits       |      32 bits     ]
@@ -993,24 +1003,26 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     * Management fees
     */
 
-    uint256 private constant _ONE_YEAR = 365 days;
-    uint256 private constant _CLAIM_FEES_FREQUENCY = 1 hours;
-
-    uint256 private _yearlyRate;
-    uint256 private constant _MIN_YEARLY_FEES = 0;
-    uint256 private constant _MAX_YEARLY_FEES = 5e16;
-
     /**
     * @dev Applies management fees if necessary
     */
     function _beforeJoinExit() private {
-        
+        uint256 elapsedTime = block.timestamp.sub(uint256(_previousClaimTime));
+        if(elapsedTime >= _CLAIM_FEES_FREQUENCY) {
+            _claimManagementFees(elapsedTime);
+        }
+    }
+
+    function _claimManagementFees(uint256 elapsedTime) private {
+        uint256 protocolFees = _calcAccumulatedManagementFees(elapsedTime, uint256(_yearlyRate), totalSupply());
+        _payProtocolFees(protocolFees);
+        _previousClaimTime = uint32(block.timestamp);
     }
     
     /**********************************************************************************************
-    // f = yearly management fees percentage          /  ln(1 - f) \
-    // 1y = 1 year                             a = - | ------------ |
-    // a = yearly rate constant                       \     1y     /  
+    // f = yearly management fees percentage          /  ln(1 - f) \                             //
+    // 1y = 1 year                             a = - | ------------ |                            //
+    // a = yearly rate constant                       \     1y     /                             //
     **********************************************************************************************/
     function _calcYearlyRateConstant(uint256 yearlyFees) private pure returns(uint256) {
         require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
@@ -1021,20 +1033,17 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     /**********************************************************************************************
-    // bptOut = bpt tokens to be minted as fees
-    // TS = total supply
-    // a = yearly rate constant                     bptOut = TS * (e^(a*dT) -1)
-    // cT = current time
-    // lT = last time the fees were collected
-    // dT = cT - lT
+    // bptOut = bpt tokens to be minted as fees                                                  //
+    // TS = total supply                                   bptOut = TS * (e^(a*dT) -1)           //
+    // a = yearly rate constant                                                                  //
+    // dT = elapsed time between the previous and current claim                                  //
     **********************************************************************************************/
     function _calcAccumulatedManagementFees(
-        uint256 previousTime,
-        uint256 currentTime,
+        uint256 elapsedTime,
         uint256 yearlyRate,
         uint256 currentSupply
      ) internal pure returns(uint256) {
-        uint256 expInput = yearlyRate * currentTime.sub(previousTime);
+        uint256 expInput = yearlyRate * elapsedTime;
         uint256 expResult = uint256(LogExpMath.exp(expInput.toInt256())); // TODO check if necessary toInt256()
         return (currentSupply.mulDown(expResult.sub(FixedPoint.ONE))); // TODO .sub() may be removable
     }
