@@ -426,6 +426,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256[] memory, // scalingFactors,
         bytes memory userData
     ) internal override returns (uint256 bptAmountOut, uint256[] memory amountsIn) {
+
+        _beforeJoinExit();
+
         SafeguardPoolUserData.JoinKind kind = userData.joinKind();
 
         if(kind == SafeguardPoolUserData.JoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT) {
@@ -578,6 +581,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256[] memory, // scalingFactors,
         bytes memory userData
     ) internal override returns (uint256 bptAmountIn, uint256[] memory amountsOut) {
+
+        _beforeJoinExit();
+
         (SafeguardPoolUserData.ExitKind kind) = userData.exitKind();
 
         if(kind == SafeguardPoolUserData.ExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT) {
@@ -983,15 +989,42 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         return _scaleFactor1;
     }
 
-    /**
+    /*
     * Management fees
     */
 
+    uint256 private constant _ONE_YEAR = 365 days;
+    uint256 private constant _CLAIM_FEES_FREQUENCY = 1 hours;
+
+    uint256 private _yearlyRate;
+    uint256 private constant _MIN_YEARLY_FEES = 0;
+    uint256 private constant _MAX_YEARLY_FEES = 5e16;
+
+    /**
+    * @dev Applies management fees if necessary
+    */
+    function _beforeJoinExit() private {
+        
+    }
+    
+    /**********************************************************************************************
+    // f = yearly management fees percentage          /  ln(1 - f) \
+    // 1y = 1 year                             a = - | ------------ |
+    // a = yearly rate constant                       \     1y     /  
+    **********************************************************************************************/
+    function _calcYearlyRateConstant(uint256 yearlyFees) private pure returns(uint256) {
+        require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
+        uint256 logInput = FixedPoint.ONE - yearlyFees;
+        // Since 0 < logInput <= 1 => logResult <= 0
+        int256 logResult = LogExpMath.ln(int256(logInput));
+        return(uint256(-logResult) / _ONE_YEAR);
+    }
+
     /**********************************************************************************************
     // bptOut = bpt tokens to be minted as fees
-    // TS = total supply                                          TS
-    // a = yearly rate constant                     bptOut = ------------ - TS
-    // cT = currentTime                                      1 - e^(a.dT)
+    // TS = total supply
+    // a = yearly rate constant                     bptOut = TS * (e^(a*dT) -1)
+    // cT = current time
     // lT = last time the fees were collected
     // dT = cT - lT
     **********************************************************************************************/
@@ -1001,12 +1034,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 yearlyRate,
         uint256 currentSupply
      ) internal pure returns(uint256) {
-        uint256 dT = currentTime.sub(previousTime);
-        uint256 expInput = yearlyRate.mulDown(dT);
-        int256  expResult = LogExpMath.exp(expInput.toInt256());
-        uint256 denom = FixedPoint.ONE.sub(uint256(expResult)); // TODO check if conversion is safe
-        uint256 bptAmountOut = (currentSupply.divDown(denom)).sub(currentSupply);
-        return bptAmountOut;
+        uint256 expInput = yearlyRate * currentTime.sub(previousTime);
+        uint256 expResult = uint256(LogExpMath.exp(expInput.toInt256())); // TODO check if necessary toInt256()
+        return (currentSupply.mulDown(expResult.sub(FixedPoint.ONE))); // TODO .sub() may be removable
     }
 
 }
