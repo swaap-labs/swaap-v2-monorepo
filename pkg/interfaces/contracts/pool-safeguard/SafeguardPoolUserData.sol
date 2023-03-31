@@ -115,16 +115,16 @@ library SafeguardPoolUserData {
     returns (ISafeguardPool.JoinExitSwapStruct memory decodedJoinExitSwapData) {
         (
             uint256 limitBptAmount, // minBptAmountOut or maxBptAmountIn
-            IERC20 swapTokenIn,
             uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
+            IERC20 swapTokenIn, // excess token in or limit token in
             bytes memory swapData
         ) = abi.decode(
-                self, (uint, IERC20, uint[], bytes)
+                self, (uint, uint[], IERC20, bytes)
         );
 
         decodedJoinExitSwapData.limitBptAmount = limitBptAmount; // minBptAmountOut or maxBptAmountIn
-        decodedJoinExitSwapData.swapTokenIn = swapTokenIn;
         decodedJoinExitSwapData.joinExitAmounts = joinExitAmounts; // join amountsIn or exit amounts Out
+        decodedJoinExitSwapData.swapTokenIn = swapTokenIn; // excess token in or limit token in
         decodedJoinExitSwapData.swapData = swapData;
     }
 
