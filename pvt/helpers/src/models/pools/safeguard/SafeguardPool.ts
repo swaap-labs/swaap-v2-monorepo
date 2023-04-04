@@ -13,13 +13,13 @@ import {
   InitSafeguardPool,
   JoinGivenInSafeguardPool,
   // JoinGivenOutSafeguardPool,
-  // JoinAllGivenOutSafeguardPool,
+  JoinAllGivenOutSafeguardPool,
   JoinResult,
   RawSafeguardPoolDeployment,
   ExitResult,
   SwapResult,
   // SingleExitGivenInSafeguardPool,
-  // MultiExitGivenInSafeguardPool,
+  MultiExitGivenInSafeguardPool,
   ExitGivenOutSafeguardPool,
   SwapSafeguardPool,
   ExitQueryResult,
@@ -360,28 +360,26 @@ export default class SafeguardPool extends BasePool {
   };
 
   private async _buildJoinGivenInParams(params: JoinGivenInSafeguardPool): Promise<JoinExitSafeguardPool> {
-    // const { amountsIn: amounts } = params;
-    const amountsIn = Array.isArray(params.amountsIn) ? params.amountsIn : Array(this.tokens.length).fill(params.amountsIn);
-
-    const { tokens } = await this.getTokens();
     
-    const buyToken = tokens.find( (token) => token != params.sellToken) || "";
+    const { tokens } = await this.getTokens();
+    const currentBalances = await this.getBalances();
 
     const contractAddress = this.address;
     const poolId = this.poolId;
     const recipient = params.recipient;
     const chainId = params.chainId;
-    const startTime = params.startTime || MAX_UINT256;
     const deadline = params.deadline  || MAX_UINT256;
     const minBptAmountOut = params.minBptAmountOut || 0;
-    const sellToken = params.sellToken;
-    const maxSwapAmountIn = params.maxSwapAmountIn;
-    const amountIn0 = amountsIn[0];
-    const amountIn1 = amountsIn[1];
-    const variableAmount = params.variableAmount;
-    const quoteBalanceIn = params.quoteBalanceIn || await this.getTokenBalance(params.sellToken);
-    const quoteBalanceOut = params.quoteBalanceOut || await this.getTokenBalance(buyToken);
-    const slippageSlope = params.slippageSlope || 0;
+    const amountsIn = Array.isArray(params.amountsIn) ? params.amountsIn : Array(this.tokens.length).fill(params.amountsIn);
+    const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
+    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
+    const quoteRelativePrice = params.quoteRelativePrice?? await this.getRelativePrice(swapTokenIn);
+    const maxBalanceChangeTolerance = params.quoteRelativePrice?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
+    const quoteBalanceOut = params.quoteBalanceOut?? swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0];
+    const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
+    const timeBasedSlippageSlope = params.timeBasedSlippageSlope?? 0;
+    const startTime = params.startTime?? MAX_UINT256;
     const signer = params.signer;
 
     return {
@@ -395,17 +393,18 @@ export default class SafeguardPool extends BasePool {
         contractAddress,
         poolId,
         recipient,
-        startTime,
         deadline,
         minBptAmountOut,
-        sellToken,
-        maxSwapAmountIn,
-        amountIn0,
-        amountIn1,
-        variableAmount,
+        amountsIn,
+        swapTokenIn,
+        maxSwapAmount,
+        quoteRelativePrice,
+        maxBalanceChangeTolerance,
         quoteBalanceIn,
         quoteBalanceOut,
-        slippageSlope,
+        balanceBasedSlippage,
+        timeBasedSlippageSlope,
+        startTime,
         signer
       ),
     };
@@ -435,27 +434,25 @@ export default class SafeguardPool extends BasePool {
 
   private async _buildExitGivenOutParams(params: ExitGivenOutSafeguardPool): Promise<JoinExitSafeguardPool> {
 
-    const amountsOut = Array.isArray(params.amountsOut) ? params.amountsOut : Array(this.tokens.length).fill(params.amountsOut);
-
     const { tokens } = await this.getTokens();
-    
-    const buyToken = tokens.find( (token) => token != params.sellToken) || "";
+    const currentBalances = await this.getBalances();
 
     const contractAddress = this.address;
     const poolId = this.poolId;
     const recipient = params.recipient;
     const chainId = params.chainId;
-    const startTime = params.startTime || MAX_UINT256;
     const deadline = params.deadline  || MAX_UINT256;
     const maxBptAmountIn = params.maxBptAmountIn || MAX_UINT256;
-    const sellToken = params.sellToken;
-    const maxSwapAmountIn = params.maxSwapAmountIn;
-    const amountOut0 = amountsOut[0];
-    const amountOut1 = amountsOut[1];
-    const variableAmount = params.variableAmount;
-    const quoteBalanceIn = params.quoteBalanceIn || await this.getTokenBalance(params.sellToken);
-    const quoteBalanceOut = params.quoteBalanceOut || await this.getTokenBalance(buyToken);
-    const slippageSlope = params.slippageSlope || 0;
+    const amountsOut = Array.isArray(params.amountsOut) ? params.amountsOut : Array(this.tokens.length).fill(params.amountsOut);
+    const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
+    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
+    const quoteRelativePrice = params.quoteRelativePrice?? await this.getRelativePrice(swapTokenIn);
+    const maxBalanceChangeTolerance = params.quoteRelativePrice?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
+    const quoteBalanceOut = params.quoteBalanceOut?? swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0];
+    const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
+    const timeBasedSlippageSlope = params.timeBasedSlippageSlope?? 0;
+    const startTime = params.startTime?? MAX_UINT256;
     const signer = params.signer;
 
     return {
@@ -469,17 +466,18 @@ export default class SafeguardPool extends BasePool {
         contractAddress,
         poolId,
         recipient,
-        startTime,
         deadline,
         maxBptAmountIn,
-        sellToken,
-        maxSwapAmountIn,
-        amountOut0,
-        amountOut1,
-        variableAmount,
+        amountsOut,
+        swapTokenIn,
+        maxSwapAmount,
+        quoteRelativePrice,
+        maxBalanceChangeTolerance,
         quoteBalanceIn,
         quoteBalanceOut,
-        slippageSlope,
+        balanceBasedSlippage,
+        timeBasedSlippageSlope,
+        startTime,
         signer
       ),
     };

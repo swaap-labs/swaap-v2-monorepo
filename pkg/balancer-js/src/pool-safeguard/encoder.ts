@@ -24,19 +24,14 @@ export class SafeguardPoolEncoder {
    * Encodes the userData parameter for joining a WeightedPool proportionally to receive an exact amount of BPT
    * @param bptAmountOut - the amount of BPT to be minted
    */
-  // static joinAllTokensInForExactBPTOut = (bptAmountOut: BigNumberish, maxAmountsIn: BigNumberish[]): string => {   
+  static joinAllTokensInForExactBPTOut = (bptAmountOut: BigNumberish): string => {   
     
-  //   let joinData = defaultAbiCoder.encode(
-  //     ['uint256', 'uint256[]'],
-  //     [SafeguardPoolJoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, bptAmountOut, maxAmountsIn]
-  //   );
+    return defaultAbiCoder.encode(
+        ['uint256', 'uint256'],
+        [SafeguardPoolJoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, bptAmountOut]
+    );
 
-  //   return defaultAbiCoder.encode(
-  //       ['uint256', 'bytes'],
-  //       [SafeguardPoolJoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, joinData]
-  //   );
-
-  // }
+  }
    
   /**
    * Encodes the userData parameter for joining a WeightedPool with exact token inputs
@@ -49,29 +44,31 @@ export class SafeguardPoolEncoder {
       contractAddress: string,
       poolId: string,
       recipient: string,
-      startTime: BigNumberish,
       deadline: BigNumberish,
       minBptAmountOut: BigNumberish,
-      sellToken: string,
-      maxSwapAmountIn: BigNumberish,
-      amountIn0: BigNumberish,
-      amountIn1: BigNumberish,
-      variableAmount: BigNumberish,
+      amountsIn: BigNumberish[],
+      swapTokenIn: string,
+      maxSwapAmount: BigNumberish,
+      quoteRelativePrice: BigNumberish,
+      maxBalanceChangeTolerance: BigNumberish,
       quoteBalanceIn: BigNumberish,
       quoteBalanceOut: BigNumberish,
-      slippageSlope: BigNumberish,
-      signer: SignerWithAddress,
+      balanceBasedSlippage: BigNumberish,
+      timeBasedSlippageSlope: BigNumberish,
+      startTime: BigNumberish,
+      signer: SignerWithAddress
     ): Promise<string>
   {
 
     let swapData: string = defaultAbiCoder.encode(
-      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-      [quoteBalanceIn, quoteBalanceOut, variableAmount, slippageSlope, startTime]
+      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+      [maxSwapAmount, quoteRelativePrice, maxBalanceChangeTolerance, quoteBalanceIn,
+        quoteBalanceOut, balanceBasedSlippage, timeBasedSlippageSlope, startTime]
     );
-    
+
     let joinData: string = defaultAbiCoder.encode(
-      ['uint256', 'address', 'uint256', 'uint256[]', 'bytes'],
-      [minBptAmountOut, sellToken, maxSwapAmountIn, [amountIn0, amountIn1], swapData]
+      ['uint256', 'uint256[]', 'address', 'bytes'],
+      [minBptAmountOut, amountsIn, swapTokenIn, swapData]
     );
     
     let signature: string = await signJoinExactTokensData(
@@ -98,29 +95,31 @@ export class SafeguardPoolEncoder {
       contractAddress: string,
       poolId: string,
       recipient: string,
-      startTime: BigNumberish,
       deadline: BigNumberish,
       maxBptAmountIn: BigNumberish,
-      sellToken: string,
-      maxSwapAmountIn: BigNumberish,
-      amountOut0: BigNumberish,
-      amountOut1: BigNumberish,
-      variableAmount: BigNumberish,
+      amountsOut: BigNumberish[],
+      swapTokenIn: string,
+      maxSwapAmount: BigNumberish,
+      quoteRelativePrice: BigNumberish,
+      maxBalanceChangeTolerance: BigNumberish,
       quoteBalanceIn: BigNumberish,
       quoteBalanceOut: BigNumberish,
-      slippageSlope: BigNumberish,
-      signer: SignerWithAddress,
+      balanceBasedSlippage: BigNumberish,
+      timeBasedSlippageSlope: BigNumberish,
+      startTime: BigNumberish,
+      signer: SignerWithAddress
     ): Promise<string>
   {
 
     let swapData: string = defaultAbiCoder.encode(
-      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-      [quoteBalanceIn, quoteBalanceOut, variableAmount, slippageSlope, startTime]
+      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+      [maxSwapAmount, quoteRelativePrice, maxBalanceChangeTolerance, quoteBalanceIn,
+        quoteBalanceOut, balanceBasedSlippage, timeBasedSlippageSlope, startTime]
     );
     
     let exitData: string = defaultAbiCoder.encode(
-      ['uint256', 'address', 'uint256', 'uint256[]', 'bytes'],
-      [maxBptAmountIn, sellToken, maxSwapAmountIn, [amountOut0, amountOut1], swapData]
+      ['uint256', 'uint256[]', 'address', 'bytes'],
+      [maxBptAmountIn, amountsOut, swapTokenIn, swapData]
     );
 
     let signature: string = await signExitExactTokensData(
@@ -206,8 +205,8 @@ export class SafeguardPoolEncoder {
    * Encodes the userData parameter for exiting a WeightedPool by removing tokens in return for an exact amount of BPT
    * @param bptAmountIn - the amount of BPT to be burned
    */
-  // static exitExactBPTInForTokensOut = (bptAmountIn: BigNumberish): string =>
-  //   defaultAbiCoder.encode(['uint256', 'uint256'], [SafeguardPoolExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, bptAmountIn]);
+  static exitExactBPTInForTokensOut = (bptAmountIn: BigNumberish): string =>
+    defaultAbiCoder.encode(['uint256', 'uint256'], [SafeguardPoolExitKind.EXACT_BPT_IN_FOR_TOKENS_OUT, bptAmountIn]);
 
   /**
    * Encodes the userData parameter for exiting a WeightedPool by removing exact amounts of tokens

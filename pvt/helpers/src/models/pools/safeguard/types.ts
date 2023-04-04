@@ -62,45 +62,24 @@ export type InitialSafeguardParams = {
 };
 
 
-/**
- * 
- * 
- *  chainId: number,
-    contractAddress: string,
-    kind: SafeguardPoolSwapKind,
-    poolId: string,
-    tokenIn: string,
-    tokenOut: string,
-    amount: BigNumberish,
-    recipient: string,
-    deadline: BigNumberish,
-    variableAmount: BigNumberish,
-    slippageSlope: BigNumberish,
-    startTime: BigNumberish,
-    quoteBalance0: BigNumberish,
-    quoteBalance1:BigNumberish,
-    signer: SignerWithAddress
- * 
- * 
- */
 export type SwapSafeguardPool = {
-  chainId: number,
-  in: number | Token;
-  out: number | Token;
-  amount: BigNumberish;
-  recipient?: string;
-  from?: SignerWithAddress;
-  lastChangeBlock?: BigNumberish;
-  deadline?: BigNumberish;
-  maxSwapAmount?: BigNumberish;
-  quoteRelativePrice?: BigNumberish;
+  chainId                   : number,
+  in                        : number | Token;
+  out                       : number | Token;
+  amount                    : BigNumberish;
+  recipient?                : string;
+  from?                     : SignerWithAddress;
+  lastChangeBlock?          : BigNumberish;
+  deadline?                 : BigNumberish;
+  maxSwapAmount?            : BigNumberish;
+  quoteRelativePrice?       : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
-  quoteBalanceIn?: BigNumberish;
-  quoteBalanceOut?: BigNumberish;
-  balanceBasedSlippage?: BigNumberish;
-  timeBasedSlippageSlope?: BigNumberish;
-  startTime?: BigNumberish;
-  signer: SignerWithAddress;
+  quoteBalanceIn?           : BigNumberish;
+  quoteBalanceOut?          : BigNumberish;
+  balanceBasedSlippage?     : BigNumberish;
+  timeBasedSlippageSlope?   : BigNumberish;
+  startTime?                : BigNumberish;
+  signer                    : SignerWithAddress;
 };
 
 export type JoinExitSafeguardPool = {
@@ -120,23 +99,25 @@ export type InitSafeguardPool = {
 };
 
 export type JoinGivenInSafeguardPool = {
-  from?                   : SignerWithAddress;
-  lastChangeBlock?        : BigNumberish;
-  currentBalances?        : BigNumberish[];
-  protocolFeePercentage?  : BigNumberish;
-  recipient                : string;
-  chainId                 : number;
-  startTime?              : BigNumberish;
-  deadline?               : BigNumberish;
-  sellToken               : string;
-  minBptAmountOut?        : BigNumberish;
-  maxSwapAmountIn         : BigNumberish;
-  amountsIn               : NAry<BigNumberish>;
-  variableAmount          : BigNumberish;
-  quoteBalanceIn?         : BigNumberish;
-  quoteBalanceOut?        : BigNumberish;
-  slippageSlope?      : BigNumberish;
-  signer                  : SignerWithAddress;
+  from?                     : SignerWithAddress;
+  lastChangeBlock?          : BigNumberish;
+  currentBalances?          : BigNumberish[];
+  protocolFeePercentage?    : BigNumberish;
+  recipient                 : string;
+  chainId                   : number;
+  deadline?                 : BigNumberish;
+  minBptAmountOut?          : BigNumberish;
+  amountsIn                 : BigNumberish[];
+  swapTokenIn               : number | Token;
+  maxSwapAmount?            : BigNumberish;
+  quoteRelativePrice?       : BigNumberish;
+  maxBalanceChangeTolerance?: BigNumberish;
+  quoteBalanceIn?           : BigNumberish;
+  quoteBalanceOut?          : BigNumberish;
+  balanceBasedSlippage?     : BigNumberish;
+  timeBasedSlippageSlope?   : BigNumberish;
+  startTime?                : BigNumberish;
+  signer                    : SignerWithAddress;
 };
 
 export type JoinGivenOutWeightedPool = {
@@ -149,7 +130,7 @@ export type JoinGivenOutWeightedPool = {
   protocolFeePercentage?: BigNumberish;
 };
 
-export type JoinAllGivenOutWeightedPool = {
+export type JoinAllGivenOutSafeguardPool = {
   bptOut: BigNumberish;
   from?: SignerWithAddress;
   recipient?: Account;
@@ -159,23 +140,25 @@ export type JoinAllGivenOutWeightedPool = {
 };
 
 export type ExitGivenOutSafeguardPool = {
-  from?                   : SignerWithAddress;
-  lastChangeBlock?        : BigNumberish;
-  currentBalances?        : BigNumberish[];
-  protocolFeePercentage?  : BigNumberish;
-  recipient                : string;
-  chainId                 : number;
-  startTime?              : BigNumberish;
-  deadline?               : BigNumberish;
-  sellToken               : string;
-  maxBptAmountIn?         : BigNumberish;
-  maxSwapAmountIn         : BigNumberish;
-  amountsOut              : NAry<BigNumberish>;
-  variableAmount          : BigNumberish;
-  quoteBalanceIn?         : BigNumberish;
-  quoteBalanceOut?        : BigNumberish;
-  slippageSlope?      : BigNumberish;
-  signer                  : SignerWithAddress;
+  from?                     : SignerWithAddress;
+  lastChangeBlock?          : BigNumberish;
+  currentBalances?          : BigNumberish[];
+  protocolFeePercentage?    : BigNumberish;
+  recipient                 : string;
+  chainId                   : number;
+  deadline?                 : BigNumberish;
+  maxBptAmountIn?           : BigNumberish;
+  amountsOut                : BigNumberish[];
+  swapTokenIn               : number | Token;
+  maxSwapAmount?            : BigNumberish;
+  quoteRelativePrice?       : BigNumberish;
+  maxBalanceChangeTolerance?: BigNumberish;
+  quoteBalanceIn?           : BigNumberish;
+  quoteBalanceOut?          : BigNumberish;
+  balanceBasedSlippage?     : BigNumberish;
+  timeBasedSlippageSlope?   : BigNumberish;
+  startTime?                : BigNumberish;
+  signer                    : SignerWithAddress;
 };
 
 export type SingleExitGivenInWeightedPool = {
@@ -188,7 +171,7 @@ export type SingleExitGivenInWeightedPool = {
   protocolFeePercentage?: BigNumberish;
 };
 
-export type MultiExitGivenInWeightedPool = {
+export type MultiExitGivenInSafeguardPool = {
   bptIn: BigNumberish;
   recipient?: Account;
   from?: SignerWithAddress;
