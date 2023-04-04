@@ -42,7 +42,6 @@ export class SafeguardPoolEncoder {
     (
       chainId: number,
       contractAddress: string,
-      poolId: string,
       sender: string,
       recipient: string,
       deadline: BigNumberish,
@@ -75,7 +74,6 @@ export class SafeguardPoolEncoder {
     let signature: string = await signJoinExactTokensData(
       chainId,
       contractAddress,
-      poolId,
       sender,
       recipient,
       deadline,
@@ -95,7 +93,6 @@ export class SafeguardPoolEncoder {
     (
       chainId: number,
       contractAddress: string,
-      poolId: string,
       sender: string,
       recipient: string,
       deadline: BigNumberish,
@@ -128,7 +125,6 @@ export class SafeguardPoolEncoder {
     let signature: string = await signExitExactTokensData(
       chainId,
       contractAddress,
-      poolId,
       sender,
       recipient,
       deadline,
@@ -149,7 +145,6 @@ export class SafeguardPoolEncoder {
     chainId: number,
     contractAddress: string,
     kind: SafeguardPoolSwapKind,
-    poolId: string,
     tokenIn: string,
     tokenOut: string,
     sender: string,
@@ -177,7 +172,6 @@ export class SafeguardPoolEncoder {
     chainId,
     contractAddress,
     kind,
-    poolId,
     tokenIn,
     tokenOut,
     sender,

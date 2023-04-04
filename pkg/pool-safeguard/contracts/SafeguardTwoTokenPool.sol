@@ -160,7 +160,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         bytes memory swapData = _swapSignatureSafeguard(
             request.kind,
-            request.poolId,
             request.tokenIn,
             request.tokenOut,
             request.from,
@@ -428,7 +427,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _onJoinPool(
-        bytes32 poolId,
+        bytes32, // poolId,
         address sender,
         address recipient,
         uint256[] memory balances,
@@ -448,7 +447,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         } else if (kind == SafeguardPoolUserData.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT) {
 
-            return _joinExactTokensInForBPTOut(poolId, sender, recipient, balances, userData);
+            return _joinExactTokensInForBPTOut(sender, recipient, balances, userData);
 
         } else {
             _revert(Errors.UNHANDLED_JOIN_KIND);
@@ -469,7 +468,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _joinExactTokensInForBPTOut(
-        bytes32 poolId,
         address sender,
         address recipient,
         uint256[] memory balances,
@@ -477,7 +475,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     ) internal returns (uint256, uint256[] memory) {
 
         bytes memory joinData = _joinPoolSignatureSafeguard(
-                poolId,
                 sender,
                 recipient,
                 signedJoinData
@@ -585,7 +582,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _onExitPool(
-        bytes32 poolId,
+        bytes32, // poolId,
         address sender,
         address recipient,
         uint256[] memory balances,
@@ -605,7 +602,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         } else if (kind == SafeguardPoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT) {
 
-            return _exitBPTInForExactTokensOut(poolId, sender, recipient, balances, userData);
+            return _exitBPTInForExactTokensOut(sender, recipient, balances, userData);
 
         } else {
             _revert(Errors.UNHANDLED_EXIT_KIND);
@@ -626,7 +623,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _exitBPTInForExactTokensOut(
-        bytes32 poolId,
         address sender,
         address recipient,
         uint256[] memory balances,
@@ -634,7 +630,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     ) internal returns (uint256, uint256[] memory) {
 
         bytes memory exitData = _exitPoolSignatureSafeguard(
-                poolId,
                 sender,
                 recipient,
                 userData

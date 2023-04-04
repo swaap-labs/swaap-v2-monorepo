@@ -315,7 +315,6 @@ export default class SafeguardPool extends BasePool {
       params.chainId,
       this.address,
       kind,
-      await this.getPoolId(),
       tokenIn,
       tokenOut,
       sender,
@@ -366,7 +365,6 @@ export default class SafeguardPool extends BasePool {
     const currentBalances = await this.getBalances();
 
     const contractAddress = this.address;
-    const poolId = this.poolId;
     const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const chainId = params.chainId;
@@ -393,7 +391,6 @@ export default class SafeguardPool extends BasePool {
       data: await SafeguardPoolEncoder.joinExactTokensInForBPTOut(
         chainId,
         contractAddress,
-        poolId,
         TypesConverter.toAddress(sender),
         recipient,
         deadline,
@@ -441,7 +438,6 @@ export default class SafeguardPool extends BasePool {
     const currentBalances = await this.getBalances();
 
     const contractAddress = this.address;
-    const poolId = this.poolId;
     const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const chainId = params.chainId;
@@ -468,7 +464,6 @@ export default class SafeguardPool extends BasePool {
       data: await SafeguardPoolEncoder.exitBPTInForExactTokensOut(
         chainId,
         contractAddress,
-        poolId,
         sender,
         recipient,
         deadline,

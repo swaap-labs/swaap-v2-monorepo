@@ -27,20 +27,23 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     event JoinSwap(bytes32 digest);
     event ExitSwap(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,address sender,address recipient,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x4c2d990b799cdccd4a05c5f0290aeed893550f5aa47dda68a80568b3046042e3;
+    // keccak256("SwapStruct(uint8 kind,address tokenIn,address tokenOut,address sender,address recipient,uint256 deadline,bytes swapData)")
+    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x4b9559cac77b73d6b38de5d3514b19ccec78487b49dd0753eb5cfc0d90e42bfe;
     
-    // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address sender,address recipient,uint256 deadline,bytes joinData)")
-    bytes32 public constant JOINSTRUCT_TYPEHASH = 0x50d1a5e09bff7f7ab5ddf55dd5b4e9de3cf1e2f3c61769e060e69e473d192dab;
+    // keccak256("JoinExactTokensStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes joinData)")
+    bytes32 public constant JOINSTRUCT_TYPEHASH = 0xaa30b41dfd2bbb67ce7c6715ca223934159456ca684d6865bdb2ad25b741872b;
     
-    // keccak256("ExitExactTokensStruct(uint8 kind,bytes32 poolId,address sender,address recipient,uint256 deadline,bytes exitData)")
-    bytes32 public constant EXITSTRUCT_TYPEHASH = 0x9453567ede5b208943a2b238146827358f2008a2e9853090fbf7f01556e67f2b;
+    // keccak256("ExitExactTokensStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes exitData)")
+    bytes32 public constant EXITSTRUCT_TYPEHASH = 0xec489f840bb901310d0f606ea53da305a20a78c305691cf034a05eb1b2b9e519;
 
     mapping(bytes32 => bool) internal _usedQuotes;
 
+    /**
+    * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
+    * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+    */
     function _swapSignatureSafeguard(
         IVault.SwapKind kind,
-        bytes32 poolId,
         IERC20 tokenIn,
         IERC20 tokenOut,
         address sender,
@@ -57,7 +60,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes32 structHash = keccak256(abi.encode(
             SWAPSTRUCT_TYPEHASH,
             kind,
-            poolId,
             tokenIn,
             tokenOut,
             sender,
@@ -78,8 +80,11 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         return swapData;
     }
 
+    /**
+    * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
+    * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+    */
     function _joinPoolSignatureSafeguard(
-        bytes32 poolId,
         address sender,
         address recipient,
         bytes memory userData
@@ -95,7 +100,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes32 structHash = keccak256(abi.encode(
             JOINSTRUCT_TYPEHASH,
             kind,
-            poolId,
             sender,
             recipient,
             deadline,
@@ -114,8 +118,11 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         return joinPoolData;
     }
 
+    /**
+    * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
+    * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+    */
     function _exitPoolSignatureSafeguard(
-        bytes32 poolId,
         address sender,
         address recipient,
         bytes memory userData
@@ -131,7 +138,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes32 structHash = keccak256(abi.encode(
             EXITSTRUCT_TYPEHASH,
             kind,
-            poolId,
             sender,
             recipient,
             deadline,

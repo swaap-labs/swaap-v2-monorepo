@@ -9,7 +9,6 @@ export async function signSwapData(
     chainId: number,
     contractAddress: string,
     kind: SafeguardPoolSwapKind,
-    poolId: string,
     tokenIn: string,
     tokenOut: string,
     sender: string,
@@ -31,7 +30,6 @@ export async function signSwapData(
     const types = {
       SwapStruct: [
           { name: 'kind'    , type: 'uint8'   },
-          { name: 'poolId'  , type: 'bytes32' },
           { name: 'tokenIn' , type: 'address' },
           { name: 'tokenOut', type: 'address' },
           { name: 'sender', type: 'address' },
@@ -44,7 +42,6 @@ export async function signSwapData(
     // The data to sign
     const value = {
         kind: kind,
-        poolId: poolId,
         tokenIn: tokenIn,
         tokenOut: tokenOut,
         sender: sender,
@@ -60,7 +57,6 @@ export async function signSwapData(
 export async function signJoinExactTokensData(
     chainId: number,
     contractAddress: string,
-    poolId: string,
     sender: string,
     recipient: string,
     deadline: BigNumberish,
@@ -80,7 +76,6 @@ export async function signJoinExactTokensData(
     const types = {
       JoinExactTokensStruct: [
           { name: 'kind'    , type: 'uint8'   },
-          { name: 'poolId'  , type: 'bytes32' },
           { name: 'sender', type: 'address' },
           { name: 'recipient', type: 'address' },
           { name: 'deadline', type: 'uint256' },
@@ -90,7 +85,6 @@ export async function signJoinExactTokensData(
 
     const value = {
         kind: SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
-        poolId: poolId,
         sender: sender,
         recipient: recipient,
         deadline: deadline,
@@ -104,7 +98,6 @@ export async function signJoinExactTokensData(
 export async function signExitExactTokensData(
   chainId: number,
   contractAddress: string,
-  poolId: string,
   sender: string,
   recipient: string,
   deadline: BigNumberish,
@@ -124,7 +117,6 @@ export async function signExitExactTokensData(
   const types = {
     ExitExactTokensStruct: [
         { name: 'kind'    , type: 'uint8'   },
-        { name: 'poolId'  , type: 'bytes32' },
         { name: 'sender', type: 'address' },
         { name: 'recipient', type: 'address' },
         { name: 'deadline', type: 'uint256' },
@@ -134,7 +126,6 @@ export async function signExitExactTokensData(
 
   const value = {
       kind: SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
-      poolId: poolId,
       sender: sender,
       recipient: recipient,
       deadline: deadline,
