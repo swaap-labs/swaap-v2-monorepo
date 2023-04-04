@@ -28,13 +28,13 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     event ExitSwap(bytes32 digest);
 
     // keccak256("SwapStruct(uint8 kind,address tokenIn,address tokenOut,address sender,address recipient,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x4b9559cac77b73d6b38de5d3514b19ccec78487b49dd0753eb5cfc0d90e42bfe;
+    bytes32 public constant SWAP_STRUCT_TYPEHASH = 0x4b9559cac77b73d6b38de5d3514b19ccec78487b49dd0753eb5cfc0d90e42bfe;
     
-    // keccak256("JoinExactTokensStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes joinData)")
-    bytes32 public constant JOINSTRUCT_TYPEHASH = 0xaa30b41dfd2bbb67ce7c6715ca223934159456ca684d6865bdb2ad25b741872b;
+    // keccak256("SwapJoinStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes joinData)")
+    bytes32 public constant SWAPJOIN_STRUCT_TYPEHASH = 0x71525ff392493c3db8bcd7a0c178008cb76de3c9a12af3ae3c07b9fc8fffe632;
     
-    // keccak256("ExitExactTokensStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes exitData)")
-    bytes32 public constant EXITSTRUCT_TYPEHASH = 0xec489f840bb901310d0f606ea53da305a20a78c305691cf034a05eb1b2b9e519;
+    // keccak256("SwapExitStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes exitData)")
+    bytes32 public constant SWAPEXIT_STRUCT_TYPEHASH = 0xae990fac1c15ec4531ff12efeda78455f6f03c59794d5612c751a98e0289af3f;
 
     mapping(bytes32 => bool) internal _usedQuotes;
 
@@ -58,7 +58,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         ) = userData.decodeSignedSwapData();
 
         bytes32 structHash = keccak256(abi.encode(
-            SWAPSTRUCT_TYPEHASH,
+            SWAP_STRUCT_TYPEHASH,
             kind,
             tokenIn,
             tokenOut,
@@ -98,7 +98,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         ) = userData.decodeSignedJoinData();
 
         bytes32 structHash = keccak256(abi.encode(
-            JOINSTRUCT_TYPEHASH,
+            SWAPJOIN_STRUCT_TYPEHASH,
             kind,
             sender,
             recipient,
@@ -136,7 +136,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         ) = userData.decodeSignedExitData();
 
         bytes32 structHash = keccak256(abi.encode(
-            EXITSTRUCT_TYPEHASH,
+            SWAPEXIT_STRUCT_TYPEHASH,
             kind,
             sender,
             recipient,

@@ -74,7 +74,7 @@ export async function signJoinExactTokensData(
 
     // The named list of all type definitions
     const types = {
-      JoinExactTokensStruct: [
+      SwapJoinStruct: [
           { name: 'kind'    , type: 'uint8'   },
           { name: 'sender', type: 'address' },
           { name: 'recipient', type: 'address' },
@@ -115,7 +115,7 @@ export async function signExitExactTokensData(
 
   // The named list of all type definitions
   const types = {
-    ExitExactTokensStruct: [
+    SwapExitStruct: [
         { name: 'kind'    , type: 'uint8'   },
         { name: 'sender', type: 'address' },
         { name: 'recipient', type: 'address' },
