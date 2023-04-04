@@ -27,14 +27,14 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     event JoinSwap(bytes32 digest);
     event ExitSwap(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,address recipient,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x632f9fdfa76c71faa8fe349c975dab628bbbc376bb16eac98f7c9976154e0a4f;
+    // keccak256("SwapStruct(uint8 kind,bytes32 poolId,address tokenIn,address tokenOut,address sender,address recipient,uint256 deadline,bytes swapData)")
+    bytes32 public constant SWAPSTRUCT_TYPEHASH = 0x4c2d990b799cdccd4a05c5f0290aeed893550f5aa47dda68a80568b3046042e3;
     
-    // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address recipient,uint256 deadline,bytes joinData)")
-    bytes32 public constant JOINSTRUCT_TYPEHASH = 0xb2810ba9b71137cd7b645f3bc911fabba5619c0ca665ac39bad760ce2da633a4;
+    // keccak256("JoinExactTokensStruct(uint8 kind,bytes32 poolId,address sender,address recipient,uint256 deadline,bytes joinData)")
+    bytes32 public constant JOINSTRUCT_TYPEHASH = 0x50d1a5e09bff7f7ab5ddf55dd5b4e9de3cf1e2f3c61769e060e69e473d192dab;
     
-    // keccak256("ExitExactTokensStruct(uint8 kind,bytes32 poolId,address recipient,uint256 deadline,bytes exitData)")
-    bytes32 public constant EXITSTRUCT_TYPEHASH = 0x90657d56982aa61ad28f373b03c0a6fbe64cf50ce2e3e72ce65edfe3caa400f8;
+    // keccak256("ExitExactTokensStruct(uint8 kind,bytes32 poolId,address sender,address recipient,uint256 deadline,bytes exitData)")
+    bytes32 public constant EXITSTRUCT_TYPEHASH = 0x9453567ede5b208943a2b238146827358f2008a2e9853090fbf7f01556e67f2b;
 
     mapping(bytes32 => bool) internal _usedQuotes;
 
@@ -43,6 +43,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes32 poolId,
         IERC20 tokenIn,
         IERC20 tokenOut,
+        address sender,
         address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
@@ -59,6 +60,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             poolId,
             tokenIn,
             tokenOut,
+            sender,
             recipient,
             deadline,
             keccak256(swapData)
@@ -78,6 +80,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
 
     function _joinPoolSignatureSafeguard(
         bytes32 poolId,
+        address sender,
         address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
@@ -93,6 +96,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             JOINSTRUCT_TYPEHASH,
             kind,
             poolId,
+            sender,
             recipient,
             deadline,
             keccak256(joinPoolData)
@@ -112,6 +116,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
 
     function _exitPoolSignatureSafeguard(
         bytes32 poolId,
+        address sender,
         address recipient,
         bytes memory userData
     ) internal returns (bytes memory) {
@@ -127,6 +132,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             EXITSTRUCT_TYPEHASH,
             kind,
             poolId,
+            sender,
             recipient,
             deadline,
             keccak256(exitPoolData)

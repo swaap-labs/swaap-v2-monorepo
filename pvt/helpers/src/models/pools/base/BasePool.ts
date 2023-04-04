@@ -226,4 +226,9 @@ export default class BasePool {
   private async getSigner(from?: SignerWithAddress): Promise<SignerWithAddress> {
     return from || (await ethers.getSigners())[0];
   }
+
+  async _defaultSenderAddress(): Promise<string> {
+    const signers = await ethers.getSigners();
+    return signers[0].address;
+  }
 }

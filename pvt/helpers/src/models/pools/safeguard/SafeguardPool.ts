@@ -299,6 +299,7 @@ export default class SafeguardPool extends BasePool {
     const { tokens } = await this.vault.getPoolTokens(this.poolId);
     const tokenIn = typeof params.in === 'number' ? tokens[params.in] : params.in.address;
     const tokenOut = typeof params.out === 'number' ? tokens[params.out] : params.out.address;
+    const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const deadline = params.deadline?? MAX_UINT256;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
@@ -317,7 +318,7 @@ export default class SafeguardPool extends BasePool {
       await this.getPoolId(),
       tokenIn,
       tokenOut,
-      params.amount,
+      sender,
       recipient,
       deadline,
       maxSwapAmount,
@@ -366,7 +367,8 @@ export default class SafeguardPool extends BasePool {
 
     const contractAddress = this.address;
     const poolId = this.poolId;
-    const recipient = params.recipient;
+    const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
+    const recipient = params.recipient ?? ZERO_ADDRESS;
     const chainId = params.chainId;
     const deadline = params.deadline  || MAX_UINT256;
     const minBptAmountOut = params.minBptAmountOut || 0;
@@ -392,6 +394,7 @@ export default class SafeguardPool extends BasePool {
         chainId,
         contractAddress,
         poolId,
+        TypesConverter.toAddress(sender),
         recipient,
         deadline,
         minBptAmountOut,
@@ -439,7 +442,8 @@ export default class SafeguardPool extends BasePool {
 
     const contractAddress = this.address;
     const poolId = this.poolId;
-    const recipient = params.recipient;
+    const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
+    const recipient = params.recipient ?? ZERO_ADDRESS;
     const chainId = params.chainId;
     const deadline = params.deadline  || MAX_UINT256;
     const maxBptAmountIn = params.maxBptAmountIn || MAX_UINT256;
@@ -465,6 +469,7 @@ export default class SafeguardPool extends BasePool {
         chainId,
         contractAddress,
         poolId,
+        sender,
         recipient,
         deadline,
         maxBptAmountIn,
