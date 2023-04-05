@@ -172,29 +172,29 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
         balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
-        
-        uint256 quoteRelativePrice = _getQuoteRelativePrice(swapData, balanceTokenIn, balanceTokenOut);
-        
+
+        uint256 quoteAmountInPerOut = _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
+
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
             return _onSwapGivenIn(
                 request.tokenIn,
                 balanceTokenIn,
                 balanceTokenOut,
                 request.amount,
-                quoteRelativePrice,
-                swapData.maxSwapAmountIn(),
+                quoteAmountInPerOut,
+                swapData.maxSwapAmount(),
                 scalingFactorTokenIn,
                 scalingFactorTokenOut
             );
         }
-        
+
         return _onSwapGivenOut(
             request.tokenIn,
             balanceTokenIn,
             balanceTokenOut,
             request.amount,
-            quoteRelativePrice,
-            swapData.maxSwapAmountIn(),
+            quoteAmountInPerOut,
+            swapData.maxSwapAmount(),
             scalingFactorTokenIn,
             scalingFactorTokenOut
         );
@@ -206,21 +206,22 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountIn,
-        uint256 quoteRelativePrice,
+        uint256 quoteAmountInPerOut,
         uint256 maxSwapAmountIn,
         uint256 scalingFactorTokenIn,
         uint256 scalingFactorTokenOut
     ) internal returns(uint256) {
         amountIn = _upscale(amountIn, scalingFactorTokenIn);
-        uint256 amountOut = amountIn.mulDown(quoteRelativePrice);
+        uint256 amountOut = amountIn.divDown(quoteAmountInPerOut);
 
         _validateSwap(
+            IVault.SwapKind.GIVEN_IN,
             tokenIn,
             balanceTokenIn,
             balanceTokenOut,
             amountIn,
             amountOut,
-            quoteRelativePrice,
+            quoteAmountInPerOut,
             maxSwapAmountIn
         );
 
@@ -232,45 +233,53 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountOut,
-        uint256 quoteRelativePrice,
-        uint256 maxSwapAmountIn,
+        uint256 quoteAmountInPerOut,
+        uint256 maxSwapAmountOut,
         uint256 scalingFactorTokenIn,
         uint256 scalingFactorTokenOut
     ) internal returns(uint256) {
         amountOut = _upscale(amountOut, scalingFactorTokenOut);
-        uint256 amountIn = amountOut.divUp(quoteRelativePrice);
+        uint256 amountIn = amountOut.mulUp(quoteAmountInPerOut);
 
         _validateSwap(
+            IVault.SwapKind.GIVEN_OUT,
             tokenIn,
             balanceTokenIn,
             balanceTokenOut,
             amountIn,
             amountOut,
-            quoteRelativePrice,
-            maxSwapAmountIn
+            quoteAmountInPerOut,
+            maxSwapAmountOut
         );
 
         return _downscaleUp(amountIn, scalingFactorTokenIn);
     }
 
+    /**
+    * @dev all the inputs should be normalized to 18 decimals regardless of token decimals
+    */
     function _validateSwap(
+        IVault.SwapKind kind,
         IERC20  tokenIn,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountIn,
         uint256 amountOut,
-        uint256 quoteRelativePrice,
-        uint256 maxSwapAmountIn
+        uint256 quoteAmountInPerOut,
+        uint256 maxSwapAmount
     ) private {
-        
-        // TODO see if maxSwapAmount depends on GIVEN_IN or GIVEN_OUT or just based on tokenIn
-        require(amountIn <= maxSwapAmountIn, "error: max amount exceeded");
 
-        uint256 onChainRelativePrice = _getOnChainRelativePrice(tokenIn);
+        if(kind == IVault.SwapKind.GIVEN_IN) {
+            require(amountIn <= maxSwapAmount, "error: exceed swap amount in");
+        } else {
+            require(amountOut <= maxSwapAmount, "error: exceed swap amount out");
+        }
+
+        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(tokenIn);
 
         _fairPricingSafeguard(
-            quoteRelativePrice,
-            onChainRelativePrice
+            quoteAmountInPerOut,
+            onChainAmountInPerOut
         );
 
         _perfBalancesSafeguard(
@@ -279,17 +288,17 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut,
             balanceTokenIn.add(amountIn),
             balanceTokenOut.sub(amountOut),
-            onChainRelativePrice
+            onChainAmountInPerOut
         );
 
     }
 
     function _fairPricingSafeguard(
-        uint256 quoteRelativePrice,
+        uint256 quoteAmountInPerOut,
         uint256 onChainRelativePrice
     ) internal view {
         uint256 maxPriceOffset = _getMaxPriceOffset();
-        require(onChainRelativePrice.divDown(quoteRelativePrice) >= maxPriceOffset, "error: unfair price");
+        require(quoteAmountInPerOut.divDown(onChainRelativePrice) >= maxPriceOffset, "error: unfair price");
     }
 
     function _perfBalancesSafeguard(
@@ -298,7 +307,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 currentBalanceOut,
         uint256 newBalanceIn,
         uint256 newBalanceOut,
-        uint256 onChainRelativePrice
+        uint256 onChainAmountInPerOut
     ) internal {
 
         uint256 totalSupply = totalSupply();
@@ -312,7 +321,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
-            _updatePerformance(currentBalanceIn, currentBalanceOut, onChainRelativePrice, totalSupply);
+            _updatePerformance(currentBalanceIn, currentBalanceOut, onChainAmountInPerOut, totalSupply);
         }
 
         uint256 perfBalPerPTIn;
@@ -331,20 +340,23 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         require(newBalanceOutPerPT >= perfBalPerPTOut.mulUp(maxBalOffset), "error: min balance out is not met");
 
-        uint256 newTVLPerPT = (newBalanceInPerPT.mulDown(onChainRelativePrice)).add(newBalanceOutPerPT);
-        uint256 oldTVLPerPT = (perfBalPerPTIn.mulDown(onChainRelativePrice)).add(perfBalPerPTOut);
+        uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
+        uint256 oldTVLPerPT = (perfBalPerPTIn.divDown(onChainAmountInPerOut)).add(perfBalPerPTOut);
 
         require(newTVLPerPT >= oldTVLPerPT.mulUp(maxTVLOffset), "error: low tvl");
     }
 
-    function _getQuoteRelativePrice(
+    /**
+    * @dev returns amountIn per amountOut after slippage
+    */
+    function _getQuoteAmountInPerOut(
         bytes memory swapData,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut
     ) internal view returns (uint256) {
         (
             ,
-            uint256 quoteRelativePrice,
+            uint256 quoteAmountInPerOut,
             uint256 maxBalanceChangeTolerance,
             uint256 quoteBalanceIn,
             uint256 quoteBalanceOut,
@@ -364,7 +376,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceBasedSlippage
         ));
 
-        return quoteRelativePrice.divDown(FixedPoint.ONE.add(penalty));
+        return quoteAmountInPerOut.mulUp(FixedPoint.ONE.add(penalty));
     }
 
     function _getBalanceSlippagePenalty(
@@ -485,7 +497,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedJoinSwapData.swapTokenIn == _token0?
             (balances[0], balances[1]) : (balances[1], balances[0]);
 
-        uint256 quoteRelativePrice = _getQuoteRelativePrice(
+        uint256 quoteAmountInPerOut = _getQuoteAmountInPerOut(
             decodedJoinSwapData.swapData,
             excessTokenBalance,
             limitTokenBalance
@@ -503,17 +515,20 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             limitTokenBalance,
             excessTokenAmountIn,
             limitTokenAmountIn,
-            quoteRelativePrice
+            quoteAmountInPerOut
         );
 
+        uint256 maxSwapAmountIn = decodedJoinSwapData.swapData.maxSwapAmount();
+
         _validateSwap(
+            IVault.SwapKind.GIVEN_IN,
             decodedJoinSwapData.swapTokenIn,
             excessTokenBalance,
             limitTokenBalance,
             swapAmountIn,
             swapAmountOut,
-            quoteRelativePrice,
-            decodedJoinSwapData.swapData.maxSwapAmountIn()
+            quoteAmountInPerOut,
+            maxSwapAmountIn
         );
 
         uint256 rOpt = _calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
@@ -528,18 +543,18 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     /**********************************************************************************************
     // aE = amountIn in excess                                                                   //
     // aL = limiting amountIn                                                                    //
-    // bE = current balance of excess token                  /     aE * bL - aL * bE     \       //
-    // bL = current balance of limiting token         sIn = | --------------------------- |      //
-    // sIn = swap amount in needed before the join           \ bL + aL + p * ( bE + aE ) /       //
+    // bE = current balance of excess token                  /       aE * bL - aL * bE       \   //
+    // bL = current balance of limiting token         sIn = | ------------------------------- |  //
+    // sIn = swap amount in needed before the join           \ bL + aL + (1/p) * ( bE + aE ) /   //
     // sOut = swap amount out needed before the join                                             //
-    // p = relative price such that: sOut = p * sIn                                              //
+    // p = relative price such that: sIn = p * sOut                                              //
     **********************************************************************************************/
     function _calcJoinSwapAmounts(
         uint256 excessTokenBalance,
         uint256 limitTokenBalance,
         uint256 excessTokenAmountIn,
         uint256 limitTokenAmountIn,
-        uint256 quoteRelativePrice
+        uint256 quoteAmountInPerOut
     ) internal pure returns (uint256, uint256) {
 
         uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
@@ -548,10 +563,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 num = foo - bar;
 
         uint256 denom = limitTokenBalance.add(limitTokenAmountIn);
-        denom = denom.add(quoteRelativePrice.mulDown(excessTokenAmountIn.add(limitTokenAmountIn)));
+        denom = denom.add((excessTokenAmountIn.add(limitTokenAmountIn)).divDown(quoteAmountInPerOut));
 
         uint256 swapAmountIn = num.divDown(denom);
-        uint256 swapAmountOut = quoteRelativePrice.mulDown(swapAmountIn);
+        uint256 swapAmountOut = swapAmountIn.divDown(quoteAmountInPerOut);
 
         return (swapAmountIn, swapAmountOut);
     }
@@ -640,7 +655,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedExitSwapData.swapTokenIn == _token0?
             (balances[1], balances[0]) : (balances[0], balances[1]);
 
-        uint256 quoteRelativePrice = _getQuoteRelativePrice(
+        uint256 quoteAmountInPerOut = _getQuoteAmountInPerOut(
             decodedExitSwapData.swapData,
             limitTokenBalance,
             excessTokenBalance
@@ -649,7 +664,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = decodedExitSwapData.swapTokenIn == _token0?
             (decodedExitSwapData.joinExitAmounts[1], decodedExitSwapData.joinExitAmounts[0]) : 
             (decodedExitSwapData.joinExitAmounts[0], decodedExitSwapData.joinExitAmounts[1]);
-        
+
         (
             uint256 swapAmountIn,
             uint256 swapAmountOut
@@ -658,17 +673,20 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             limitTokenBalance,
             excessTokenAmountOut,
             limitTokenAmountOut,
-            quoteRelativePrice
+            quoteAmountInPerOut
         );
 
+        uint256 maxSwapAmountIn = decodedExitSwapData.swapData.maxSwapAmount();
+
         _validateSwap(
+            IVault.SwapKind.GIVEN_IN,
             decodedExitSwapData.swapTokenIn,
             limitTokenBalance,
             excessTokenBalance,
             swapAmountIn,
             swapAmountOut,
-            quoteRelativePrice,
-            decodedExitSwapData.swapData.maxSwapAmountIn()
+            quoteAmountInPerOut,
+            maxSwapAmountIn
         );
 
         uint256 rOpt = _calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
@@ -684,18 +702,18 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     /**********************************************************************************************
     // aE = amountOut in excess                                                                  //
     // aL = limiting amountOut                                                                   //
-    // bE = current balance of excess token                   /     aE * bL - aL * bE         \  //
-    // bL = current balance of limiting token         sOut = | ------------------------------- | //
-    // sIn = swap amount in needed before the exit            \ bL - aL + (1/p) * ( bE - aE ) /  //
+    // bE = current balance of excess token                   /     aE * bL - aL * bE     \      //
+    // bL = current balance of limiting token         sOut = | --------------------------- |     //
+    // sIn = swap amount in needed before the exit            \ bL - aL + p * ( bE - aE ) /      //
     // sOut = swap amount out needed before the exit                                             //
-    // p = relative price such that: sOut = p * sIn                                              //
+    // p = relative price such that: sIn = p * sOut                                              //
     **********************************************************************************************/
     function _calcExitSwapAmounts(
         uint256 excessTokenBalance,
         uint256 limitTokenBalance,
         uint256 excessTokenAmountIn,
         uint256 limitTokenAmountIn,
-        uint256 quoteRelativePrice
+        uint256 quoteAmountInPerOut
     ) internal pure returns (uint256, uint256) {
 
         uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
@@ -704,10 +722,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 num = foo - bar;
 
         uint256 denom = limitTokenBalance.sub(limitTokenAmountIn);
-        denom = denom.add(quoteRelativePrice.divDown(excessTokenAmountIn.sub(limitTokenAmountIn)));
+        denom = denom.add((excessTokenAmountIn.sub(limitTokenAmountIn)).mulDown(quoteAmountInPerOut));
 
         uint256 swapAmountOut = num.divDown(denom);
-        uint256 swapAmountIn = quoteRelativePrice.divDown(swapAmountOut);
+        uint256 swapAmountIn = quoteAmountInPerOut.mulDown(swapAmountOut);
 
         return (swapAmountIn, swapAmountOut);
     }
@@ -808,7 +826,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _upscaleArray(balances, _scalingFactors());
 
-        uint256 relativePrice = _getOnChainRelativePrice(_token0);
+        uint256 relativePrice = _getOnChainAmountInPerOut(_token0);
 
         _updatePerformance(balances[0], balances[1], relativePrice, totalSupply()); 
     }
@@ -878,9 +896,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     /**
-    * @notice returns the relative price such as: amountOut = relativePrice * amountIn
+    * @notice returns the relative price such as: amountIn = relativePrice * amountOut
     */
-    function _getOnChainRelativePrice(IERC20 tokenIn) internal view returns(uint256) {
+    function _getOnChainAmountInPerOut(IERC20 tokenIn) internal view returns(uint256) {
 
         uint256 price0 = ChainlinkUtils.getLatestPrice(_oracle0);
         uint256 price1 = ChainlinkUtils.getLatestPrice(_oracle1);
@@ -888,7 +906,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         price0 = _upscale(price0, _priceScaleFactor0);
         price1 = _upscale(price1, _priceScaleFactor1);
         
-        return tokenIn == _token0? price0.divDown(price1) : price1.divDown(price0); 
+        return tokenIn == _token0? price1.divDown(price0) : price0.divDown(price1); 
     }
 
     function getPoolParameters() public view
