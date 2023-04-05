@@ -51,28 +51,28 @@ library SafeguardPoolUserData {
     
     function pricingParameters(bytes memory self) internal pure
     returns(
-        uint256 maxSwapAmountIn,
-        uint256 quoteRelativePrice,
+        uint256 maxSwapAmount,
+        uint256 quoteAmountInPerOut,
         uint256 balanceChangeTolerance,
         uint256 quoteBalanceIn,
         uint256 quoteBalanceOut,
         uint256 balanceBasedSlippage,
-        uint256 timeBasedSlippage,
-        uint256 startTime
+        uint256 startTime,
+        uint256 timeBasedSlippage
     ) {
         (
-            maxSwapAmountIn,
-            quoteRelativePrice,
+            maxSwapAmount,
+            quoteAmountInPerOut,
             balanceChangeTolerance,
             quoteBalanceIn,
             quoteBalanceOut,
             balanceBasedSlippage,
-            timeBasedSlippage,
-            startTime
+            startTime,
+            timeBasedSlippage
         ) = abi.decode(self, (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256));
     }
 
-    function maxSwapAmountIn(bytes memory self) internal pure returns(uint256) {
+    function maxSwapAmount(bytes memory self) internal pure returns(uint256) {
         return abi.decode(self, (uint256));
     }
 
