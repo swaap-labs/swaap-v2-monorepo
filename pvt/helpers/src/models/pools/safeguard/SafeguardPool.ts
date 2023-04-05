@@ -272,9 +272,9 @@ export default class SafeguardPool extends BasePool {
   }
 
   /*
-  * relative price = priceIn / priceOut | amountOut = relative price * amountIn
+  * amountInPerOut = priceOut / priceIn | = amountIn / amountOut
   */
-  async getRelativePrice(tokenIn: string): Promise<BigNumberish> {
+  async getAmountInPerOut(tokenIn: string): Promise<BigNumberish> {
     
     const tokens = (await this.getTokens()).tokens;
     const tokenInIndex = tokens.findIndex((token) => token == tokenIn);
@@ -289,9 +289,9 @@ export default class SafeguardPool extends BasePool {
     const oracleOut = this.oracles[tokenInIndex == 0? 1 : 0];
     let priceOut = fromBNish(await oracleOut.latestAnswer(), oracleOut.decimals);
 
-    const relativePrice = fp(priceIn.div(priceOut));
+    const amountInPerOut = fp(priceOut.div(priceIn));
 
-    return relativePrice;
+    return amountInPerOut;
   }
 
   private async _buildSwapParams(kind: number, params: SwapSafeguardPool): Promise<MinimalSwap> {
@@ -303,13 +303,13 @@ export default class SafeguardPool extends BasePool {
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const deadline = params.deadline?? MAX_UINT256;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
-    const quoteRelativePrice = params.quoteRelativePrice?? await this.getRelativePrice(tokenIn);
-    const maxBalanceChangeTolerance = params.quoteRelativePrice?? MAX_UINT256;
+    const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(tokenIn);
+    const maxBalanceChangeTolerance = params.quoteAmountInPerOut?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? tokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
     const quoteBalanceOut = params.quoteBalanceOut?? tokenOut == tokens[0]? currentBalances[0] : currentBalances[1];;
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
-    const timeBasedSlippageSlope = params.timeBasedSlippageSlope?? 0;
     const startTime = params.startTime?? MAX_UINT256;
+    const timeBasedSlippage = params.timeBasedSlippage?? 0;
 
     const data = await SafeguardPoolEncoder.swap(
       params.chainId,
@@ -321,13 +321,13 @@ export default class SafeguardPool extends BasePool {
       recipient,
       deadline,
       maxSwapAmount,
-      quoteRelativePrice,
+      quoteAmountInPerOut,
       maxBalanceChangeTolerance,
       quoteBalanceIn,
       quoteBalanceOut,
       balanceBasedSlippage,
-      timeBasedSlippageSlope,
       startTime,
+      timeBasedSlippage,
       params.signer
     )
 
@@ -373,13 +373,13 @@ export default class SafeguardPool extends BasePool {
     const amountsIn = Array.isArray(params.amountsIn) ? params.amountsIn : Array(this.tokens.length).fill(params.amountsIn);
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
-    const quoteRelativePrice = params.quoteRelativePrice?? await this.getRelativePrice(swapTokenIn);
-    const maxBalanceChangeTolerance = params.quoteRelativePrice?? MAX_UINT256;
+    const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
+    const maxBalanceChangeTolerance = params.quoteAmountInPerOut?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
     const quoteBalanceOut = params.quoteBalanceOut?? swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0];
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
-    const timeBasedSlippageSlope = params.timeBasedSlippageSlope?? 0;
     const startTime = params.startTime?? MAX_UINT256;
+    const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const signer = params.signer;
 
     return {
@@ -398,13 +398,13 @@ export default class SafeguardPool extends BasePool {
         amountsIn,
         swapTokenIn,
         maxSwapAmount,
-        quoteRelativePrice,
+        quoteAmountInPerOut,
         maxBalanceChangeTolerance,
         quoteBalanceIn,
         quoteBalanceOut,
         balanceBasedSlippage,
-        timeBasedSlippageSlope,
         startTime,
+        timeBasedSlippage,
         signer
       ),
     };
@@ -446,13 +446,13 @@ export default class SafeguardPool extends BasePool {
     const amountsOut = Array.isArray(params.amountsOut) ? params.amountsOut : Array(this.tokens.length).fill(params.amountsOut);
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
-    const quoteRelativePrice = params.quoteRelativePrice?? await this.getRelativePrice(swapTokenIn);
-    const maxBalanceChangeTolerance = params.quoteRelativePrice?? MAX_UINT256;
+    const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
+    const maxBalanceChangeTolerance = params.quoteAmountInPerOut?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
     const quoteBalanceOut = params.quoteBalanceOut?? swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0];
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
-    const timeBasedSlippageSlope = params.timeBasedSlippageSlope?? 0;
     const startTime = params.startTime?? MAX_UINT256;
+    const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const signer = params.signer;
 
     return {
@@ -471,13 +471,13 @@ export default class SafeguardPool extends BasePool {
         amountsOut,
         swapTokenIn,
         maxSwapAmount,
-        quoteRelativePrice,
+        quoteAmountInPerOut,
         maxBalanceChangeTolerance,
         quoteBalanceIn,
         quoteBalanceOut,
         balanceBasedSlippage,
-        timeBasedSlippageSlope,
         startTime,
+        timeBasedSlippage,
         signer
       ),
     };

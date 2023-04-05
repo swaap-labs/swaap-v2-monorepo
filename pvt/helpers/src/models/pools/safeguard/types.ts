@@ -72,13 +72,13 @@ export type SwapSafeguardPool = {
   lastChangeBlock?          : BigNumberish;
   deadline?                 : BigNumberish;
   maxSwapAmount?            : BigNumberish;
-  quoteRelativePrice?       : BigNumberish;
+  quoteAmountInPerOut?       : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
-  timeBasedSlippageSlope?   : BigNumberish;
   startTime?                : BigNumberish;
+  timeBasedSlippage?        : BigNumberish;
   signer                    : SignerWithAddress;
 };
 
@@ -110,13 +110,13 @@ export type JoinGivenInSafeguardPool = {
   amountsIn                 : BigNumberish[];
   swapTokenIn               : number | Token;
   maxSwapAmount?            : BigNumberish;
-  quoteRelativePrice?       : BigNumberish;
+  quoteAmountInPerOut?       : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
-  timeBasedSlippageSlope?   : BigNumberish;
   startTime?                : BigNumberish;
+  timeBasedSlippage?        : BigNumberish;
   signer                    : SignerWithAddress;
 };
 
@@ -151,13 +151,13 @@ export type ExitGivenOutSafeguardPool = {
   amountsOut                : BigNumberish[];
   swapTokenIn               : number | Token;
   maxSwapAmount?            : BigNumberish;
-  quoteRelativePrice?       : BigNumberish;
+  quoteAmountInPerOut?       : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
-  timeBasedSlippageSlope?   : BigNumberish;
   startTime?                : BigNumberish;
+  timeBasedSlippage?        : BigNumberish;
   signer                    : SignerWithAddress;
 };
 
