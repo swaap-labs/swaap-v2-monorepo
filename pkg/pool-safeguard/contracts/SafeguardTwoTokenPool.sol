@@ -370,11 +370,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             uint256 quoteBalanceIn,
             uint256 quoteBalanceOut,
             uint256 balanceBasedSlippage,
-            uint256 timeBasedSlippage,
-            uint256 startTime
+            uint256 startTime,
+            uint256 timeBasedSlippage
         ) = swapData.pricingParameters();
 
-        uint256 penalty = _getTimeSlippagePenalty(timeBasedSlippage, startTime);
+        uint256 penalty = _getTimeSlippagePenalty(startTime, timeBasedSlippage);
         
         penalty = penalty.add(_getBalanceSlippagePenalty(
             balanceTokenIn,
@@ -412,8 +412,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
 
     function _getTimeSlippagePenalty(
-        uint256 timeBasedSlippage,
-        uint256 startTime
+        uint256 startTime,
+        uint256 timeBasedSlippage
     ) internal view returns(uint256) {
         uint256 currentTimestamp = block.timestamp;
 
