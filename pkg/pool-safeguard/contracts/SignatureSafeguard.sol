@@ -175,6 +175,8 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         // TODO add proper error code
         _require(!_usedQuotes[digest], 0);
         _usedQuotes[digest] = true;
+        
+        return digest;
     }
 
     function signer() public view virtual returns(address);
