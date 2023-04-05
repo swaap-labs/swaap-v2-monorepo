@@ -295,10 +295,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
     function _fairPricingSafeguard(
         uint256 quoteAmountInPerOut,
-        uint256 onChainRelativePrice
+        uint256 onChainAmountInPerOut
     ) internal view {
         uint256 maxPriceOffset = _getMaxPriceOffset();
-        require(quoteAmountInPerOut.divDown(onChainRelativePrice) >= maxPriceOffset, "error: unfair price");
+        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= maxPriceOffset, "error: unfair price");
     }
 
     function _perfBalancesSafeguard(
@@ -321,7 +321,16 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
-            _updatePerformance(currentBalanceIn, currentBalanceOut, onChainAmountInPerOut, totalSupply);
+            if(tokenIn == _token0){
+                _updatePerformance(currentBalanceIn, currentBalanceOut, onChainAmountInPerOut, totalSupply);
+            } else {
+                _updatePerformance(
+                    currentBalanceOut,
+                    currentBalanceIn,
+                    FixedPoint.ONE.divDown(onChainAmountInPerOut),
+                    totalSupply
+                );
+            }
         }
 
         uint256 perfBalPerPTIn;
@@ -826,24 +835,24 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _upscaleArray(balances, _scalingFactors());
 
-        uint256 relativePrice = _getOnChainAmountInPerOut(_token0);
+        uint256 amount0Per1 = _getOnChainAmountInPerOut(_token0);
 
-        _updatePerformance(balances[0], balances[1], relativePrice, totalSupply()); 
+        _updatePerformance(balances[0], balances[1], amount0Per1, totalSupply()); 
     }
 
     // TODO we may add a (off-chain) reference price to prevent the update of the performance with a faulty oracle price
     function _updatePerformance(
         uint256 balance0,
         uint256 balance1,
-        uint256 relativePrice,
+        uint256 amount0Per1,
         uint256 totalSupply
     ) private {
         
-        uint256 currentTVLPerPT = (balance0.add(balance1.mulDown(relativePrice))).divDown(totalSupply);
+        uint256 currentTVLPerPT = (balance0.add(balance1.mulDown(amount0Per1))).divDown(totalSupply);
         
         (uint256 perfBalPerPT0, uint256 perfBalPerPT1) = getPerfBalancesPerPT();
         
-        uint256 oldTVLPerPT = perfBalPerPT0.add(perfBalPerPT1.mulDown(relativePrice));
+        uint256 oldTVLPerPT = perfBalPerPT0.add(perfBalPerPT1.mulDown(amount0Per1));
         
         uint256 ratio = currentTVLPerPT.divDown(oldTVLPerPT);
 
