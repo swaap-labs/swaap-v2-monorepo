@@ -15,24 +15,22 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "@balancer-labs/v2-pool-utils/contracts/BasePool.sol";
 import "./ChainlinkUtils.sol";
+import "./SafeguardMath.sol";
+import "./SignatureSafeguard.sol";
+import "@balancer-labs/v2-pool-utils/contracts/BasePool.sol";
 import "@balancer-labs/v2-interfaces/contracts/vault/IMinimalSwapInfoPool.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidator.sol";
-import "./SignatureSafeguard.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.sol";
 import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/math/LogExpMath.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeCast.sol";
 
 // import "hardhat/console.sol";
 
 contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
+    
     using FixedPoint for uint256;
-    using SafeCast for uint256;
-    using SafeCast for int256;
     using WordCodec for bytes32;
     using BasePoolUserData for bytes;
     using SafeguardPoolUserData for bytes;
@@ -61,7 +59,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     // For a max fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
     uint32 private _yearlyRate;
 
-    uint256 private constant _ONE_YEAR = 365 days;
     uint256 private constant _CLAIM_FEES_FREQUENCY = 1 hours;
     uint256 private constant _MIN_YEARLY_FEES = 0;
     uint256 private constant _MAX_YEARLY_FEES = 5e16; // corresponds to 5% fees
@@ -173,7 +170,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
         balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
 
-        uint256 quoteAmountInPerOut = _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
+        uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
 
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
             return _onSwapGivenIn(
@@ -355,76 +352,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         require(newTVLPerPT >= oldTVLPerPT.mulUp(maxTVLOffset), "error: low tvl");
     }
 
-    /**
-    * @dev returns amountIn per amountOut after slippage
-    */
-    function _getQuoteAmountInPerOut(
-        bytes memory swapData,
-        uint256 balanceTokenIn,
-        uint256 balanceTokenOut
-    ) internal view returns (uint256) {
-        (
-            ,
-            uint256 quoteAmountInPerOut,
-            uint256 maxBalanceChangeTolerance,
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut,
-            uint256 balanceBasedSlippage,
-            uint256 startTime,
-            uint256 timeBasedSlippage
-        ) = swapData.pricingParameters();
-
-        uint256 penalty = _getTimeSlippagePenalty(startTime, timeBasedSlippage);
-        
-        penalty = penalty.add(_getBalanceSlippagePenalty(
-            balanceTokenIn,
-            balanceTokenOut,
-            maxBalanceChangeTolerance,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            balanceBasedSlippage
-        ));
-
-        return quoteAmountInPerOut.mulUp(FixedPoint.ONE.add(penalty));
-    }
-
-    function _getBalanceSlippagePenalty(
-        uint256 balanceTokenIn,
-        uint256 balanceTokenOut,
-        uint256 maxBalanceChangeTolerance,
-        uint256 quoteBalanceIn,
-        uint256 quoteBalanceOut,
-        uint256 balanceBasedSlippage
-    ) internal pure returns (uint256) {
-        
-        uint256 offsetIn = balanceTokenIn >= quoteBalanceIn ?
-            0 : (quoteBalanceIn - balanceTokenIn).divDown(quoteBalanceIn);
-
-        uint256 offsetOut = balanceTokenOut >= quoteBalanceOut ?
-            0 : (quoteBalanceOut - balanceTokenOut).divDown(quoteBalanceOut);
-
-        uint256 maxOffset = Math.max(offsetIn, offsetOut);
-
-        require(maxOffset <= maxBalanceChangeTolerance, "error: quote balance no longer valid");
-    
-        return balanceBasedSlippage.mulUp(maxOffset);
-    }
-
-
-    function _getTimeSlippagePenalty(
-        uint256 startTime,
-        uint256 timeBasedSlippage
-    ) internal view returns(uint256) {
-        uint256 currentTimestamp = block.timestamp;
-
-        if(currentTimestamp <= startTime) {
-            return 0;
-        }
-
-        return Math.mul(timeBasedSlippage, (currentTimestamp - startTime));
-
-    }
-
     function _onInitializePool(
         bytes32, // poolId,
         address, // sender,
@@ -506,7 +433,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedJoinSwapData.swapTokenIn == _token0?
             (balances[0], balances[1]) : (balances[1], balances[0]);
 
-        uint256 quoteAmountInPerOut = _getQuoteAmountInPerOut(
+        uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(
             decodedJoinSwapData.swapData,
             excessTokenBalance,
             limitTokenBalance
@@ -519,7 +446,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (
             uint256 swapAmountIn,
             uint256 swapAmountOut
-        ) = _calcJoinSwapAmounts(
+        ) = SafeguardMath.calcJoinSwapAmounts(
             excessTokenBalance,
             limitTokenBalance,
             excessTokenAmountIn,
@@ -540,60 +467,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             maxSwapAmountIn
         );
 
-        uint256 rOpt = _calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
+        uint256 rOpt = SafeguardMath.calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
         
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);        
         require(bptAmountOut >= decodedJoinSwapData.limitBptAmount, "error: not enough bpt out");
 
         return (bptAmountOut, decodedJoinSwapData.joinExitAmounts);
 
-    }
-
-    /**********************************************************************************************
-    // aE = amountIn in excess                                                                   //
-    // aL = limiting amountIn                                                                    //
-    // bE = current balance of excess token                  /       aE * bL - aL * bE       \   //
-    // bL = current balance of limiting token         sIn = | ------------------------------- |  //
-    // sIn = swap amount in needed before the join           \ bL + aL + (1/p) * ( bE + aE ) /   //
-    // sOut = swap amount out needed before the join                                             //
-    // p = relative price such that: sIn = p * sOut                                              //
-    **********************************************************************************************/
-    function _calcJoinSwapAmounts(
-        uint256 excessTokenBalance,
-        uint256 limitTokenBalance,
-        uint256 excessTokenAmountIn,
-        uint256 limitTokenAmountIn,
-        uint256 quoteAmountInPerOut
-    ) internal pure returns (uint256, uint256) {
-
-        uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
-        uint256 bar = limitTokenAmountIn.mulDown(excessTokenBalance);
-        require(foo >= bar, "error: wrong tokenIn in excess");
-        uint256 num = foo - bar;
-
-        uint256 denom = limitTokenBalance.add(limitTokenAmountIn);
-        denom = denom.add((excessTokenAmountIn.add(limitTokenAmountIn)).divDown(quoteAmountInPerOut));
-
-        uint256 swapAmountIn = num.divDown(denom);
-        uint256 swapAmountOut = swapAmountIn.divDown(quoteAmountInPerOut);
-
-        return (swapAmountIn, swapAmountOut);
-    }
-
-    /**********************************************************************************************
-    // aE = amountIn in excess                                                                   //
-    // bE = current balance of excess token                        / aE - sIn  \                 //
-    // sIn = swap amount in needed before the join         rOpt = | ----------- |                //
-    // rOpt = amountIn TV / current pool TVL                       \ bE + sIn  /                 //
-    **********************************************************************************************/
-    function _calcJoinSwapROpt(
-        uint256 excessTokenBalance,
-        uint256 excessTokenAmountIn,
-        uint256 swapAmountIn
-    ) internal pure returns (uint256) {
-        uint256 num   = excessTokenAmountIn.sub(swapAmountIn);
-        uint256 denom = excessTokenBalance.add(swapAmountIn);
-        return num.divDown(denom);
     }
 
     function _doRecoveryModeExit(
@@ -664,7 +544,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedExitSwapData.swapTokenIn == _token0?
             (balances[1], balances[0]) : (balances[0], balances[1]);
 
-        uint256 quoteAmountInPerOut = _getQuoteAmountInPerOut(
+        uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(
             decodedExitSwapData.swapData,
             limitTokenBalance,
             excessTokenBalance
@@ -677,7 +557,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (
             uint256 swapAmountIn,
             uint256 swapAmountOut
-        ) = _calcExitSwapAmounts(
+        ) = SafeguardMath.calcExitSwapAmounts(
             excessTokenBalance,
             limitTokenBalance,
             excessTokenAmountOut,
@@ -698,7 +578,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             maxSwapAmountIn
         );
 
-        uint256 rOpt = _calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
+        uint256 rOpt = SafeguardMath.calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
                 
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);
         
@@ -706,53 +586,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         return (bptAmountOut, decodedExitSwapData.joinExitAmounts);
 
-    }
-
-    /**********************************************************************************************
-    // aE = amountOut in excess                                                                  //
-    // aL = limiting amountOut                                                                   //
-    // bE = current balance of excess token                   /     aE * bL - aL * bE     \      //
-    // bL = current balance of limiting token         sOut = | --------------------------- |     //
-    // sIn = swap amount in needed before the exit            \ bL - aL + p * ( bE - aE ) /      //
-    // sOut = swap amount out needed before the exit                                             //
-    // p = relative price such that: sIn = p * sOut                                              //
-    **********************************************************************************************/
-    function _calcExitSwapAmounts(
-        uint256 excessTokenBalance,
-        uint256 limitTokenBalance,
-        uint256 excessTokenAmountIn,
-        uint256 limitTokenAmountIn,
-        uint256 quoteAmountInPerOut
-    ) internal pure returns (uint256, uint256) {
-
-        uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
-        uint256 bar = limitTokenAmountIn.mulDown(excessTokenBalance);
-        require(foo >= bar, "error: wrong tokenOut in excess");
-        uint256 num = foo - bar;
-
-        uint256 denom = limitTokenBalance.sub(limitTokenAmountIn);
-        denom = denom.add((excessTokenAmountIn.sub(limitTokenAmountIn)).mulDown(quoteAmountInPerOut));
-
-        uint256 swapAmountOut = num.divDown(denom);
-        uint256 swapAmountIn = quoteAmountInPerOut.mulDown(swapAmountOut);
-
-        return (swapAmountIn, swapAmountOut);
-    }
-
-    /**********************************************************************************************
-    // aE = amountOut in excess                                                                  //
-    // bE = current balance of excess token                        / aE - sOut  \                //
-    // sOut = swap amount out needed before the exit       rOpt = | ----------- |                //
-    // rOpt = amountOut TV / current pool TVL                       \ bE - sOut  /                //
-    **********************************************************************************************/
-    function _calcExitSwapROpt(
-        uint256 excessTokenBalance,
-        uint256 excessTokenAmountOut,
-        uint256 swapAmountOut
-    ) internal pure returns (uint256) {
-        uint256 num   = excessTokenAmountOut.sub(swapAmountOut);
-        uint256 denom = excessTokenBalance.sub(swapAmountOut);
-        return num.divDown(denom);
     }
 
     /**
@@ -1042,7 +875,12 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
         if(elapsedTime >= _CLAIM_FEES_FREQUENCY) {
-            uint256 protocolFees = _calcAccumulatedManagementFees(elapsedTime, uint256(_yearlyRate), totalSupply());
+            uint256 protocolFees = SafeguardMath.calcAccumulatedManagementFees(
+                elapsedTime,
+                uint256(_yearlyRate),
+                totalSupply()
+            );
+            
             _payProtocolFees(protocolFees);
             _previousClaimTime = uint32(currentTime);
         }
@@ -1058,35 +896,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         
         claimManagementFees();
         
-        _yearlyRate = uint32(_calcYearlyRate(yearlyFees));
-    }
-
-    /**********************************************************************************************
-    // f = yearly management fees percentage          /  ln(1 - f) \                             //
-    // 1y = 1 year                             a = - | ------------ |                            //
-    // a = yearly rate constant                       \     1y     /                             //
-    **********************************************************************************************/
-    function _calcYearlyRate(uint256 yearlyFees) private pure returns(uint256) {
-        uint256 logInput = FixedPoint.ONE - yearlyFees; // we assume yearlyFees is < 1e18
-        // Since 0 < logInput <= 1 => logResult <= 0
-        int256 logResult = LogExpMath.ln(int256(logInput));
-        return(uint256(-logResult) / _ONE_YEAR);
-    }
-
-    /**********************************************************************************************
-    // bptOut = bpt tokens to be minted as fees                                                  //
-    // TS = total supply                                   bptOut = TS * (e^(a*dT) -1)           //
-    // a = yearly rate constant                                                                  //
-    // dT = elapsed time between the previous and current claim                                  //
-    **********************************************************************************************/
-    function _calcAccumulatedManagementFees(
-        uint256 elapsedTime,
-        uint256 yearlyRate,
-        uint256 currentSupply
-     ) internal pure returns(uint256) {
-        uint256 expInput = yearlyRate * elapsedTime;
-        uint256 expResult = uint256(LogExpMath.exp(expInput.toInt256())); // TODO check if necessary toInt256()
-        return (currentSupply.mulDown(expResult.sub(FixedPoint.ONE))); // TODO .sub() may be removable
+        _yearlyRate = uint32(SafeguardMath.calcYearlyRate(yearlyFees));
     }
 
 }
