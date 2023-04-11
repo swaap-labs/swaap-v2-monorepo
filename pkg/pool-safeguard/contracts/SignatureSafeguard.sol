@@ -27,8 +27,8 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     event JoinSwap(bytes32 digest);
     event ExitSwap(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,address tokenIn,address tokenOut,address sender,address recipient,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAP_STRUCT_TYPEHASH = 0x4b9559cac77b73d6b38de5d3514b19ccec78487b49dd0753eb5cfc0d90e42bfe;
+    // keccak256("SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,uint256 deadline,bytes swapData)")
+    bytes32 public constant SWAP_STRUCT_TYPEHASH = 0x03435028418929234ab5a9f9f0ae6d8ea683c47ca8dc830e6ef5d1a2692ab9b2;
     
     // keccak256("SwapJoinStruct(uint8 kind,address sender,address recipient,uint256 deadline,bytes joinData)")
     bytes32 public constant SWAPJOIN_STRUCT_TYPEHASH = 0x71525ff392493c3db8bcd7a0c178008cb76de3c9a12af3ae3c07b9fc8fffe632;
@@ -45,7 +45,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     function _swapSignatureSafeguard(
         IVault.SwapKind kind,
         IERC20 tokenIn,
-        IERC20 tokenOut,
         address sender,
         address recipient,
         bytes memory userData
@@ -57,11 +56,12 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
             bytes memory signature
         ) = userData.decodeSignedSwapData();
 
+        // For a two token pool,we can only include the tokenIn in the signature. For pools that has more than two tokens
+        // the tokenOut must be specified to ensure the correctness of the trade.
         bytes32 structHash = keccak256(abi.encode(
             SWAP_STRUCT_TYPEHASH,
             kind,
             tokenIn,
-            tokenOut,
             sender,
             recipient,
             deadline,

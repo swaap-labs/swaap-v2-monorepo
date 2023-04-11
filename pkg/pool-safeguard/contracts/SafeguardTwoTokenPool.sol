@@ -157,7 +157,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         bytes memory swapData = _swapSignatureSafeguard(
             request.kind,
             request.tokenIn,
-            request.tokenOut,
             request.from,
             request.to,
             request.userData

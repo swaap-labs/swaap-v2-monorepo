@@ -10,7 +10,6 @@ export async function signSwapData(
     contractAddress: string,
     kind: SafeguardPoolSwapKind,
     tokenIn: string,
-    tokenOut: string,
     sender: string,
     recipient: string,
     deadline: BigNumberish,
@@ -31,7 +30,6 @@ export async function signSwapData(
       SwapStruct: [
           { name: 'kind'    , type: 'uint8'   },
           { name: 'tokenIn' , type: 'address' },
-          { name: 'tokenOut', type: 'address' },
           { name: 'sender', type: 'address' },
           { name: 'recipient', type: 'address' },
           { name: 'deadline', type: 'uint256' },
@@ -43,7 +41,6 @@ export async function signSwapData(
     const value = {
         kind: kind,
         tokenIn: tokenIn,
-        tokenOut: tokenOut,
         sender: sender,
         recipient: recipient,
         deadline: deadline,

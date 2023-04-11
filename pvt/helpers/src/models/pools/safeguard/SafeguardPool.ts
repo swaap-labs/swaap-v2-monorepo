@@ -315,7 +315,6 @@ export default class SafeguardPool extends BasePool {
       this.address,
       kind,
       tokenIn,
-      tokenOut,
       sender,
       recipient,
       deadline,
