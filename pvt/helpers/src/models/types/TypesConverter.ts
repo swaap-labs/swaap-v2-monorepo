@@ -178,13 +178,11 @@ export default {
       tokens,
       oracles,
       assetManagers,
-      swapFeePercentage,
       pauseWindowDuration,
       bufferPeriodDuration,
       swapEnabledOnStart,
       mustAllowlistLPs,
       factoryVersion,
-      poolVersion,
       signer,
       maxTVLoffset,
       maxBalOffset,
@@ -195,7 +193,6 @@ export default {
     if (!params.owner) params.owner = ZERO_ADDRESS;
     if (!tokens) tokens = new TokenList();
     if (!oracles) oracles = Array(tokens.length).fill(ZERO_ADDRESS);
-    if (!swapFeePercentage) swapFeePercentage = bn(1e16);
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
     if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
     if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
@@ -207,7 +204,6 @@ export default {
     if (undefined == swapEnabledOnStart) swapEnabledOnStart = true;
     if (undefined == mustAllowlistLPs) mustAllowlistLPs = false;
     if (undefined == factoryVersion) factoryVersion = 'default factory version';
-    if (undefined == poolVersion) poolVersion = 'default pool version';
     
     let safeguardParameters: InitialSafeguardParams = {
       signer: signer,
@@ -221,7 +217,6 @@ export default {
     return {
       tokens: tokens,
       assetManagers: assetManagers,
-      swapFeePercentage: swapFeePercentage,
       pauseWindowDuration: pauseWindowDuration,
       bufferPeriodDuration: bufferPeriodDuration,
       swapEnabledOnStart: swapEnabledOnStart,
@@ -229,7 +224,6 @@ export default {
       owner: this.toAddress(params.owner),
       from: params.from,
       factoryVersion: factoryVersion,
-      poolVersion: poolVersion,
       oracles: oracles,
       safeguardParameters: safeguardParameters      
    };

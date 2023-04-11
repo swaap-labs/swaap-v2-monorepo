@@ -64,13 +64,12 @@ export default class SafeguardPool extends BasePool {
     tokens: TokenList,
     oracles: Oracle[],
     assetManagers: string[],
-    swapFeePercentage: BigNumberish,
     swapEnabledOnStart: boolean,
     mustAllowlistLPs: boolean,
     poolVersion: string,
     owner?: SignerWithAddress
   ) {
-    super(instance, poolId, vault, tokens, swapFeePercentage, owner);
+    super(instance, poolId, vault, tokens, 0, owner);
 
     this.oracles = oracles;
     this.assetManagers = assetManagers;
@@ -350,7 +349,7 @@ export default class SafeguardPool extends BasePool {
   private _buildInitParams(params: InitSafeguardPool): JoinExitSafeguardPool {
     const { initialBalances: balances } = params;
     const amountsIn = Array.isArray(balances) ? balances : Array(this.tokens.length).fill(balances);
-
+    console.log(SafeguardPoolEncoder.joinInit(amountsIn));
     return {
       from: params.from,
       recipient: params.recipient,

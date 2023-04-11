@@ -14,7 +14,6 @@ export type RawSafeguardPoolDeployment = {
   tokens?: TokenList;
   oracles?: Oracle[];
   assetManagers?: string[];
-  swapFeePercentage?: BigNumberish;
   pauseWindowDuration?: BigNumberish;
   bufferPeriodDuration?: BigNumberish;
   swapEnabledOnStart?: boolean;
@@ -39,13 +38,11 @@ export type SafeguardPoolDeployment = {
   tokens: TokenList;
   oracles: Oracle[];
   assetManagers: string[];
-  swapFeePercentage: BigNumberish;
   pauseWindowDuration: BigNumberish;
   bufferPeriodDuration: BigNumberish;
   swapEnabledOnStart: boolean;
   mustAllowlistLPs: boolean;
   factoryVersion: string;
-  poolVersion: string;
   owner?: string;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;

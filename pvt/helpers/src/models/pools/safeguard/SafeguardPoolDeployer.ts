@@ -26,7 +26,6 @@ export default {
     const {
       tokens,
       assetManagers,
-      swapFeePercentage,
       swapEnabledOnStart,
       mustAllowlistLPs,
       poolVersion,
@@ -40,7 +39,6 @@ export default {
       tokens,
       oracles,
       assetManagers,
-      swapFeePercentage,
       swapEnabledOnStart,
       mustAllowlistLPs,
       poolVersion
@@ -52,7 +50,6 @@ export default {
     const {
       tokens,
       assetManagers,
-      swapFeePercentage,
       pauseWindowDuration,
       bufferPeriodDuration,
       swapEnabledOnStart,
@@ -72,7 +69,6 @@ export default {
             SYMBOL,
             tokens.addresses,
             assetManagers,
-            swapFeePercentage,
             pauseWindowDuration,
             bufferPeriodDuration,
             TypesConverter.toAddress(owner),
