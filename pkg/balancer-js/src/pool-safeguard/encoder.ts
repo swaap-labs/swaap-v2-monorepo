@@ -2,7 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { BigNumberish } from '@ethersproject/bignumber';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { stringify } from 'querystring';
-import { signSwapData, signJoinExactTokensData, signExitExactTokensData } from './SafeguardPoolSigner';
+import { signSwapData } from './SafeguardPoolSigner';
 import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } from './kinds';
 
 export class SafeguardPoolEncoder {
@@ -38,15 +38,16 @@ export class SafeguardPoolEncoder {
    * @param amountsIn - the amounts each of token to deposit in the pool as liquidity
    * @param minimumBPT - the minimum acceptable BPT to receive in return for deposited tokens
    */
-  static async joinExactTokensInForBPTOut
+  static async joinExitSwap
     (
       chainId: number,
       contractAddress: string,
       sender: string,
       recipient: string,
       deadline: BigNumberish,
-      minBptAmountOut: BigNumberish,
-      amountsIn: BigNumberish[],
+      joinExitKind: SafeguardPoolJoinKind | SafeguardPoolExitKind,
+      limitBptAmount: BigNumberish,
+      joinExitAmounts: BigNumberish[],
       swapTokenIn: string,
       maxSwapAmount: BigNumberish,
       quoteAmountInPerOut: BigNumberish,
@@ -66,78 +67,24 @@ export class SafeguardPoolEncoder {
         quoteBalanceOut, balanceBasedSlippage, startTime, timeBasedSlippage]
     );
 
-    let joinData: string = defaultAbiCoder.encode(
-      ['uint256', 'uint256[]', 'address', 'bytes'],
-      [minBptAmountOut, amountsIn, swapTokenIn, swapData]
-    );
-    
-    let signature: string = await signJoinExactTokensData(
+    let signature: string = await signSwapData(
       chainId,
       contractAddress,
+      SafeguardPoolSwapKind.GIVEN_IN,
+      swapTokenIn,
       sender,
       recipient,
       deadline,
-      joinData,
+      swapData,   
       signer
     );
 
-    let signedJoinData: string = defaultAbiCoder.encode(
-      ['uint8', 'uint256', 'bytes', 'bytes'],
-      [SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, deadline, joinData, signature]
+    let signedJoinExiSwapData: string = defaultAbiCoder.encode(
+      ['uint8', 'uint256', 'uint256[]', 'address', 'uint256', 'bytes', 'bytes'],
+      [joinExitKind, limitBptAmount, joinExitAmounts, swapTokenIn, deadline, swapData, signature]
     );
 
-    return signedJoinData;
-  }
-
-  static async exitBPTInForExactTokensOut
-    (
-      chainId: number,
-      contractAddress: string,
-      sender: string,
-      recipient: string,
-      deadline: BigNumberish,
-      maxBptAmountIn: BigNumberish,
-      amountsOut: BigNumberish[],
-      swapTokenIn: string,
-      maxSwapAmount: BigNumberish,
-      quoteAmountInPerOut: BigNumberish,
-      maxBalanceChangeTolerance: BigNumberish,
-      quoteBalanceIn: BigNumberish,
-      quoteBalanceOut: BigNumberish,
-      balanceBasedSlippage: BigNumberish,
-      startTime: BigNumberish,
-      timeBasedSlippage: BigNumberish,
-      signer: SignerWithAddress
-    ): Promise<string>
-  {
-
-    let swapData: string = defaultAbiCoder.encode(
-      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-      [maxSwapAmount, quoteAmountInPerOut, maxBalanceChangeTolerance, quoteBalanceIn,
-        quoteBalanceOut, balanceBasedSlippage, startTime, timeBasedSlippage]
-    );
-    
-    let exitData: string = defaultAbiCoder.encode(
-      ['uint256', 'uint256[]', 'address', 'bytes'],
-      [maxBptAmountIn, amountsOut, swapTokenIn, swapData]
-    );
-
-    let signature: string = await signExitExactTokensData(
-      chainId,
-      contractAddress,
-      sender,
-      recipient,
-      deadline,
-      exitData,
-      signer
-    );
-
-    let signedExitData: string = defaultAbiCoder.encode(
-      ['uint8', 'uint256', 'bytes', 'bytes'],
-      [SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, deadline, exitData, signature]
-    );
-
-    return signedExitData;
+    return signedJoinExiSwapData;
   }
 
   static async swap

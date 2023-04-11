@@ -417,29 +417,27 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         address sender,
         address recipient,
         uint256[] memory balances,
-        bytes memory signedJoinData
+        bytes memory userData
     ) internal returns (uint256, uint256[] memory) {
 
-        bytes memory joinData = _joinPoolSignatureSafeguard(
-                sender,
-                recipient,
-                signedJoinData
-        );
+        (
+            uint256 minBptAmountOut,
+            uint256[] memory joinAmounts,
+            IERC20 swapTokenIn,
+            bytes memory swapData
+        ) = _joinExitSwapSignatureSafeguard(sender, recipient, userData);
 
-        JoinExitSwapStruct memory decodedJoinSwapData = joinData.joinExitSwapStruct();
-
-        (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedJoinSwapData.swapTokenIn == _token0?
+        (uint256 excessTokenBalance, uint256 limitTokenBalance) = swapTokenIn == _token0?
             (balances[0], balances[1]) : (balances[1], balances[0]);
 
         uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(
-            decodedJoinSwapData.swapData,
+            swapData,
             excessTokenBalance,
             limitTokenBalance
         );
 
-        (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = decodedJoinSwapData.swapTokenIn == _token0?
-            (decodedJoinSwapData.joinExitAmounts[0], decodedJoinSwapData.joinExitAmounts[1]) : 
-            (decodedJoinSwapData.joinExitAmounts[1], decodedJoinSwapData.joinExitAmounts[0]);
+        (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = swapTokenIn == _token0?
+            (joinAmounts[0], joinAmounts[1]) : (joinAmounts[1], joinAmounts[0]);
         
         (
             uint256 swapAmountIn,
@@ -452,11 +450,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             quoteAmountInPerOut
         );
 
-        uint256 maxSwapAmountIn = decodedJoinSwapData.swapData.maxSwapAmount();
+        uint256 maxSwapAmountIn = swapData.maxSwapAmount();
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,
-            decodedJoinSwapData.swapTokenIn,
+            swapTokenIn,
             excessTokenBalance,
             limitTokenBalance,
             swapAmountIn,
@@ -468,9 +466,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 rOpt = SafeguardMath.calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
         
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);        
-        require(bptAmountOut >= decodedJoinSwapData.limitBptAmount, "error: not enough bpt out");
+        require(bptAmountOut >= minBptAmountOut, "error: not enough bpt out");
 
-        return (bptAmountOut, decodedJoinSwapData.joinExitAmounts);
+        return (bptAmountOut, joinAmounts);
 
     }
 
@@ -531,26 +529,24 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         bytes memory userData
     ) internal returns (uint256, uint256[] memory) {
 
-        bytes memory exitData = _exitPoolSignatureSafeguard(
-                sender,
-                recipient,
-                userData
-        );
+        (
+            uint256 maxBptAmountIn,
+            uint256[] memory exitAmounts,
+            IERC20 swapTokenIn,
+            bytes memory swapData
+        ) = _joinExitSwapSignatureSafeguard(sender, recipient, userData);
 
-        JoinExitSwapStruct memory decodedExitSwapData = exitData.joinExitSwapStruct();
-
-        (uint256 excessTokenBalance, uint256 limitTokenBalance) = decodedExitSwapData.swapTokenIn == _token0?
+        (uint256 excessTokenBalance, uint256 limitTokenBalance) = swapTokenIn == _token0?
             (balances[1], balances[0]) : (balances[0], balances[1]);
 
         uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(
-            decodedExitSwapData.swapData,
+            swapData,
             limitTokenBalance,
             excessTokenBalance
         );
 
-        (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = decodedExitSwapData.swapTokenIn == _token0?
-            (decodedExitSwapData.joinExitAmounts[1], decodedExitSwapData.joinExitAmounts[0]) : 
-            (decodedExitSwapData.joinExitAmounts[0], decodedExitSwapData.joinExitAmounts[1]);
+        (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = swapTokenIn == _token0?
+            (exitAmounts[1], exitAmounts[0]) : (exitAmounts[0], exitAmounts[1]);
 
         (
             uint256 swapAmountIn,
@@ -563,11 +559,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             quoteAmountInPerOut
         );
 
-        uint256 maxSwapAmountIn = decodedExitSwapData.swapData.maxSwapAmount();
+        uint256 maxSwapAmountIn = swapData.maxSwapAmount();
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,
-            decodedExitSwapData.swapTokenIn,
+            swapTokenIn,
             limitTokenBalance,
             excessTokenBalance,
             swapAmountIn,
@@ -580,9 +576,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
                 
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);
         
-        require(bptAmountOut <= decodedExitSwapData.limitBptAmount, "error: exceeded burned bpt");
+        require(bptAmountOut <= maxBptAmountIn, "error: exceeded burned bpt");
 
-        return (bptAmountOut, decodedExitSwapData.joinExitAmounts);
+        return (bptAmountOut, exitAmounts);
 
     }
 

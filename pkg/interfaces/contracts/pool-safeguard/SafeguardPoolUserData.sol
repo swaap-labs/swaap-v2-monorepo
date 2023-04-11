@@ -29,7 +29,6 @@ library SafeguardPoolUserData {
         return abi.decode(self, (ExitKind));
     }
 
-
     // Swaps
 
     function slippageParameters(bytes memory self) internal pure
@@ -101,33 +100,6 @@ library SafeguardPoolUserData {
         (, bptAmountOut) = abi.decode(self, (JoinKind, uint256));
     }
 
-    function decodeSignedJoinData(bytes memory self) internal pure 
-    returns(JoinKind kind, uint256 deadline, bytes memory joinData, bytes memory signature){
-        (
-            kind,
-            deadline,
-            joinData,
-            signature
-        ) = abi.decode(self, (JoinKind, uint256, bytes, bytes));
-    }
-
-    function joinExitSwapStruct(bytes memory self) internal pure 
-    returns (ISafeguardPool.JoinExitSwapStruct memory decodedJoinExitSwapData) {
-        (
-            uint256 limitBptAmount, // minBptAmountOut or maxBptAmountIn
-            uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
-            IERC20 swapTokenIn, // excess token in or limit token in
-            bytes memory swapData
-        ) = abi.decode(
-                self, (uint, uint[], IERC20, bytes)
-        );
-
-        decodedJoinExitSwapData.limitBptAmount = limitBptAmount; // minBptAmountOut or maxBptAmountIn
-        decodedJoinExitSwapData.joinExitAmounts = joinExitAmounts; // join amountsIn or exit amounts Out
-        decodedJoinExitSwapData.swapTokenIn = swapTokenIn; // excess token in or limit token in
-        decodedJoinExitSwapData.swapData = swapData;
-    }
-
     // Exits
 
     function exactBptInForTokensOut(bytes memory self) internal pure returns (uint256 bptAmountIn) {
@@ -142,6 +114,29 @@ library SafeguardPoolUserData {
             exitData,
             signature
         ) = abi.decode(self, (ExitKind, uint256, bytes, bytes));
+    }
+
+    // Join/Exit + Swap
+    function joinExitSwapData(bytes memory self) internal pure 
+    returns (
+        uint256 limitBptAmount,
+        uint256[] memory joinExitAmounts,
+        IERC20 swapTokenIn,
+        uint256 deadline,
+        bytes memory swapData,
+        bytes memory signature
+    ) {
+        
+        (
+            , // corresponds to join or exit kind
+            limitBptAmount, // minBptAmountOut or maxBptAmountIn
+            joinExitAmounts, // join amountsIn or exit amounts Out
+            swapTokenIn, // excess token in or limit token in
+            deadline, // swap deadline
+            swapData,
+            signature
+        ) = abi.decode(self, (uint8, uint, uint[], IERC20, uint256, bytes, bytes));
+
     }
 
 }

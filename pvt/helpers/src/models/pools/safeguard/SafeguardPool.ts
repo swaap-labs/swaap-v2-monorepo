@@ -34,7 +34,7 @@ import {
 
 } from './math';
 
-import { Account, accountToAddress, SwapKind, SafeguardPoolEncoder } from '@balancer-labs/balancer-js';
+import { Account, SafeguardPoolExitKind, SafeguardPoolJoinKind, SwapKind, SafeguardPoolEncoder } from '@balancer-labs/balancer-js';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import BasePool from '../base/BasePool';
 import { currentTimestamp } from '../../../time';
@@ -386,12 +386,13 @@ export default class SafeguardPool extends BasePool {
       lastChangeBlock: params.lastChangeBlock,
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
-      data: await SafeguardPoolEncoder.joinExactTokensInForBPTOut(
+      data: await SafeguardPoolEncoder.joinExitSwap(
         chainId,
         contractAddress,
         TypesConverter.toAddress(sender),
         recipient,
         deadline,
+        SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
         minBptAmountOut,
         amountsIn,
         swapTokenIn,
@@ -459,12 +460,13 @@ export default class SafeguardPool extends BasePool {
       lastChangeBlock: params.lastChangeBlock,
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
-      data: await SafeguardPoolEncoder.exitBPTInForExactTokensOut(
+      data: await SafeguardPoolEncoder.joinExitSwap(
         chainId,
         contractAddress,
         sender,
         recipient,
         deadline,
+        SafeguardPoolExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT,
         maxBptAmountIn,
         amountsOut,
         swapTokenIn,

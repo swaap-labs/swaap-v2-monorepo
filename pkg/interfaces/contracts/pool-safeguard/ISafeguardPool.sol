@@ -26,11 +26,4 @@ interface ISafeguardPool {
         uint256 maxPriceOffet;
     }
 
-    struct JoinExitSwapStruct {
-        uint256 limitBptAmount; // minBptAmountOut or maxBptAmountOut
-        uint256[] joinExitAmounts; // join amountsIn or exit amounts Out
-        IERC20 swapTokenIn; // excess token in or limit token in
-        bytes swapData;
-    }
-
 }
