@@ -168,7 +168,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
         balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
 
-        uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
+        (
+            uint256 quoteAmountInPerOut,
+            uint256 maxSwapAmount
+        ) = SafeguardMath.getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
 
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
             return _onSwapGivenIn(
@@ -177,7 +180,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
                 balanceTokenOut,
                 request.amount,
                 quoteAmountInPerOut,
-                swapData.maxSwapAmount(),
+                maxSwapAmount,
                 scalingFactorTokenIn,
                 scalingFactorTokenOut
             );
@@ -189,7 +192,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut,
             request.amount,
             quoteAmountInPerOut,
-            swapData.maxSwapAmount(),
+            maxSwapAmount,
             scalingFactorTokenIn,
             scalingFactorTokenOut
         );
@@ -430,11 +433,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = swapTokenIn == _token0?
             (balances[0], balances[1]) : (balances[1], balances[0]);
 
-        uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(
-            swapData,
-            excessTokenBalance,
-            limitTokenBalance
-        );
+        (
+            uint256 quoteAmountInPerOut,
+            uint256 maxSwapAmountIn
+        ) = SafeguardMath.getQuoteAmountInPerOut(swapData, excessTokenBalance, limitTokenBalance);
 
         (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = swapTokenIn == _token0?
             (joinAmounts[0], joinAmounts[1]) : (joinAmounts[1], joinAmounts[0]);
@@ -449,8 +451,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             limitTokenAmountIn,
             quoteAmountInPerOut
         );
-
-        uint256 maxSwapAmountIn = swapData.maxSwapAmount();
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,
@@ -539,11 +539,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = swapTokenIn == _token0?
             (balances[1], balances[0]) : (balances[0], balances[1]);
 
-        uint256 quoteAmountInPerOut = SafeguardMath.getQuoteAmountInPerOut(
-            swapData,
-            limitTokenBalance,
-            excessTokenBalance
-        );
+        (
+            uint256 quoteAmountInPerOut,
+            uint256 maxSwapAmountIn
+        ) = SafeguardMath.getQuoteAmountInPerOut(swapData, limitTokenBalance, excessTokenBalance);
 
         (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = swapTokenIn == _token0?
             (exitAmounts[1], exitAmounts[0]) : (exitAmounts[0], exitAmounts[1]);
@@ -558,8 +557,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             limitTokenAmountOut,
             quoteAmountInPerOut
         );
-
-        uint256 maxSwapAmountIn = swapData.maxSwapAmount();
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,

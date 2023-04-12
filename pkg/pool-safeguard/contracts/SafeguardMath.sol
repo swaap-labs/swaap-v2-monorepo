@@ -35,9 +35,9 @@ library SafeguardMath {
         bytes memory swapData,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut
-    ) internal view returns (uint256) {
+    ) internal view returns (uint256, uint256) {
         (
-            ,
+            uint256 maxSwapAmount,
             uint256 quoteAmountInPerOut,
             uint256 maxBalanceChangeTolerance,
             uint256 quoteBalanceIn,
@@ -58,7 +58,7 @@ library SafeguardMath {
             balanceBasedSlippage
         ));
 
-        return quoteAmountInPerOut.mulUp(FixedPoint.ONE.add(penalty));
+        return (quoteAmountInPerOut.mulUp(FixedPoint.ONE.add(penalty)), maxSwapAmount);
     }
 
     // penalty = (slippage slope) * (deltaTime)
