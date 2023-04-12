@@ -58,7 +58,7 @@ library SafeguardPoolUserData {
         return abi.decode(self, (uint256));
     }
 
-    function decodeSignedSwapData(bytes memory self) internal pure 
+    function decodeSignedSwapData(bytes calldata self) internal pure 
     returns(uint256 deadline, bytes memory extraData, bytes memory signature) {
         (
             deadline,

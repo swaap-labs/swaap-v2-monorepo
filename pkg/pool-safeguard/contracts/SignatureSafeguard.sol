@@ -39,7 +39,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         IERC20 tokenIn,
         address sender,
         address recipient,
-        bytes memory userData
+        bytes calldata userData
     ) internal returns (bytes memory) {
 
         (

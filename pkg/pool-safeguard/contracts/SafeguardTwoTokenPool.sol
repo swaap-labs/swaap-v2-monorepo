@@ -147,7 +147,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function onSwap(
-        SwapRequest memory request,
+        SwapRequest calldata request,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut
     ) external override onlyVault(request.poolId) returns (uint256) {
