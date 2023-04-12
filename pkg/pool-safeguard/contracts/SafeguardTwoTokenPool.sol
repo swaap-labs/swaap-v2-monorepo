@@ -265,9 +265,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     ) private {
 
         if(kind == IVault.SwapKind.GIVEN_IN) {
-            require(amountIn <= maxSwapAmount, "error: exceed swap amount in");
+            require(amountIn <= maxSwapAmount, "error: exceeded swap amount in");
         } else {
-            require(amountOut <= maxSwapAmount, "error: exceed swap amount out");
+            require(amountOut <= maxSwapAmount, "error: exceeded swap amount out");
         }
 
         uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(tokenIn);
