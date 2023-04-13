@@ -69,7 +69,7 @@ export type SwapSafeguardPool = {
   lastChangeBlock?          : BigNumberish;
   deadline?                 : BigNumberish;
   maxSwapAmount?            : BigNumberish;
-  quoteAmountInPerOut?       : BigNumberish;
+  quoteAmountInPerOut?      : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;

@@ -273,12 +273,12 @@ export default class SafeguardPool extends BasePool {
   /*
   * amountInPerOut = priceOut / priceIn | = amountIn / amountOut
   */
-  async getAmountInPerOut(tokenIn: string): Promise<BigNumberish> {
+  async getAmountInPerOut(tokenIn: string | number): Promise<BigNumberish> {
     
     const tokens = (await this.getTokens()).tokens;
-    const tokenInIndex = tokens.findIndex((token) => token == tokenIn);
+    const tokenInIndex = typeof tokenIn == "number"? tokenIn : tokens.findIndex((token) => token == tokenIn);
 
-    if (tokenInIndex  == -1) {
+    if (tokenInIndex != 0 && tokenInIndex != 1) {
       throw 'token not found in the pool';
     }
 
@@ -303,9 +303,9 @@ export default class SafeguardPool extends BasePool {
     const deadline = params.deadline?? MAX_UINT256;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(tokenIn);
-    const maxBalanceChangeTolerance = params.quoteAmountInPerOut?? MAX_UINT256;
-    const quoteBalanceIn = params.quoteBalanceIn?? tokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
-    const quoteBalanceOut = params.quoteBalanceOut?? tokenOut == tokens[0]? currentBalances[0] : currentBalances[1];;
+    const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? (tokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const quoteBalanceOut = params.quoteBalanceOut?? (tokenOut == tokens[0]? currentBalances[0] : currentBalances[1]);
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
@@ -348,7 +348,7 @@ export default class SafeguardPool extends BasePool {
   private _buildInitParams(params: InitSafeguardPool): JoinExitSafeguardPool {
     const { initialBalances: balances } = params;
     const amountsIn = Array.isArray(balances) ? balances : Array(this.tokens.length).fill(balances);
-    console.log(SafeguardPoolEncoder.joinInit(amountsIn));
+
     return {
       from: params.from,
       recipient: params.recipient,
@@ -372,9 +372,9 @@ export default class SafeguardPool extends BasePool {
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
-    const maxBalanceChangeTolerance = params.quoteAmountInPerOut?? MAX_UINT256;
-    const quoteBalanceIn = params.quoteBalanceIn?? swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
-    const quoteBalanceOut = params.quoteBalanceOut?? swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0];
+    const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? (swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const quoteBalanceOut = params.quoteBalanceOut?? (swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0]);
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
@@ -446,9 +446,9 @@ export default class SafeguardPool extends BasePool {
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
-    const maxBalanceChangeTolerance = params.quoteAmountInPerOut?? MAX_UINT256;
-    const quoteBalanceIn = params.quoteBalanceIn?? swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1];
-    const quoteBalanceOut = params.quoteBalanceOut?? swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0];
+    const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? (swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const quoteBalanceOut = params.quoteBalanceOut?? (swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0]);
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
