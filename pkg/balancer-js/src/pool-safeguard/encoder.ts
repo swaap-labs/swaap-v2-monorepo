@@ -2,7 +2,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import { BigNumberish } from '@ethersproject/bignumber';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 import { stringify } from 'querystring';
-import { signSwapData } from './SafeguardPoolSigner';
+import { signSwapData, signAllowlist } from './SafeguardPoolSigner';
 import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } from './kinds';
 
 export class SafeguardPoolEncoder {
@@ -32,7 +32,27 @@ export class SafeguardPoolEncoder {
     );
 
   }
-   
+  
+  static async allowlist
+    (
+      chainId: number,
+      contractAddress: string,
+      sender: string,
+      deadline: BigNumberish,
+      userData: string,
+      signer: SignerWithAddress
+    ) : Promise<string>
+  {
+    const signature = await signAllowlist(chainId, contractAddress, sender, deadline, signer);
+
+    const newUserData: string = defaultAbiCoder.encode(
+      ['uint256', 'bytes', 'bytes'],
+      [deadline, signature, userData]
+    );
+
+    return newUserData;
+  }
+
   /**
    * Encodes the userData parameter for joining a WeightedPool with exact token inputs
    * @param amountsIn - the amounts each of token to deposit in the pool as liquidity

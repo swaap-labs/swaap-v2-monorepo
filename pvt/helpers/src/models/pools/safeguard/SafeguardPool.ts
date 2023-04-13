@@ -150,7 +150,7 @@ export default class SafeguardPool extends BasePool {
   }
 
   async init(params: InitSafeguardPool): Promise<JoinResult> {
-    return this.join(this._buildInitParams(params));
+    return this.join(await this._buildInitParams(params));
   }
 
   async joinGivenIn(params: JoinGivenInSafeguardPool): Promise<JoinResult> {
@@ -170,11 +170,11 @@ export default class SafeguardPool extends BasePool {
   }
 
   async joinAllGivenOut(params: JoinAllGivenOutSafeguardPool): Promise<JoinResult> {
-    return this.join(this._buildJoinAllGivenOutParams(params));
+    return this.join(await this._buildJoinAllGivenOutParams(params));
   }
 
   async queryJoinAllGivenOut(params: JoinAllGivenOutSafeguardPool): Promise<JoinQueryResult> {
-    return this.queryJoin(this._buildJoinAllGivenOutParams(params));
+    return this.queryJoin(await this._buildJoinAllGivenOutParams(params));
   }
 
   async exitGivenOut(params: ExitGivenOutSafeguardPool): Promise<ExitResult> {
@@ -345,15 +345,29 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
-  private _buildInitParams(params: InitSafeguardPool): JoinExitSafeguardPool {
+  private async _buildInitParams(params: InitSafeguardPool): Promise<JoinExitSafeguardPool> {
     const { initialBalances: balances } = params;
     const amountsIn = Array.isArray(balances) ? balances : Array(this.tokens.length).fill(balances);
+    let userData = await SafeguardPoolEncoder.joinInit(amountsIn);
+    
+    if(await this.instance.isAllowlistEnabled()) {
+      const sender = params.from?? (await this.vault._defaultSender());
+
+      userData = await SafeguardPoolEncoder.allowlist(
+        params.chainId!,
+        this.address,
+        sender.address,
+        params.deadline?? Math.floor(Date.now() / 1000) + 100,
+        userData,
+        params.signer!
+      );
+    }
 
     return {
       from: params.from,
       recipient: params.recipient,
       protocolFeePercentage: params.protocolFeePercentage,
-      data: SafeguardPoolEncoder.joinInit(amountsIn),
+      data: userData,
     };
   };
 
@@ -380,32 +394,47 @@ export default class SafeguardPool extends BasePool {
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const signer = params.signer;
 
+    let userData = await SafeguardPoolEncoder.joinExitSwap(
+      chainId,
+      contractAddress,
+      TypesConverter.toAddress(sender),
+      recipient,
+      deadline,
+      SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
+      minBptAmountOut,
+      amountsIn,
+      swapTokenIn,
+      maxSwapAmount,
+      quoteAmountInPerOut,
+      maxBalanceChangeTolerance,
+      quoteBalanceIn,
+      quoteBalanceOut,
+      balanceBasedSlippage,
+      startTime,
+      timeBasedSlippage,
+      signer
+    );
+
+    if(await this.instance.isAllowlistEnabled()) {
+      const sender = params.from?? (await this.vault._defaultSender());
+      
+      userData = await SafeguardPoolEncoder.allowlist(
+        chainId,
+        this.address,
+        TypesConverter.toAddress(sender),
+        params.allowlistDeadline?? Math.floor(Date.now() / 1000) + 100,
+        userData,
+        signer
+      );
+    }
+
     return {
       from: params.from,
       recipient: params.recipient,
       lastChangeBlock: params.lastChangeBlock,
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
-      data: await SafeguardPoolEncoder.joinExitSwap(
-        chainId,
-        contractAddress,
-        TypesConverter.toAddress(sender),
-        recipient,
-        deadline,
-        SafeguardPoolJoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT,
-        minBptAmountOut,
-        amountsIn,
-        swapTokenIn,
-        maxSwapAmount,
-        quoteAmountInPerOut,
-        maxBalanceChangeTolerance,
-        quoteBalanceIn,
-        quoteBalanceOut,
-        balanceBasedSlippage,
-        startTime,
-        timeBasedSlippage,
-        signer
-      ),
+      data: userData
     };
   }
 
@@ -420,14 +449,30 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
-  private _buildJoinAllGivenOutParams(params: JoinAllGivenOutSafeguardPool): JoinExitSafeguardPool {
+  private async _buildJoinAllGivenOutParams(params: JoinAllGivenOutSafeguardPool): Promise<JoinExitSafeguardPool> {
+    
+    let userData = await SafeguardPoolEncoder.joinAllTokensInForExactBPTOut(params.bptOut);
+
+    if(await this.instance.isAllowlistEnabled()) {
+      const sender = params.from?? (await this.vault._defaultSender());
+
+      userData = await SafeguardPoolEncoder.allowlist(
+        params.chainId!,
+        this.address,
+        sender.address,
+        params.deadline?? Math.floor(Date.now() / 1000) + 100,
+        userData,
+        params.signer!
+      );
+    }
+
     return {
       from: params.from,
       recipient: params.recipient,
       lastChangeBlock: params.lastChangeBlock,
       currentBalances: params.currentBalances,
       protocolFeePercentage: params.protocolFeePercentage,
-      data: SafeguardPoolEncoder.joinAllTokensInForExactBPTOut(params.bptOut),
+      data: userData,
     };
   }
 

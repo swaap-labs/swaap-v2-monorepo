@@ -5,6 +5,40 @@ import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } f
 const DOMAIN_NAME = 'Pool Safeguard';
 const DOMAIN_VERSION = '1';
 
+export async function signAllowlist(
+  chainId: number,
+  contractAddress: string,
+  sender: string,
+  deadline: BigNumberish,
+  signer: SignerWithAddress
+): Promise<string> {
+
+  const domain = {
+    name: DOMAIN_NAME,
+    version: DOMAIN_VERSION,
+    chainId: chainId,
+    verifyingContract: contractAddress
+  };
+
+  // The named list of all type definitions
+  const types = {
+    AllowlistStruct: [
+        { name: 'sender', type: 'address' },
+        { name: 'deadline', type: 'uint256' }
+    ]
+  };
+
+  // The data to sign
+  const value = {
+      sender: sender,
+      deadline: deadline
+  };
+
+  const signature = await signer._signTypedData(domain, types, value);
+  return signature;
+
+}
+
 export async function signSwapData(
     chainId: number,
     contractAddress: string,

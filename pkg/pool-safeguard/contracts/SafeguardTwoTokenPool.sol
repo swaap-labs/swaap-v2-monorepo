@@ -59,6 +59,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     // For a max fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
     uint32 private _yearlyRate;
 
+    // Allowlist enabled
+    bool private _allowlistEnabled;
+
     uint256 private constant _CLAIM_FEES_FREQUENCY = 1 hours;
     uint256 private constant _MIN_YEARLY_FEES = 0;
     uint256 private constant _MAX_YEARLY_FEES = 5e16; // corresponds to 5% fees
@@ -355,12 +358,16 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
     function _onInitializePool(
         bytes32, // poolId,
-        address, // sender,
+        address sender,
         address, // recipient,
         uint256[] memory scalingFactors,
         bytes memory userData
     ) internal override returns (uint256, uint256[] memory) {
-        
+
+        if(isAllowlistEnabled()) {
+            userData = _isLPAllowed(sender, userData);
+        }
+
         (SafeguardPoolUserData.JoinKind kind, uint256[] memory amountsIn) = userData.initJoin();
         
         _require(kind == SafeguardPoolUserData.JoinKind.INIT, Errors.UNINITIALIZED);
@@ -388,6 +395,10 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _beforeJoinExit();
 
+        if(isAllowlistEnabled()) {
+            userData = _isLPAllowed(sender, userData);
+        }
+
         SafeguardPoolUserData.JoinKind kind = userData.joinKind();
 
         if(kind == SafeguardPoolUserData.JoinKind.ALL_TOKENS_IN_FOR_EXACT_BPT_OUT) {
@@ -401,6 +412,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         } else {
             _revert(Errors.UNHANDLED_JOIN_KIND);
         }
+    }
+
+    function _isLPAllowed(address sender, bytes memory userData) internal returns(bytes memory) {
+        // we subtiture userData by the joinData
+        return _validateAllowlistSignature(sender, userData);
     }
 
     function _joinAllTokensInForExactBPTOut(
@@ -582,6 +598,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     /**
     * Setters
     */
+    function setAllowlistBoolean(bool isAllowlistEnabled) external authenticate whenNotPaused {
+        _setAllowlistBoolean(isAllowlistEnabled);
+    }
+
+    function _setAllowlistBoolean(bool isAllowlistEnabled) internal {
+        _allowlistEnabled = isAllowlistEnabled;
+    }
+
     function setSigner(address signer) external authenticate whenNotPaused {
         _setSigner(signer);
     }
@@ -712,6 +736,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     /**
     * Getters
     */
+
+    function isAllowlistEnabled() public view returns(bool) {
+        return _allowlistEnabled;
+    }
+
     function getPerfBalancesPerPT() public view returns(uint256 perfBalancePerPT0, uint256 perfBalancePerPT1) {
         
         bytes32 perfBalancesPerPT = _perfBalancesPerPT;

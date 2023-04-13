@@ -24,9 +24,13 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     using SafeguardPoolUserData for bytes;
 
     event Swap(bytes32 digest);
+    event AllowlistJoin(bytes32 digest);
 
     // keccak256("SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,uint256 deadline,bytes swapData)")
     bytes32 public constant SWAP_STRUCT_TYPEHASH = 0x03435028418929234ab5a9f9f0ae6d8ea683c47ca8dc830e6ef5d1a2692ab9b2;
+
+    // keccak256("AllowlistStruct(address sender,uint256 deadline)")
+    bytes32 public constant ALLOWLIST_STRUCT_TYPEHASH = keccak256("AllowlistStruct(address sender,uint256 deadline)");
 
     mapping(bytes32 => bool) internal _usedQuotes;
 
@@ -107,6 +111,28 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         );
 
         emit Swap(digest);
+    }
+
+    function _validateAllowlistSignature(address sender, bytes memory userData) internal returns(bytes memory) {
+        
+        (uint256 deadline, bytes memory signature, bytes memory joinData) = userData.allowlistData();
+
+        bytes32 structHash = keccak256(abi.encode(
+            ALLOWLIST_STRUCT_TYPEHASH,
+            sender,
+            deadline
+        ));
+
+        bytes32 digest = _ensureValidSignatureNoNonce(
+            structHash,
+            signature,
+            deadline,
+            699 // TODO add proper error code
+        );
+
+        emit AllowlistJoin(digest);
+
+        return joinData;
     }
 
     function _ensureValidSignatureNoNonce(

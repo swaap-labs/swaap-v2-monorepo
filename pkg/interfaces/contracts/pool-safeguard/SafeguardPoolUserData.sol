@@ -66,6 +66,11 @@ library SafeguardPoolUserData {
 
     // Joins
 
+    function allowlistData(bytes memory self) internal pure
+    returns (uint256 deadline, bytes memory signature, bytes memory joinData) {
+        (deadline, signature, joinData) = abi.decode(self, (uint256, bytes, bytes));
+    }
+
     function initJoin(bytes memory self) internal pure returns (JoinKind kind, uint256[] memory amountsIn) {
         (kind, amountsIn) = abi.decode(self, (JoinKind, uint256[]));
     }

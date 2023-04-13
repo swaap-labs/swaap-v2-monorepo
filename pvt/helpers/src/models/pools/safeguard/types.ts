@@ -93,6 +93,9 @@ export type InitSafeguardPool = {
   from?: SignerWithAddress;
   recipient?: Account;
   protocolFeePercentage?: BigNumberish;
+  chainId?: number;
+  deadline?: BigNumberish;
+  signer?: SignerWithAddress; 
 };
 
 export type JoinGivenInSafeguardPool = {
@@ -115,6 +118,7 @@ export type JoinGivenInSafeguardPool = {
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
   signer                    : SignerWithAddress;
+  allowlistDeadline?        : BigNumberish;
 };
 
 export type JoinGivenOutWeightedPool = {
@@ -134,6 +138,9 @@ export type JoinAllGivenOutSafeguardPool = {
   lastChangeBlock?: BigNumberish;
   currentBalances?: BigNumberish[];
   protocolFeePercentage?: BigNumberish;
+  chainId?: number;
+  deadline?: BigNumberish;
+  signer?: SignerWithAddress
 };
 
 export type ExitGivenOutSafeguardPool = {
