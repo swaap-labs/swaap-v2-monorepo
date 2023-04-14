@@ -274,6 +274,27 @@ describe('SafeguardPool', function () {
     });
   });
 
+  context('Enable allowlist', () => {
+    it('JoinAllGivenOut', async() => {
+      const action = await actionId(pool.instance, 'setAllowlistBoolean');
+      await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+      await pool.instance.setAllowlistBoolean(true);
+      
+      const bptOut = fp(10);
+      const lpBalanceBefore = await pool.balanceOf(lp.address);
+
+      console.log((await pool.joinAllGivenOut({
+        bptOut: bptOut,
+        from: deployer,
+        recipient: lp,
+        chainId: chainId,
+        signer: signer
+      })).receipt.gasUsed);
+
+      const lpBalanceAfter = await pool.balanceOf(lp.address);
+      expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.add(bptOut));
+  }); 
+  
 //   describe('weights and scaling factors', () => {
 //     for (const numTokens of range(2, MAX_TOKENS + 1)) {
 //       context(`with ${numTokens} tokens`, () => {
