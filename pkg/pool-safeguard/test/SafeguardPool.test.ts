@@ -19,6 +19,7 @@ import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
 import { DAY } from '@balancer-labs/v2-helpers/src/time';
 import '@balancer-labs/v2-common/setupTests'
 import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
+import { SwapSafeguardPool } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types'
 
 let vault: Vault;
 let allTokens: TokenList;
@@ -43,70 +44,66 @@ const chainId = 31337;
 
 describe('SafeguardPool', function () {
 
-  before('setup signers', async () => {
+  before('setup signers and tokens', async () => {
     [deployer, lp, owner, recipient, admin, signer, other, trader] = await ethers.getSigners();
-  });
-
-  sharedBeforeEach('mint tokens', async () => {
     let tokens = await TokenList.create(['DAI', 'MKR'], { sorted: true });
     await tokens.mint({ to: trader, amount: fp(100) });
     await tokens.approve({ to: trader, from: trader });
   });
 
-  describe('join pool', () => {
-    let pool: SafeguardPool;
+  let pool: SafeguardPool;
 
-    const initialBalances = [fp(15), fp(15)];
-    const initPrices = [1, 1];
+  const initialBalances = [fp(15), fp(15)];
+  const initPrices = [1, 1];
 
-    sharedBeforeEach('deploy pool', async () => {
-      vault = await VaultDeployer.deploy({mocked: false});
+  sharedBeforeEach('deploy pool', async () => {
+    vault = await VaultDeployer.deploy({mocked: false});
 
-      allTokens = await TokenList.create(2, { sorted: true, varyDecimals: false });
-    
-      await allTokens.tokens[0].mint(deployer, fp(1000));
-      await allTokens.tokens[1].mint(deployer, fp(1000));
+    allTokens = await TokenList.create(2, { sorted: true, varyDecimals: false });
+  
+    await allTokens.tokens[0].mint(deployer, fp(1000));
+    await allTokens.tokens[1].mint(deployer, fp(1000));
 
-      await allTokens.tokens[0].approve(vault, fp(1000), {from: deployer});
-      await allTokens.tokens[1].approve(vault, fp(1000), {from: deployer});
+    await allTokens.tokens[0].approve(vault, fp(1000), {from: deployer});
+    await allTokens.tokens[1].approve(vault, fp(1000), {from: deployer});
 
-      allOracles = [
-        await OraclesDeployer.deployOracle({
-          description: "low",
-          price: initPrices[0],
-          decimals: 8
-        }),
-        await OraclesDeployer.deployOracle({
-          description: "high",
-          price: initPrices[1],
-          decimals: 8
-        })
-      ];
+    allOracles = [
+      await OraclesDeployer.deployOracle({
+        description: "low",
+        price: initPrices[0],
+        decimals: 8
+      }),
+      await OraclesDeployer.deployOracle({
+        description: "high",
+        price: initPrices[1],
+        decimals: 8
+      })
+    ];
 
-      maxTVLoffset = fp(0.9);
-      maxBalOffset = fp(0.9);
-      perfUpdateInterval = 1 * DAY;
-      maxQuoteOffset = fp(0.9);
-      maxPriceOffet = fp(0.9)
+    maxTVLoffset = fp(0.9);
+    maxBalOffset = fp(0.9);
+    perfUpdateInterval = 1 * DAY;
+    maxQuoteOffset = fp(0.9);
+    maxPriceOffet = fp(0.9)
 
-      let poolConstructor: RawSafeguardPoolDeployment = {
-        tokens: allTokens,
-        vault: vault,
-        oracles: allOracles,
-        signer: signer,
-        maxTVLoffset: maxTVLoffset,
-        maxBalOffset: maxBalOffset,
-        perfUpdateInterval: perfUpdateInterval,
-        maxQuoteOffset: maxQuoteOffset,
-        maxPriceOffet: maxPriceOffet
-      };
+    let poolConstructor: RawSafeguardPoolDeployment = {
+      tokens: allTokens,
+      vault: vault,
+      oracles: allOracles,
+      signer: signer,
+      maxTVLoffset: maxTVLoffset,
+      maxBalOffset: maxBalOffset,
+      perfUpdateInterval: perfUpdateInterval,
+      maxQuoteOffset: maxQuoteOffset,
+      maxPriceOffet: maxPriceOffet
+    };
 
-      pool = await SafeguardPool.create(poolConstructor);
-      await pool.init({ initialBalances, recipient: lp });
+    pool = await SafeguardPool.create(poolConstructor);
+    await pool.init({ initialBalances, recipient: lp });
 
-    });
+  });
 
-    context('Init join exit pool', () => {
+  describe('join/exit pool', () => {
       
       it('Initial balances are correct', async () => {        
         const currentBalances = await pool.getBalances();
@@ -117,6 +114,20 @@ describe('SafeguardPool', function () {
 
       });
       
+      it('JoinAllGivenOut', async() => {        
+        const bptOut = fp(10);
+        const lpBalanceBefore = await pool.balanceOf(lp.address);
+
+        console.log((await pool.joinAllGivenOut({
+          bptOut: bptOut,
+          from: deployer,
+          recipient: lp
+        })).receipt.gasUsed);
+
+        const lpBalanceAfter = await pool.balanceOf(lp.address);
+        expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.add(bptOut));
+      });   
+      
       it('joinExactTokensForBptOut', async() => {        
         const currentBalances = await pool.getBalances();
 
@@ -126,10 +137,8 @@ describe('SafeguardPool', function () {
         await pool.joinGivenIn({
           recipient: lp.address,
           chainId: chainId,
-          sellToken: allTokens.tokens[0].address,
           amountsIn: amountsIn,
-          maxSwapAmountIn: fp(10),
-          variableAmount: fp(10),
+          swapTokenIn: allTokens.tokens[0],
           signer: signer
         });
 
@@ -140,36 +149,128 @@ describe('SafeguardPool', function () {
       });
       
       it('exitBptInForExactTokensOut', async() => {
+        const currentBalances = await pool.getBalances();
+
+        const amountsOut = [fp(1.1), fp(1)];
+        const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.sub(amountsOut[index]));
+
         await pool.exitGivenOut({
           from: lp,
           recipient: lp.address,
           chainId: chainId,
-          sellToken: allTokens.tokens[1].address,
-          amountsOut: [fp(1.1), fp(1)],
-          maxSwapAmountIn: fp(10),
-          variableAmount: fp(10),
+          amountsOut: amountsOut,
+          swapTokenIn: allTokens.tokens[1],
           signer: signer
         });
-      });
-    });
 
-    context('Swap pool', () => {
+        const updatedBalances = await pool.getBalances();
+        
+        expect(updatedBalances[0]).to.be.equal(expectedBalances[0]);
+        expect(updatedBalances[1]).to.be.equal(expectedBalances[1]);
+      });
+
+      it('multiExitGivenIn', async() => {        
+        const bptIn = fp(10);
+        const lpBalanceBefore = await pool.balanceOf(lp.address);
+
+        await pool.multiExitGivenIn({
+          bptIn: bptIn,
+          from: lp,
+          recipient: lp
+        });
+
+        const lpBalanceAfter = await pool.balanceOf(lp.address);
+        expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.sub(bptIn));
+      });   
+    });
+    
+    context('Swaps', () => {
       
-      it('Swap given in', async () => {        
+      it('Swap given in', async () => {
+
         const amountIn = fp(0.5);
-        const amountOut = fp(0.5);
+        const currentBalances = await pool.getBalances();
+        const inIndex = 0;
+        const outIndex = inIndex == 0? 1 : 0;
+
+        const expectedBalanceIn = currentBalances[inIndex].add(amountIn);
+
         await pool.swapGivenIn({
           chainId: chainId,
-          in: 0,
-          out: 1,
+          in: inIndex,
+          out: outIndex,
           amount: amountIn,
-          variableAmount: amountOut,
           signer: signer,
           from: deployer,
           recipient: lp.address
         });
+        
+        const updatedBalances = await pool.getBalances();
+        expect(updatedBalances[inIndex]).to.be.equal(expectedBalanceIn)
+
       });
 
+      it('Swap given out', async () => {
+
+        const amountOut = fp(0.5);
+        const currentBalances = await pool.getBalances();
+        const inIndex = 0;
+        const outIndex = inIndex == 0? 1 : 0;
+
+        const expectedBalanceIn = currentBalances[outIndex].sub(amountOut);
+
+        await pool.swapGivenIn({
+          chainId: chainId,
+          in: inIndex,
+          out: outIndex,
+          amount: amountOut,
+          signer: signer,
+          from: deployer,
+          recipient: lp.address
+        });
+        
+        const updatedBalances = await pool.getBalances();
+        expect(updatedBalances[outIndex]).to.be.equal(expectedBalanceIn)
+
+      });
+    });
+
+    context('Detailed Swap', () => {
+      
+      it('Swap given in', async () => {
+
+        const currentBlock = await ethers.provider.getBlockNumber();
+        const blockTimestamp = (await ethers.provider.getBlock(currentBlock)).timestamp;
+        
+        const currentBalances = await pool.getBalances();
+
+        const inIndex = 0;
+        const outIndex = inIndex == 0? 1 : 0;
+
+        const amountIn = fp(0.5);
+
+        let swapInput: SwapSafeguardPool = {
+          chainId: chainId,
+          in: inIndex,
+          out: outIndex,
+          amount: amountIn,
+          recipient: lp.address,
+          from: deployer,
+          deadline: blockTimestamp + 100000,
+          maxSwapAmount: fp(0.5),
+          quoteAmountInPerOut: await pool.getAmountInPerOut(inIndex),
+          maxBalanceChangeTolerance: fp(0.075),
+          quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
+          quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
+          balanceBasedSlippage: fp(0.0002),
+          startTime: blockTimestamp + 1000,
+          timeBasedSlippage: fp(0.0001),
+          signer: signer
+        }
+
+        const expectedBalanceIn = currentBalances[inIndex].add(amountIn);
+
+        console.log((await pool.swapGivenIn(swapInput)).receipt.gasUsed);
     });
   });
 
