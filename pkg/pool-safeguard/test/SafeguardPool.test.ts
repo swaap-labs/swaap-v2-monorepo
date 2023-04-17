@@ -293,7 +293,8 @@ describe('SafeguardPool', function () {
 
       const lpBalanceAfter = await pool.balanceOf(lp.address);
       expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.add(bptOut));
-  }); 
+    });
+  });
   
 //   describe('weights and scaling factors', () => {
 //     for (const numTokens of range(2, MAX_TOKENS + 1)) {
