@@ -866,14 +866,21 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
         if(elapsedTime >= _CLAIM_FEES_FREQUENCY) {
-            uint256 protocolFees = SafeguardMath.calcAccumulatedManagementFees(
-                elapsedTime,
-                uint256(_yearlyRate),
-                totalSupply()
-            );
-            
-            _payProtocolFees(protocolFees);
             _previousClaimTime = uint32(currentTime);
+
+            uint256 yearlyRate = uint256(_yearlyRate);
+            
+            if(yearlyRate > 0) {
+                
+                uint256 protocolFees = SafeguardMath.calcAccumulatedManagementFees(
+                    elapsedTime,
+                    yearlyRate,
+                    totalSupply()
+                );
+            
+                _payProtocolFees(protocolFees);
+            }
+
         }
     }
 
