@@ -31,6 +31,8 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
 
     // keccak256("AllowlistStruct(address sender,uint256 deadline)")
     bytes32 public constant ALLOWLIST_STRUCT_TYPEHASH = keccak256("AllowlistStruct(address sender,uint256 deadline)");
+    // NB Do not assign a high value (e.g. max(uint256)) or else it will overflow when adding it to the block.timestamp
+    uint256 public constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
 
     mapping(bytes32 => bool) internal _usedQuotes;
 
@@ -113,28 +115,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         emit Swap(digest);
     }
 
-    function _validateAllowlistSignature(address sender, bytes memory userData) internal returns(bytes memory) {
-        
-        (uint256 deadline, bytes memory signature, bytes memory joinData) = userData.allowlistData();
-
-        bytes32 structHash = keccak256(abi.encode(
-            ALLOWLIST_STRUCT_TYPEHASH,
-            sender,
-            deadline
-        ));
-
-        bytes32 digest = _ensureValidSignatureNoNonce(
-            structHash,
-            signature,
-            deadline,
-            699 // TODO add proper error code
-        );
-
-        emit AllowlistJoin(digest);
-
-        return joinData;
-    }
-
     function _ensureValidSignatureNoNonce(
         bytes32 structHash,
         bytes memory signature,
@@ -154,6 +134,49 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         // TODO add proper error code
         _require(!_usedQuotes[digest], 0);
         _usedQuotes[digest] = true;
+        
+        return digest;
+    }
+
+    function _validateAllowlistSignature(address sender, bytes memory userData) internal returns(bytes memory) {
+        
+        (uint256 deadline, bytes memory signature, bytes memory joinData) = userData.allowlistData();
+
+        bytes32 structHash = keccak256(abi.encode(
+            ALLOWLIST_STRUCT_TYPEHASH,
+            sender,
+            deadline
+        ));
+
+        bytes32 digest = _ensureValidReplayableSignature(
+            structHash,
+            signature,
+            deadline,
+            699 // TODO add proper error code
+        );
+
+        emit AllowlistJoin(digest);
+
+        return joinData;
+    }
+
+    function _ensureValidReplayableSignature(
+        bytes32 structHash,
+        bytes memory signature,
+        uint256 deadline,
+        uint256 errorCode
+    ) internal view returns(bytes32) {
+        bytes32 digest = _hashTypedDataV4(structHash);
+        _require(_isValidSignature(signer(), digest, signature), errorCode);
+        
+        // We could check for the deadline before validating the signature, but this leads to saner error processing (as
+        // we only care about expired deadlines if the signature is correct) and only affects the gas cost of the revert
+        // scenario, which will only occur infrequently, if ever.
+        // The deadline is timestamp-based: it should not be relied upon for sub-minute accuracy.
+        // solhint-disable-next-line not-rely-on-time
+        _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
+        // Ensures that a signature is not valid forever //TODO add correct error code
+        _require(deadline <= block.timestamp + MAX_REMAINING_SIGNATURE_VALIDITY, Errors.EXPIRED_SIGNATURE);
         
         return digest;
     }
