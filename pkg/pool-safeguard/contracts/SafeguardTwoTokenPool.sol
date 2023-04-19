@@ -517,7 +517,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             return _exitExactBPTInForTokensOut(balances, totalSupply(), userData);
 
         } else if (kind == SafeguardPoolUserData.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT) {
-
+            
             return _exitBPTInForExactTokensOut(sender, recipient, balances, userData);
 
         } else {

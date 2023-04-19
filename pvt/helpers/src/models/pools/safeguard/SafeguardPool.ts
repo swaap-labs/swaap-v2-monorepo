@@ -301,6 +301,7 @@ export default class SafeguardPool extends BasePool {
     const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const deadline = params.deadline?? MAX_UINT256;
+    const expectedOrigin = params.expectedOrigin?? sender;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(tokenIn);
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
@@ -309,6 +310,7 @@ export default class SafeguardPool extends BasePool {
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
+    const originBasedSlippage = params.originBasedSlippage?? 0;
 
     const data = await SafeguardPoolEncoder.swap(
       params.chainId,
@@ -318,6 +320,7 @@ export default class SafeguardPool extends BasePool {
       sender,
       recipient,
       deadline,
+      expectedOrigin,
       maxSwapAmount,
       quoteAmountInPerOut,
       maxBalanceChangeTolerance,
@@ -326,6 +329,7 @@ export default class SafeguardPool extends BasePool {
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
+      originBasedSlippage,
       params.signer
     )
 
@@ -384,6 +388,7 @@ export default class SafeguardPool extends BasePool {
     const minBptAmountOut = params.minBptAmountOut || 0;
     const amountsIn = Array.isArray(params.amountsIn) ? params.amountsIn : Array(this.tokens.length).fill(params.amountsIn);
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
+    const expectedOrigin = params.expectedOrigin?? sender;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
@@ -392,6 +397,7 @@ export default class SafeguardPool extends BasePool {
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
+    const originBasedSlippage = params.originBasedSlippage?? 0;
     const signer = params.signer;
 
     let userData = await SafeguardPoolEncoder.joinExitSwap(
@@ -404,6 +410,7 @@ export default class SafeguardPool extends BasePool {
       minBptAmountOut,
       amountsIn,
       swapTokenIn,
+      expectedOrigin,
       maxSwapAmount,
       quoteAmountInPerOut,
       maxBalanceChangeTolerance,
@@ -412,6 +419,7 @@ export default class SafeguardPool extends BasePool {
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
+      originBasedSlippage,
       signer
     );
 
@@ -489,6 +497,7 @@ export default class SafeguardPool extends BasePool {
     const maxBptAmountIn = params.maxBptAmountIn || MAX_UINT256;
     const amountsOut = Array.isArray(params.amountsOut) ? params.amountsOut : Array(this.tokens.length).fill(params.amountsOut);
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
+    const expectedOrigin = params.expectedOrigin?? sender;
     const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
@@ -497,6 +506,7 @@ export default class SafeguardPool extends BasePool {
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
+    const originBasedSlippage = params.originBasedSlippage?? 0;
     const signer = params.signer;
 
     return {
@@ -515,6 +525,7 @@ export default class SafeguardPool extends BasePool {
         maxBptAmountIn,
         amountsOut,
         swapTokenIn,
+        expectedOrigin,
         maxSwapAmount,
         quoteAmountInPerOut,
         maxBalanceChangeTolerance,
@@ -523,6 +534,7 @@ export default class SafeguardPool extends BasePool {
         balanceBasedSlippage,
         startTime,
         timeBasedSlippage,
+        originBasedSlippage,
         signer
       ),
     };

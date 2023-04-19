@@ -13,6 +13,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.7.0;
+pragma experimental ABIEncoderV2;
 
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
@@ -36,29 +37,24 @@ library SafeguardMath {
         uint256 balanceTokenIn,
         uint256 balanceTokenOut
     ) internal view returns (uint256, uint256) {
-        (
-            uint256 maxSwapAmount,
-            uint256 quoteAmountInPerOut,
-            uint256 maxBalanceChangeTolerance,
-            uint256 quoteBalanceIn,
-            uint256 quoteBalanceOut,
-            uint256 balanceBasedSlippage,
-            uint256 startTime,
-            uint256 timeBasedSlippage
-        ) = swapData.pricingParameters();
+       (address expectedOrigin, ISafeguardPool.PricingParams memory pricingParams) = swapData.pricingParameters();
 
-        uint256 penalty = getTimeSlippagePenalty(startTime, timeBasedSlippage);
+        uint256 penalty = FixedPoint.ONE;
+        
+        penalty = penalty.add(getTimeSlippagePenalty(pricingParams.startTime, pricingParams.timeBasedSlippage));
         
         penalty = penalty.add(getBalanceSlippagePenalty(
             balanceTokenIn,
             balanceTokenOut,
-            maxBalanceChangeTolerance,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            balanceBasedSlippage
+            pricingParams.balanceChangeTolerance,
+            pricingParams.quoteBalanceIn,
+            pricingParams.quoteBalanceOut,
+            pricingParams.balanceBasedSlippage
         ));
 
-        return (quoteAmountInPerOut.mulUp(FixedPoint.ONE.add(penalty)), maxSwapAmount);
+        penalty = penalty.add(getOriginBasedSlippage(expectedOrigin, pricingParams.originBasedSlippage));
+
+        return (pricingParams.quoteAmountInPerOut.mulUp(penalty), pricingParams.maxSwapAmount);
     }
 
     // penalty = (slippage slope) * (deltaTime)
@@ -80,7 +76,7 @@ library SafeguardMath {
     function getBalanceSlippagePenalty(
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
-        uint256 maxBalanceChangeTolerance,
+        uint256 balanceChangeTolerance,
         uint256 quoteBalanceIn,
         uint256 quoteBalanceOut,
         uint256 balanceBasedSlippage
@@ -94,10 +90,20 @@ library SafeguardMath {
 
         uint256 maxOffset = Math.max(offsetIn, offsetOut);
 
-        require(maxOffset <= maxBalanceChangeTolerance, "error: quote balance no longer valid");
+        require(maxOffset <= balanceChangeTolerance, "error: quote balance no longer valid");
     
         return balanceBasedSlippage.mulUp(maxOffset);
     }
+
+    function getOriginBasedSlippage(address expectedOrigin, uint256 originBasedSlippage) internal view returns(uint256) {
+ 
+        if(expectedOrigin != address(0) && expectedOrigin != tx.origin) {
+            return originBasedSlippage;
+        }
+
+        return 0;
+    }
+
 
     /**********************************************************************************************
     // aE = amountIn in excess                                                                   //

@@ -13,6 +13,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity >=0.7.0 <0.9.0;
+pragma experimental ABIEncoderV2;
 
 import "./ISafeguardPool.sol";
 
@@ -32,35 +33,17 @@ library SafeguardPoolUserData {
     // Swaps
     
     function pricingParameters(bytes memory self) internal pure
-    returns(
-        uint256 maxSwapAmount, // max swap amount in or out for which the quote is valid
-        uint256 quoteAmountInPerOut, // base quote before slippage
-        uint256 balanceChangeTolerance, // maximum balance change tolerance
-        uint256 quoteBalanceIn, // expected on chain balanceIn
-        uint256 quoteBalanceOut, // expected on chain balanceOut
-        uint256 balanceBasedSlippage, // balance change slippage parameter
-        uint256 startTime, // time before applying time based slippage
-        uint256 timeBasedSlippage // elapsed time slippage parameter
-    ) {
-        (
-            maxSwapAmount,
-            quoteAmountInPerOut,
-            balanceChangeTolerance,
-            quoteBalanceIn,
-            quoteBalanceOut,
-            balanceBasedSlippage,
-            startTime,
-            timeBasedSlippage
-        ) = abi.decode(self, (uint256, uint256, uint256, uint256, uint256, uint256, uint256, uint256));
+    returns(address expectedOrigin, ISafeguardPool.PricingParams memory pricingParams) {
+        return abi.decode(self, (address, ISafeguardPool.PricingParams));
     }
 
     function decodeSignedSwapData(bytes calldata self) internal pure 
-    returns(uint256 deadline, bytes memory extraData, bytes memory signature) {
+    returns(bytes memory swapData, bytes memory signature, uint256 deadline) {
         (
-            deadline,
-            extraData,
-            signature
-        ) = abi.decode(self, (uint256, bytes, bytes));
+            swapData,
+            signature,
+            deadline
+        ) = abi.decode(self, (bytes, bytes, uint256));
     }
 
 
@@ -101,9 +84,9 @@ library SafeguardPoolUserData {
         uint256 limitBptAmount,
         uint256[] memory joinExitAmounts,
         IERC20 swapTokenIn,
-        uint256 deadline,
         bytes memory swapData,
-        bytes memory signature
+        bytes memory signature,
+        uint256 deadline
     ) {
         
         (
@@ -111,10 +94,10 @@ library SafeguardPoolUserData {
             limitBptAmount, // minBptAmountOut or maxBptAmountIn
             joinExitAmounts, // join amountsIn or exit amounts Out
             swapTokenIn, // excess token in or limit token in
-            deadline, // swap deadline
             swapData,
-            signature
-        ) = abi.decode(self, (uint8, uint, uint[], IERC20, uint256, bytes, bytes));
+            signature,
+            deadline // swap deadline
+        ) = abi.decode(self, (uint8, uint, uint[], IERC20, bytes, bytes, uint256));
 
     }
 

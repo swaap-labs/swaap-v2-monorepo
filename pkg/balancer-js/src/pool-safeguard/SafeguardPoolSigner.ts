@@ -62,12 +62,12 @@ export async function signSwapData(
     // The named list of all type definitions
     const types = {
       SwapStruct: [
-          { name: 'kind'    , type: 'uint8'   },
-          { name: 'tokenIn' , type: 'address' },
-          { name: 'sender', type: 'address' },
+          { name: 'kind'     , type: 'uint8'   },
+          { name: 'tokenIn'  , type: 'address' },
+          { name: 'sender'   , type: 'address' },
           { name: 'recipient', type: 'address' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'swapData', type: 'bytes'   },
+          { name: 'swapData' , type: 'bytes'   },
+          { name: 'deadline' , type: 'uint256' }
       ]
     };
 
@@ -77,8 +77,8 @@ export async function signSwapData(
         tokenIn: tokenIn,
         sender: sender,
         recipient: recipient,
-        deadline: deadline,
         swapData: swapData,
+        deadline: deadline
     };
 
     const signature = await signer._signTypedData(domain, types, value);

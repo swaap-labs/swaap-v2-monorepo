@@ -68,6 +68,7 @@ export type SwapSafeguardPool = {
   from?                     : SignerWithAddress;
   lastChangeBlock?          : BigNumberish;
   deadline?                 : BigNumberish;
+  expectedOrigin?           : string;
   maxSwapAmount?            : BigNumberish;
   quoteAmountInPerOut?      : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
@@ -76,6 +77,7 @@ export type SwapSafeguardPool = {
   balanceBasedSlippage?     : BigNumberish;
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
+  originBasedSlippage?      : BigNumberish;
   signer                    : SignerWithAddress;
 };
 
@@ -109,14 +111,16 @@ export type JoinGivenInSafeguardPool = {
   minBptAmountOut?          : BigNumberish;
   amountsIn                 : BigNumberish[];
   swapTokenIn               : number | Token;
+  expectedOrigin?           : string;
   maxSwapAmount?            : BigNumberish;
-  quoteAmountInPerOut?       : BigNumberish;
+  quoteAmountInPerOut?      : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
+  originBasedSlippage?      : BigNumberish;
   signer                    : SignerWithAddress;
   allowlistDeadline?        : BigNumberish;
 };
@@ -154,12 +158,14 @@ export type ExitGivenOutSafeguardPool = {
   maxBptAmountIn?           : BigNumberish;
   amountsOut                : BigNumberish[];
   swapTokenIn               : number | Token;
+  expectedOrigin?           : string;
   maxSwapAmount?            : BigNumberish;
-  quoteAmountInPerOut?       : BigNumberish;
+  quoteAmountInPerOut?      : BigNumberish;
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
+  originBasedSlippage?      : BigNumberish;
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
   signer                    : SignerWithAddress;

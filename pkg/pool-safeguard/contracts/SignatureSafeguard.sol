@@ -20,14 +20,16 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 
 abstract contract SignatureSafeguard is EOASignaturesValidator {
-
     using SafeguardPoolUserData for bytes;
 
     event Swap(bytes32 digest);
     event AllowlistJoin(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,uint256 deadline,bytes swapData)")
-    bytes32 public constant SWAP_STRUCT_TYPEHASH = 0x03435028418929234ab5a9f9f0ae6d8ea683c47ca8dc830e6ef5d1a2692ab9b2;
+    // keccak256("SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 deadline)")
+    bytes32 public constant SWAP_STRUCT_TYPEHASH =
+        keccak256(
+            "SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 deadline)"
+        );
 
     // keccak256("AllowlistStruct(address sender,uint256 deadline)")
     bytes32 public constant ALLOWLIST_STRUCT_TYPEHASH = keccak256("AllowlistStruct(address sender,uint256 deadline)");
@@ -37,9 +39,9 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     mapping(bytes32 => bool) internal _usedQuotes;
 
     /**
-    * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
-    * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
-    */
+     * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
+     * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+     */
     function _swapSignatureSafeguard(
         IVault.SwapKind kind,
         IERC20 tokenIn,
@@ -47,38 +49,32 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         address recipient,
         bytes calldata userData
     ) internal returns (bytes memory) {
+        (bytes memory swapData, bytes memory signature, uint256 deadline) = userData.decodeSignedSwapData();
 
-        (
-            uint256 deadline,
-            bytes memory swapData,
-            bytes memory signature
-        ) = userData.decodeSignedSwapData();
-
-        _validateSwapSignature(kind, tokenIn, sender, recipient, deadline, swapData, signature);
+        _validateSwapSignature(kind, tokenIn, sender, recipient, swapData, signature, deadline);
 
         return swapData;
     }
 
     /**
-    * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
-    * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
-    */
+     * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
+     * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+     */
     function _joinExitSwapSignatureSafeguard(
         address sender,
         address recipient,
         bytes memory userData
     ) internal returns (uint256, uint256[] memory, IERC20, bytes memory) {
-
         (
             uint256 limitBptAmountOut, // minBptAmountOut or maxBptAmountIn
             uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
             IERC20 swapTokenIn, // excess token in or limit token in
-            uint256 deadline, // swap deadline
             bytes memory swapData,
-            bytes memory signature
+            bytes memory signature,
+            uint256 deadline // swap deadline
         ) = userData.joinExitSwapData();
-        
-        _validateSwapSignature(IVault.SwapKind.GIVEN_IN, swapTokenIn, sender, recipient, deadline, swapData, signature);
+
+        _validateSwapSignature(IVault.SwapKind.GIVEN_IN, swapTokenIn, sender, recipient, swapData, signature, deadline);
 
         return (limitBptAmountOut, joinExitAmounts, swapTokenIn, swapData);
     }
@@ -88,22 +84,15 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         IERC20 tokenIn,
         address sender,
         address recipient,
-        uint256 deadline,
         bytes memory swapData,
-        bytes memory signature
+        bytes memory signature,
+        uint256 deadline
     ) internal {
-        
         // For a two token pool,we can only include the tokenIn in the signature. For pools that has more than two tokens
         // the tokenOut must be specified to ensure the correctness of the trade.
-        bytes32 structHash = keccak256(abi.encode(
-            SWAP_STRUCT_TYPEHASH,
-            kind,
-            tokenIn,
-            sender,
-            recipient,
-            deadline,
-            keccak256(swapData)
-        ));
+        bytes32 structHash = keccak256(
+            abi.encode(SWAP_STRUCT_TYPEHASH, kind, tokenIn, sender, recipient, keccak256(swapData), deadline)
+        );
 
         bytes32 digest = _ensureValidSignatureNoNonce(
             structHash,
@@ -120,33 +109,28 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes memory signature,
         uint256 deadline,
         uint256 errorCode
-    ) internal returns(bytes32) {
+    ) internal returns (bytes32) {
         bytes32 digest = _hashTypedDataV4(structHash);
         _require(_isValidSignature(signer(), digest, signature), errorCode);
-        
+
         // We could check for the deadline before validating the signature, but this leads to saner error processing (as
         // we only care about expired deadlines if the signature is correct) and only affects the gas cost of the revert
         // scenario, which will only occur infrequently, if ever.
         // The deadline is timestamp-based: it should not be relied upon for sub-minute accuracy.
         // solhint-disable-next-line not-rely-on-time
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
-        
+
         // TODO add proper error code
         _require(!_usedQuotes[digest], 0);
         _usedQuotes[digest] = true;
-        
+
         return digest;
     }
 
-    function _validateAllowlistSignature(address sender, bytes memory userData) internal returns(bytes memory) {
-        
+    function _validateAllowlistSignature(address sender, bytes memory userData) internal returns (bytes memory) {
         (uint256 deadline, bytes memory signature, bytes memory joinData) = userData.allowlistData();
 
-        bytes32 structHash = keccak256(abi.encode(
-            ALLOWLIST_STRUCT_TYPEHASH,
-            sender,
-            deadline
-        ));
+        bytes32 structHash = keccak256(abi.encode(ALLOWLIST_STRUCT_TYPEHASH, sender, deadline));
 
         bytes32 digest = _ensureValidReplayableSignature(
             structHash,
@@ -165,10 +149,10 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         bytes memory signature,
         uint256 deadline,
         uint256 errorCode
-    ) internal view returns(bytes32) {
+    ) internal view returns (bytes32) {
         bytes32 digest = _hashTypedDataV4(structHash);
         _require(_isValidSignature(signer(), digest, signature), errorCode);
-        
+
         // We could check for the deadline before validating the signature, but this leads to saner error processing (as
         // we only care about expired deadlines if the signature is correct) and only affects the gas cost of the revert
         // scenario, which will only occur infrequently, if ever.
@@ -177,10 +161,9 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
         // Ensures that a signature is not valid forever //TODO add correct error code
         _require(deadline <= block.timestamp + MAX_REMAINING_SIGNATURE_VALIDITY, Errors.EXPIRED_SIGNATURE);
-        
+
         return digest;
     }
 
-    function signer() public view virtual returns(address);
-
+    function signer() public view virtual returns (address);
 }

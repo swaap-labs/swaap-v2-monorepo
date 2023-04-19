@@ -69,6 +69,7 @@ export class SafeguardPoolEncoder {
       limitBptAmount: BigNumberish,
       joinExitAmounts: BigNumberish[],
       swapTokenIn: string,
+      expectedOrigin: string,
       maxSwapAmount: BigNumberish,
       quoteAmountInPerOut: BigNumberish,
       maxBalanceChangeTolerance: BigNumberish,
@@ -77,14 +78,22 @@ export class SafeguardPoolEncoder {
       balanceBasedSlippage: BigNumberish,
       startTime: BigNumberish,
       timeBasedSlippage: BigNumberish,
+      originBasedSlippage: BigNumberish,
       signer: SignerWithAddress
     ): Promise<string>
   {
 
-    let swapData: string = defaultAbiCoder.encode(
-      ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-      [maxSwapAmount, quoteAmountInPerOut, maxBalanceChangeTolerance, quoteBalanceIn,
-        quoteBalanceOut, balanceBasedSlippage, startTime, timeBasedSlippage]
+    let swapData: string = this.encodeSwapData(
+      expectedOrigin,
+      maxSwapAmount,
+      quoteAmountInPerOut,
+      maxBalanceChangeTolerance,
+      quoteBalanceIn,
+      quoteBalanceOut,
+      balanceBasedSlippage,
+      startTime,
+      timeBasedSlippage,
+      originBasedSlippage
     );
 
     let signature: string = await signSwapData(
@@ -100,8 +109,8 @@ export class SafeguardPoolEncoder {
     );
 
     let signedJoinExiSwapData: string = defaultAbiCoder.encode(
-      ['uint8', 'uint256', 'uint256[]', 'address', 'uint256', 'bytes', 'bytes'],
-      [joinExitKind, limitBptAmount, joinExitAmounts, swapTokenIn, deadline, swapData, signature]
+      ['uint8', 'uint256', 'uint256[]', 'address', 'bytes', 'bytes', 'uint256'],
+      [joinExitKind, limitBptAmount, joinExitAmounts, swapTokenIn, swapData, signature, deadline]
     );
 
     return signedJoinExiSwapData;
@@ -116,6 +125,7 @@ export class SafeguardPoolEncoder {
     sender: string,
     recipient: string,
     deadline: BigNumberish,
+    expectedOrigin: string,
     maxSwapAmount: BigNumberish,
     quoteAmountInPerOut: BigNumberish,
     maxBalanceChangeTolerance: BigNumberish,
@@ -124,14 +134,22 @@ export class SafeguardPoolEncoder {
     balanceBasedSlippage: BigNumberish,
     startTime: BigNumberish,
     timeBasedSlippage: BigNumberish,
+    originBasedSlippage: BigNumberish,
     signer: SignerWithAddress
   ): Promise<string>
 {
 
-  let swapData: string = defaultAbiCoder.encode(
-    ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-    [maxSwapAmount, quoteAmountInPerOut, maxBalanceChangeTolerance, quoteBalanceIn,
-      quoteBalanceOut, balanceBasedSlippage, startTime, timeBasedSlippage]
+  let swapData: string = this.encodeSwapData(
+    expectedOrigin,
+    maxSwapAmount,
+    quoteAmountInPerOut,
+    maxBalanceChangeTolerance,
+    quoteBalanceIn,
+    quoteBalanceOut,
+    balanceBasedSlippage,
+    startTime,
+    timeBasedSlippage,
+    originBasedSlippage
   );
 
   let signature: string = await signSwapData(
@@ -147,12 +165,56 @@ export class SafeguardPoolEncoder {
   );
 
   const userData = defaultAbiCoder.encode(
-    ['uint256', 'bytes', 'bytes'],
-    [deadline, swapData, signature]
+    ['bytes', 'bytes', 'uint256'],
+    [swapData, signature, deadline]
   );
 
   return userData;
 }
+
+  static encodeSwapData(
+      expectedOrigin: string,
+      maxSwapAmount: BigNumberish,
+      quoteAmountInPerOut: BigNumberish,
+      maxBalanceChangeTolerance: BigNumberish,
+      quoteBalanceIn: BigNumberish,
+      quoteBalanceOut:BigNumberish,
+      balanceBasedSlippage: BigNumberish,
+      startTime: BigNumberish,
+      timeBasedSlippage: BigNumberish,
+      originBasedSlippage: BigNumberish
+    ) {
+    return defaultAbiCoder.encode(
+      [
+        'address',
+        `tuple(
+          uint256 maxSwapAmount,
+          uint256 quoteAmountInPerOut,
+          uint256 maxBalanceChangeTolerance,
+          uint256 quoteBalanceIn,
+          uint256 quoteBalanceOut,
+          uint256 balanceBasedSlippage,
+          uint256 startTime,
+          uint256 timeBasedSlippage,
+          uint256 originBasedSlippage
+        )`
+      ],
+      [
+        expectedOrigin,
+        {
+          maxSwapAmount: maxSwapAmount,
+          quoteAmountInPerOut: quoteAmountInPerOut,
+          maxBalanceChangeTolerance: maxBalanceChangeTolerance,
+          quoteBalanceIn: quoteBalanceIn,
+          quoteBalanceOut: quoteBalanceOut,
+          balanceBasedSlippage: balanceBasedSlippage,
+          startTime: startTime,
+          timeBasedSlippage: timeBasedSlippage,
+          originBasedSlippage: originBasedSlippage
+        }
+      ]
+    );
+  }
 
 
   /**
