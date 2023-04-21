@@ -1,5 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import * as dotenv from "dotenv";
+dotenv.config({ path: __dirname+'/.env' });
 
 // Import the hardhat-gas-reporter plugin at the top of the file
 import 'hardhat-gas-reporter';
@@ -18,6 +20,13 @@ module.exports = {
         }
       },
     ]
+  },
+
+  networks: {
+    polygon: {
+      url: `${process.env.POLYGON_RPC_URL}`,
+      accounts: [`${process.env.PRIVATE_KEY}`]
+    },
   },
 
   // Add the gas reporter configuration
