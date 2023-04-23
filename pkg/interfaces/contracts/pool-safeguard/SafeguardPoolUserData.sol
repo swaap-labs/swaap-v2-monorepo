@@ -94,8 +94,8 @@ library SafeguardPoolUserData {
             limitBptAmount, // minBptAmountOut or maxBptAmountIn
             joinExitAmounts, // join amountsIn or exit amounts Out
             swapTokenIn, // excess token in or limit token in
-            swapData,
-            signature,
+            swapData, // swap pricing data
+            signature, // the signature based on swapData & other quote pricing information
             deadline // swap deadline
         ) = abi.decode(self, (uint8, uint, uint[], IERC20, bytes, bytes, uint256));
 

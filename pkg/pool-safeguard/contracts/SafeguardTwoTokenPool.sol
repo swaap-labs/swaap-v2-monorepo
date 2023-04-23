@@ -36,7 +36,18 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     using SafeguardPoolUserData for bytes;
 
     uint256 private constant _NUM_TOKENS = 2;
+    
     uint256 private constant _INITIAL_BPT = 100 ether;
+
+    // Pool parameters constants
+    uint256 private constant _MAX_PERFORMANCE_DEVIATION = 15e16; // 15%
+    uint256 private constant _MAX_TARGET_DEVIATION = 20e16; // 20%
+    uint256 private constant _MAX_PRICE_DEVIATION = 10e16; // 10%
+    uint256 private constant _MIN_PERFORMANCE_UPDATE_INTERVAL = 1 hours;
+
+    // NB Max yearly fee should fit in a 32 bits slot
+    uint256 private constant _MAX_YEARLY_FEES = 10e16; // corresponds to 10% fees
+    uint256 private constant _MIN_CLAIM_FEES_FREQUENCY = 1 hours;
 
     IERC20 internal immutable _token0;
     IERC20 internal immutable _token1;
@@ -52,6 +63,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     uint256 internal immutable _priceScaleFactor0;
     uint256 internal immutable _priceScaleFactor1;
 
+    // quote signer
     address private _signer;
 
     // Management fees related variables
@@ -61,42 +73,37 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
     // Allowlist enabled
     bool private _allowlistEnabled;
-
-    uint256 private constant _CLAIM_FEES_FREQUENCY = 1 hours;
-    uint256 private constant _MIN_YEARLY_FEES = 0;
-    uint256 private constant _MAX_YEARLY_FEES = 5e16; // corresponds to 5% fees
     
-    // [ max TVL offset | max perf balance offset | max price offset | perf update interval | last perf update ]
-    // [     64 bits    |         64 bits         |      64 bits     |        32 bits       |      32 bits     ]
-    // [ MSB                                                                            LSB ]
+    // [ 1 - max performance dev | 1 - max hodl dev | 1 - max price dev | perf update interval | last perf update ]
+    // [          64 bits        |      64 bits     |      64 bits      |        32 bits       |      32 bits     ]
+    // [ MSB                                                                                                  LSB ]
     bytes32 private _packedPoolParameters;
 
-    // used to determine if the pool is underperforming
-    uint256 private constant _MAX_TVL_OFFSET_BIT_OFFSET = 192;
-    uint256 private constant _MAX_TVL_OFFSET_BIT_LENGTH = 64;
+    // used to determine if the pool is underperforming compared to the last performance update
+    uint256 private constant _MAX_PERF_DEV_BIT_OFFSET = 192;
+    uint256 private constant _MAX_PERF_DEV_BIT_LENGTH = 64;
 
-    // used to determine if the pool is underperforming
-    uint256 private constant _MAX_BAL_OFFSET_BIT_OFFSET = 128;
-    uint256 private constant _MAX_BAL_OFFSET_BIT_LENGTH = 64;
+    // used to determine if the pool balances deviated from the hodl reference
+    uint256 private constant _MAX_TARGET_DEV_BIT_OFFSET = 128;
+    uint256 private constant _MAX_TARGET_DEV_BIT_LENGTH = 64;
 
-    // used to determine if the pool is underperforming
-    uint256 private constant _MAX_PRICE_OFFSET_BIT_OFFSET = 96;
-    uint256 private constant _MAX_PRICE_OFFSET_BIT_LENGTH = 64;
+    // used to determine if the quote's price is too low compared to the oracle's price
+    uint256 private constant _MAX_PRICE_DEV_BIT_OFFSET = 96;
+    uint256 private constant _MAX_PRICE_DEV_BIT_LENGTH = 64;
 
     // used to determine if a performance update is needed before a swap / one-asset-join / one-asset-exit
     uint256 private constant _PERF_UPDATE_INTERVAL_BIT_OFFSET = 32;
     uint256 private constant _PERF_LAST_UPDATE_BIT_OFFSET = 0;
     uint256 private constant _PERF_TIME_BIT_LENGTH = 32;
     
-    // min balance = performance balance * (1-_maxPerformanceOffset)
     // [ min balance 0 per PT | min balance 1 per PT ]
     // [       128 bits       |       128 bits       ]
     // [ MSB                                     LSB ]
-    bytes32 private _perfBalancesPerPT;
+    bytes32 private _hodlBalancesPerPT; // benchmark target reserves based on performance
 
-    uint256 private constant _PERF_BAL_BIT_OFFSET_0 = 128;
-    uint256 private constant _PERF_BAL_BIT_OFFSET_1 = 0;
-    uint256 private constant _PERF_BAL_BIT_LENGTH   = 128;
+    uint256 private constant _HODL_BALANCE_BIT_OFFSET_0 = 128;
+    uint256 private constant _HODL_BALANCE_BIT_OFFSET_1 = 0;
+    uint256 private constant _HODL_BALANCE_BIT_LENGTH   = 128;
 
     event PerformanceUpdateIntervalChanged(uint256 performanceUpdateInterval);
 
@@ -142,11 +149,12 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         _priceScaleFactor1 = ChainlinkUtils.computePriceScalingFactor(oracles[1]);
 
         _setSigner(safeguardParameters.signer);
-        _setMaxTVLoffset(safeguardParameters.maxTVLoffset);
-        _setMaxBalOffset(safeguardParameters.maxBalOffset);
+        _setMaxPerfDevComplement(safeguardParameters.maxPerfDev);
+        _setMaxTargetDevComplement(safeguardParameters.maxTargetDev);
+        _setMaxPriceDevComplement(safeguardParameters.maxPriceDev);
         _setPerfUpdateInterval(safeguardParameters.perfUpdateInterval);
-        _setMaxPriceOffset(safeguardParameters.maxPriceOffet);
-  
+        _setYearlyRate(safeguardParameters.yearlyFees);
+        _setAllowlistBoolean(safeguardParameters.isAllowlistEnabled);
     }
 
     function onSwap(
@@ -298,8 +306,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 quoteAmountInPerOut,
         uint256 onChainAmountInPerOut
     ) internal view {
-        uint256 maxPriceOffset = _getMaxPriceOffset();
-        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= maxPriceOffset, "error: unfair price");
+        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDevCompl(_packedPoolParameters), "error: unfair price");
     }
 
     function _perfBalancesSafeguard(
@@ -314,11 +321,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 totalSupply = totalSupply();
 
         (
-            uint256 maxTVLOffset,
-            uint256 maxBalOffset,
+            uint256 maxPerfDevCompl, // 1 - maxPerDev
+            uint256 maxTargetDevCompl, // 1 - maxTargetDev
             uint256 lastPerfUpdate,
             uint256 perfUpdateInterval
-        ) = _getPerfParameters();
+        ) = _getPerformanceParams(_packedPoolParameters);
 
         // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
@@ -334,26 +341,26 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             }
         }
 
-        uint256 perfBalPerPTIn;
-        uint256 perfBalPerPTOut;
+        uint256 hodlBalancePerPTIn;
+        uint256 hodlBalancePerPTOut;
 
         {        
-            (uint256 perfBalPerPT0, uint256 perfBalPerPT1) = getPerfBalancesPerPT();
+            (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
 
-            (perfBalPerPTIn, perfBalPerPTOut) = tokenIn == _token0?
-                (perfBalPerPT0, perfBalPerPT1) :
-                (perfBalPerPT1, perfBalPerPT0); 
+            (hodlBalancePerPTIn, hodlBalancePerPTOut) = tokenIn == _token0?
+                (hodlBalancePerPT0, hodlBalancePerPT1) :
+                (hodlBalancePerPT1, hodlBalancePerPT0); 
         }
 
         uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
         uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
 
-        require(newBalanceOutPerPT >= perfBalPerPTOut.mulUp(maxBalOffset), "error: min balance out is not met");
+        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= maxTargetDevCompl, "error: min balance out is not met");
 
         uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
-        uint256 oldTVLPerPT = (perfBalPerPTIn.divDown(onChainAmountInPerOut)).add(perfBalPerPTOut);
+        uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
 
-        require(newTVLPerPT >= oldTVLPerPT.mulUp(maxTVLOffset), "error: low tvl");
+        require(newTVLPerPT.divDown(oldTVLPerPT) >= maxPerfDevCompl, "error: low performance");
     }
 
     function _onInitializePool(
@@ -376,7 +383,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         _upscaleArray(amountsIn, scalingFactors);
 
         // set perf balances & set last perf update time to current block.timestamp
-        _setPerfBalancesPerPT(amountsIn[0].divDown(_INITIAL_BPT), amountsIn[1].divDown(_INITIAL_BPT));
+        _setHodlBalancesPerPT(amountsIn[0].divDown(_INITIAL_BPT), amountsIn[1].divDown(_INITIAL_BPT));
 
         return (_INITIAL_BPT, amountsIn);
         
@@ -615,54 +622,77 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         _signer = signer;
     }
 
-    function setPerfUpdateInterval(uint256 performanceUpdateInterval) external authenticate whenNotPaused {
-        _setPerfUpdateInterval(performanceUpdateInterval);
+    function setPerfUpdateInterval(uint256 perfUpdateInterval) external authenticate whenNotPaused {
+        _setPerfUpdateInterval(perfUpdateInterval);
     }
 
-    function _setPerfUpdateInterval(uint256 performanceUpdateInterval) internal {
-        // insertUint checks if the new value exceeds the given bit slot
+    function _setPerfUpdateInterval(uint256 perfUpdateInterval) internal {
+
+        require(perfUpdateInterval >= _MIN_PERFORMANCE_UPDATE_INTERVAL, "error: performance update interval too low");
+
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            performanceUpdateInterval,
+            perfUpdateInterval,
             _PERF_UPDATE_INTERVAL_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
         );
 
-        emit PerformanceUpdateIntervalChanged(performanceUpdateInterval);
+        emit PerformanceUpdateIntervalChanged(perfUpdateInterval);
     }    
     
-    function setMaxTVLoffset(uint256 maxTVLoffset) external authenticate whenNotPaused {
-        _setMaxTVLoffset(maxTVLoffset);
+    /**
+    * @param maxPerfDev the maximum performance deviation tolerance
+    */
+    function setMaxPerfDevComplement(uint256 maxPerfDev) external authenticate whenNotPaused {
+        _setMaxPerfDevComplement(maxPerfDev);
     }
-    
-    function _setMaxTVLoffset(uint256 maxTVLoffset) internal {
+
+    /// @dev for gas optimization purposes we store (1 - max deviation tolerance)
+    function _setMaxPerfDevComplement(uint256 maxPerfDev) internal {
+        
+        require(maxPerfDev <= _MAX_PERFORMANCE_DEVIATION, "error: tolerance too large");
+        
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            maxTVLoffset,
-            _MAX_TVL_OFFSET_BIT_OFFSET,
-            _MAX_TVL_OFFSET_BIT_LENGTH
+            FixedPoint.ONE.sub(maxPerfDev),
+            _MAX_PERF_DEV_BIT_OFFSET,
+            _MAX_PERF_DEV_BIT_LENGTH
         );
     }
-    
-    function setMaxBalOffset(uint256 maxBalOffset) external authenticate whenNotPaused {
-        _setMaxBalOffset(maxBalOffset);
+
+    /**
+    * @param maxTargetDev the maximum deviation tolerance from target reserve (hodl benchmark)
+    */
+    function setMaxTargetDevComplement(uint256 maxTargetDev) external authenticate whenNotPaused {
+        _setMaxTargetDevComplement(maxTargetDev);
     }
     
-    function _setMaxBalOffset(uint256 maxBalOffset) internal {
+    /// @dev for gas optimization purposes we store (1 - max deviation tolerance)
+    function _setMaxTargetDevComplement(uint256 maxTargetDev) internal {
+        
+        require(maxTargetDev <= _MAX_TARGET_DEVIATION, "error: tolerance too large");
+        
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            maxBalOffset,
-            _MAX_BAL_OFFSET_BIT_OFFSET,
-            _MAX_BAL_OFFSET_BIT_LENGTH
+            FixedPoint.ONE - maxTargetDev,
+            _MAX_TARGET_DEV_BIT_OFFSET,
+            _MAX_TARGET_DEV_BIT_LENGTH
         );
     }
-      
-    function setMaxPriceOffset(uint256 maxPriceOffset) external authenticate whenNotPaused {
-        _setMaxPriceOffset(maxPriceOffset);
+
+    /**
+    * @param maxPriceDev the maximum price deviation tolerance
+    */
+    function setMaxPriceDevComplement(uint256 maxPriceDev) external authenticate whenNotPaused {
+        _setMaxPriceDevComplement(maxPriceDev);
     }
-    
-    function _setMaxPriceOffset(uint256 maxPriceOffet) internal {
+
+    /// @dev for gas optimization purposes we store the complement of the tolerance (1 - tolerance)
+    function _setMaxPriceDevComplement(uint256 maxPriceDev) internal {
+
+        require(maxPriceDev <= _MAX_PRICE_DEVIATION, "error: tolerance too large");
+
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            maxPriceOffet,
-            _MAX_PRICE_OFFSET_BIT_OFFSET,
-            _MAX_PRICE_OFFSET_BIT_LENGTH
+            FixedPoint.ONE - maxPriceDev,
+            _MAX_PRICE_DEV_BIT_OFFSET,
+            _MAX_PRICE_DEV_BIT_LENGTH
         );
     }
 
@@ -672,7 +702,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             ,
             uint256 lastPerfUpdate,
             uint256 perfUpdateInterval
-        ) = _getPerfParameters();
+        ) = _getPerformanceParams(_packedPoolParameters);
 
         require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
 
@@ -698,33 +728,33 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         
         uint256 currentTVLPerPT = (balance0.add(balance1.mulDown(amount0Per1))).divDown(totalSupply);
         
-        (uint256 perfBalPerPT0, uint256 perfBalPerPT1) = getPerfBalancesPerPT();
+        (uint256 hodlBalancesPerPT0, uint256 hodlBalancesPerPT1) = getHodlBalancesPerPT();
         
-        uint256 oldTVLPerPT = perfBalPerPT0.add(perfBalPerPT1.mulDown(amount0Per1));
+        uint256 oldTVLPerPT = hodlBalancesPerPT0.add(hodlBalancesPerPT1.mulDown(amount0Per1));
         
-        uint256 ratio = currentTVLPerPT.divDown(oldTVLPerPT);
+        uint256 currentPerformance = currentTVLPerPT.divDown(oldTVLPerPT);
 
-        perfBalPerPT0 = perfBalPerPT0.mulDown(ratio);
-        perfBalPerPT1 = perfBalPerPT1.mulDown(ratio);
+        hodlBalancesPerPT0 = hodlBalancesPerPT0.mulDown(currentPerformance);
+        hodlBalancesPerPT1 = hodlBalancesPerPT1.mulDown(currentPerformance);
 
-        _setPerfBalancesPerPT(perfBalPerPT0, perfBalPerPT1);
+        _setHodlBalancesPerPT(hodlBalancesPerPT0, hodlBalancesPerPT1);
     }
 
-    function _setPerfBalancesPerPT(uint256 perfBalancePerPT0, uint256 perfBalancePerPT1) private {
+    function _setHodlBalancesPerPT(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) private {
         
-        bytes32 perfBalancesPerPT = WordCodec.encodeUint(
-                perfBalancePerPT0,
-                _PERF_BAL_BIT_OFFSET_0,
-                _PERF_BAL_BIT_LENGTH
+        bytes32 hodlBalancesPerPT = WordCodec.encodeUint(
+                hodlBalancePerPT0,
+                _HODL_BALANCE_BIT_OFFSET_0,
+                _HODL_BALANCE_BIT_LENGTH
         );
         
-        perfBalancesPerPT = perfBalancesPerPT.insertUint(
-                perfBalancePerPT1,
-                _PERF_BAL_BIT_OFFSET_1,
-                _PERF_BAL_BIT_LENGTH
+        hodlBalancesPerPT = hodlBalancesPerPT.insertUint(
+                hodlBalancePerPT1,
+                _HODL_BALANCE_BIT_OFFSET_1,
+                _HODL_BALANCE_BIT_LENGTH
         );
 
-        _perfBalancesPerPT = perfBalancesPerPT;
+        _hodlBalancesPerPT = hodlBalancesPerPT;
 
         _packedPoolParameters = _packedPoolParameters.insertUint(
             block.timestamp,
@@ -741,18 +771,23 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         return _allowlistEnabled;
     }
 
-    function getPerfBalancesPerPT() public view returns(uint256 perfBalancePerPT0, uint256 perfBalancePerPT1) {
+    /**
+    * @dev returns the hodl balances based on current performance of the pool
+    * @return hodlBalancePerPT0 the target hodl balance of token 0
+    * @return hodlBalancePerPT1 the target hodl balance of token 1
+    */
+    function getHodlBalancesPerPT() public view returns(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) {
         
-        bytes32 perfBalancesPerPT = _perfBalancesPerPT;
+        bytes32 hodlBalancesPerPT = _hodlBalancesPerPT;
     
-        perfBalancePerPT0 = perfBalancesPerPT.decodeUint(
-                _PERF_BAL_BIT_OFFSET_0,
-                _PERF_BAL_BIT_LENGTH
+        hodlBalancePerPT0 = hodlBalancesPerPT.decodeUint(
+                _HODL_BALANCE_BIT_OFFSET_0,
+                _HODL_BALANCE_BIT_LENGTH
         );
         
-        perfBalancePerPT1 = perfBalancesPerPT.decodeUint(
-                _PERF_BAL_BIT_OFFSET_1,
-                _PERF_BAL_BIT_LENGTH
+        hodlBalancePerPT1 = hodlBalancesPerPT.decodeUint(
+                _HODL_BALANCE_BIT_OFFSET_1,
+                _HODL_BALANCE_BIT_LENGTH
         );
     
     }
@@ -771,71 +806,54 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         return tokenIn == _token0? price1.divDown(price0) : price0.divDown(price1); 
     }
 
+    /// @notice returns the pool parameters
     function getPoolParameters() public view
     returns (
-        uint256 maxTVLOffset,
-        uint256 maxBalOffset,
-        uint256 maxPriceOffset,
+        uint256 maxPerfDevCompl, // 1 - maxPerfDev
+        uint256 maxTargetDevCompl, // 1 - maxTargetDev
+        uint256 maxPriceDevCompl, // 1 - maxPriveDev
         uint256 lastPerfUpdate,
         uint256 perfUpdateInterval
     ) {
 
         bytes32 packedPoolParameters = _packedPoolParameters;
+        
+        (
+            maxPerfDevCompl,
+            maxTargetDevCompl,
+            lastPerfUpdate,
+            perfUpdateInterval
+        ) = _getPerformanceParams(packedPoolParameters);
 
-        maxTVLOffset = packedPoolParameters.decodeUint(
-            _MAX_TVL_OFFSET_BIT_OFFSET,
-            _MAX_TVL_OFFSET_BIT_LENGTH
-        );
+        maxPriceDevCompl = _getMaxPriceDevCompl(packedPoolParameters);
 
-        maxBalOffset = packedPoolParameters.decodeUint(
-            _MAX_BAL_OFFSET_BIT_OFFSET,
-            _MAX_BAL_OFFSET_BIT_LENGTH
-        );
+    }
 
-        maxPriceOffset = packedPoolParameters.decodeUint(
-            _MAX_PRICE_OFFSET_BIT_OFFSET,
-            _MAX_PRICE_OFFSET_BIT_LENGTH
-        );
+    function _getMaxPriceDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxPriceDevCompl) {
 
-        lastPerfUpdate = packedPoolParameters.decodeUint(
-            _PERF_LAST_UPDATE_BIT_OFFSET,
-            _PERF_TIME_BIT_LENGTH
-        );
-
-        perfUpdateInterval = packedPoolParameters.decodeUint(
-            _PERF_UPDATE_INTERVAL_BIT_OFFSET,
-            _PERF_TIME_BIT_LENGTH
+        maxPriceDevCompl = packedPoolParameters.decodeUint(
+            _MAX_PRICE_DEV_BIT_OFFSET,
+            _MAX_PRICE_DEV_BIT_LENGTH
         );
 
     }
 
-    function _getMaxPriceOffset() internal view returns (uint256 maxPriceOffset) {
-
-        maxPriceOffset = _packedPoolParameters.decodeUint(
-            _MAX_PRICE_OFFSET_BIT_OFFSET,
-            _MAX_PRICE_OFFSET_BIT_LENGTH
-        );
-
-    }
-
-    function _getPerfParameters() internal view
+    function _getPerformanceParams(bytes32 packedPoolParameters) internal pure
     returns (
-        uint256 maxTVLOffset,
-        uint256 maxBalOffset,
+        uint256 maxPerfDevCompl, // 1 - maxPerfDev
+        uint256 maxTargetDevCompl, // 1 - maxTargetDevCompl
         uint256 lastPerfUpdate,
         uint256 perfUpdateInterval
     ) {
 
-        bytes32 packedPoolParameters = _packedPoolParameters;
-
-        maxTVLOffset = packedPoolParameters.decodeUint(
-            _MAX_TVL_OFFSET_BIT_OFFSET,
-            _MAX_TVL_OFFSET_BIT_LENGTH
+        maxPerfDevCompl = packedPoolParameters.decodeUint(
+            _MAX_PERF_DEV_BIT_OFFSET,
+            _MAX_PERF_DEV_BIT_LENGTH
         );
 
-        maxBalOffset = packedPoolParameters.decodeUint(
-            _MAX_BAL_OFFSET_BIT_OFFSET,
-            _MAX_BAL_OFFSET_BIT_LENGTH
+        maxTargetDevCompl = packedPoolParameters.decodeUint(
+            _MAX_TARGET_DEV_BIT_OFFSET,
+            _MAX_TARGET_DEV_BIT_LENGTH
         );
 
         lastPerfUpdate = packedPoolParameters.decodeUint(
@@ -894,7 +912,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 currentTime = block.timestamp;
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
-        if(elapsedTime >= _CLAIM_FEES_FREQUENCY) {
+        if(elapsedTime >= _MIN_CLAIM_FEES_FREQUENCY) {
             _previousClaimTime = uint32(currentTime);
 
             uint256 yearlyRate = uint256(_yearlyRate);
@@ -917,12 +935,16 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         _setManagementFees(yearlyFees);
     }
 
-    // TODO see if we update management fees according to the latest protocolSwapFeePercentage
-    function _setManagementFees(uint256 yearlyFees) private {
-        require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
-        
+    // TODO see if we update management fees according to the latest protocolSwapFeePercentage     
+    function _setManagementFees(uint256 yearlyFees) private {               
+        // claim previous manag
         claimManagementFees();
         
+        _setYearlyRate(yearlyFees);
+    }
+
+    function _setYearlyRate(uint256 yearlyFees) private {
+        require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
         _yearlyRate = uint32(SafeguardMath.calcYearlyRate(yearlyFees));
     }
 

@@ -57,7 +57,9 @@ library SafeguardMath {
         return (pricingParams.quoteAmountInPerOut.mulUp(penalty), pricingParams.maxSwapAmount);
     }
 
-    // penalty = (slippage slope) * (deltaTime)
+    /**
+    * @notice slippage based on the lag between quotation and execution time
+    */
     function getTimeSlippagePenalty(
         uint256 startTime,
         uint256 timeBasedSlippage
@@ -72,7 +74,9 @@ library SafeguardMath {
 
     }
 
-    // penalty = (slippage slope) * (deltaQuoteReserves)
+    /**
+    * @notice slippage based on the change of the pool's balance between quotation and execution time
+    */
     function getBalanceSlippagePenalty(
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
@@ -82,20 +86,26 @@ library SafeguardMath {
         uint256 balanceBasedSlippage
     ) internal pure returns (uint256) {
         
-        uint256 offsetIn = balanceTokenIn >= quoteBalanceIn ?
+        uint256 balanceDevIn = balanceTokenIn >= quoteBalanceIn ?
             0 : (quoteBalanceIn - balanceTokenIn).divDown(quoteBalanceIn);
 
-        uint256 offsetOut = balanceTokenOut >= quoteBalanceOut ?
+        uint256 balanceDevOut = balanceTokenOut >= quoteBalanceOut ?
             0 : (quoteBalanceOut - balanceTokenOut).divDown(quoteBalanceOut);
 
-        uint256 maxOffset = Math.max(offsetIn, offsetOut);
+        uint256 maxDeviation = Math.max(balanceDevIn, balanceDevOut);
 
-        require(maxOffset <= balanceChangeTolerance, "error: quote balance no longer valid");
+        require(maxDeviation <= balanceChangeTolerance, "error: quote balance no longer valid");
     
-        return balanceBasedSlippage.mulUp(maxOffset);
+        return balanceBasedSlippage.mulUp(maxDeviation);
     }
 
-    function getOriginBasedSlippage(address expectedOrigin, uint256 originBasedSlippage) internal view returns(uint256) {
+    /**
+    * @notice slippage based on the transaction origin
+    */
+    function getOriginBasedSlippage(
+        address expectedOrigin,
+        uint256 originBasedSlippage
+    ) internal view returns(uint256) {
  
         if(expectedOrigin != address(0) && expectedOrigin != tx.origin) {
             return originBasedSlippage;

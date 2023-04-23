@@ -20,11 +20,13 @@ import "@balancer-labs/v2-interfaces/contracts/solidity-utils/openzeppelin/IERC2
 interface ISafeguardPool {
 
     struct InitialSafeguardParams {
-        address signer;
-        uint256 maxTVLoffset;
-        uint256 maxBalOffset;
-        uint256 perfUpdateInterval;
-        uint256 maxPriceOffet;
+        address signer; // address that signs the quotes
+        uint256 maxPerfDev; // maximum performance deviation
+        uint256 maxTargetDev; // maximum balance deviation from hodl benchmark
+        uint256 maxPriceDev; // maximum price deviation
+        uint256 perfUpdateInterval; // performance update interval
+        uint256 yearlyFees; // management fees in yearly %
+        bool    isAllowlistEnabled; // use allowlist flag
     }
 
     struct PricingParams {
