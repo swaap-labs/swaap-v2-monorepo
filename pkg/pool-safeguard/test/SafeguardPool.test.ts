@@ -33,14 +33,17 @@ let deployer: SignerWithAddress,
   other: SignerWithAddress,
   trader: SignerWithAddress;
 
-const POOL_SWAP_FEE_PERCENTAGE = fp(0.01);
-let maxTVLoffset: BigNumberish;
-let maxBalOffset: BigNumberish;
+let maxPerfDev: BigNumberish;
+let maxTargetDev: BigNumberish;
+let maxPriceDev: BigNumberish;
 let perfUpdateInterval: BigNumberish;
-let maxQuoteOffset: BigNumberish;
-let maxPriceOffet: BigNumberish;
+let yearlyFees: BigNumberish;
+let mustAllowlistLPs: boolean;
 
 const chainId = 31337;
+
+const initialBalances = [fp(15), fp(15)];
+const initPrices = [1, 1];
 
 describe('SafeguardPool', function () {
 
@@ -52,9 +55,6 @@ describe('SafeguardPool', function () {
   });
 
   let pool: SafeguardPool;
-
-  const initialBalances = [fp(15), fp(15)];
-  const initPrices = [1, 1];
 
   sharedBeforeEach('deploy pool', async () => {
     vault = await VaultDeployer.deploy({mocked: false});
@@ -80,22 +80,24 @@ describe('SafeguardPool', function () {
       })
     ];
 
-    maxTVLoffset = fp(0.9);
-    maxBalOffset = fp(0.9);
+    maxPerfDev = fp(0.1);
+    maxTargetDev = fp(0.2);
+    maxPriceDev = fp(0.03);
     perfUpdateInterval = 1 * DAY;
-    maxQuoteOffset = fp(0.9);
-    maxPriceOffet = fp(0.9)
+    yearlyFees = 0;
+    mustAllowlistLPs = false;
 
     let poolConstructor: RawSafeguardPoolDeployment = {
       tokens: allTokens,
       vault: vault,
       oracles: allOracles,
       signer: signer,
-      maxTVLoffset: maxTVLoffset,
-      maxBalOffset: maxBalOffset,
+      maxPerfDev: maxPerfDev,
+      maxTargetDev: maxTargetDev,
+      maxPriceDev: maxPriceDev,
       perfUpdateInterval: perfUpdateInterval,
-      maxQuoteOffset: maxQuoteOffset,
-      maxPriceOffet: maxPriceOffet
+      yearlyFees: yearlyFees,
+      mustAllowlistLPs: mustAllowlistLPs
     };
 
     pool = await SafeguardPool.create(poolConstructor);
