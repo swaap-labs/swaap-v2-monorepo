@@ -49,9 +49,8 @@ const MIN_INVARIANT_RATIO = fp(0.7);
 export default class SafeguardPool extends BasePool {
   oracles: Oracle[];
   assetManagers: string[];
-  swapEnabledOnStart: boolean;
-  mustAllowlistLPs: boolean;
-  poolVersion: string;
+  pauseWindowDuration: BigNumberish;
+  bufferPeriodDuration: BigNumberish;
 
   static async create(params: RawSafeguardPoolDeployment): Promise<SafeguardPool> {
     return SafeguardPoolDeployer.deploy(params);
@@ -64,18 +63,16 @@ export default class SafeguardPool extends BasePool {
     tokens: TokenList,
     oracles: Oracle[],
     assetManagers: string[],
-    swapEnabledOnStart: boolean,
-    mustAllowlistLPs: boolean,
-    poolVersion: string,
+    pauseWindowDuration: BigNumberish,
+    bufferPeriodDuration: BigNumberish,
     owner?: SignerWithAddress
   ) {
     super(instance, poolId, vault, tokens, 0, owner);
 
     this.oracles = oracles;
     this.assetManagers = assetManagers;
-    this.swapEnabledOnStart = swapEnabledOnStart;
-    this.mustAllowlistLPs = mustAllowlistLPs;
-    this.poolVersion = poolVersion;
+    this.pauseWindowDuration = pauseWindowDuration;
+    this.bufferPeriodDuration = bufferPeriodDuration;
   }
 
   async getLastPostJoinExitInvariant(): Promise<BigNumber> {

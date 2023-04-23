@@ -26,10 +26,9 @@ export default {
     const {
       tokens,
       assetManagers,
-      swapEnabledOnStart,
-      mustAllowlistLPs,
-      poolVersion,
-      oracles
+      oracles,
+      pauseWindowDuration,
+      bufferPeriodDuration
     } = deployment;
 
     return new SafeguardPool(
@@ -39,9 +38,8 @@ export default {
       tokens,
       oracles,
       assetManagers,
-      swapEnabledOnStart,
-      mustAllowlistLPs,
-      poolVersion
+      pauseWindowDuration,
+      bufferPeriodDuration
     );
   },
 

@@ -17,21 +17,19 @@ export type RawSafeguardPoolDeployment = {
   pauseWindowDuration?: BigNumberish;
   bufferPeriodDuration?: BigNumberish;
   swapEnabledOnStart?: boolean;
-  mustAllowlistLPs?: boolean;
   owner?: Account;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
   vault?: Vault;
   mockContractName?: string;
   fromFactory?: boolean;
-  factoryVersion?: string;
-  poolVersion?: string;
   signer: SignerWithAddress;
-  maxTVLoffset?: BigNumberish;
-  maxBalOffset?: BigNumberish;
+  maxPerfDev?: BigNumberish;
+  maxTargetDev?: BigNumberish;
+  maxPriceDev?: BigNumberish
   perfUpdateInterval?: BigNumberish;
-  maxQuoteOffset?: BigNumberish;
-  maxPriceOffet?: BigNumberish
+  yearlyFees?: BigNumberish;
+  mustAllowlistLPs?: boolean;
 };
 
 export type SafeguardPoolDeployment = {
@@ -40,9 +38,6 @@ export type SafeguardPoolDeployment = {
   assetManagers: string[];
   pauseWindowDuration: BigNumberish;
   bufferPeriodDuration: BigNumberish;
-  swapEnabledOnStart: boolean;
-  mustAllowlistLPs: boolean;
-  factoryVersion: string;
   owner?: string;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
@@ -51,11 +46,12 @@ export type SafeguardPoolDeployment = {
 
 export type InitialSafeguardParams = {
   signer: SignerWithAddress;
-  maxTVLoffset: BigNumberish;
-  maxBalOffset: BigNumberish;
-  perfUpdateInterval: BigNumberish;
-  maxQuoteOffset: BigNumberish;
-  maxPriceOffet: BigNumberish;
+  maxPerfDev?: BigNumberish;
+  maxTargetDev?: BigNumberish;
+  maxPriceDev?: BigNumberish
+  perfUpdateInterval?: BigNumberish;
+  yearlyFees: BigNumberish;
+  mustAllowlistLPs: boolean;
 };
 
 

@@ -181,14 +181,13 @@ export default {
       pauseWindowDuration,
       bufferPeriodDuration,
       swapEnabledOnStart,
-      mustAllowlistLPs,
-      factoryVersion,
       signer,
-      maxTVLoffset,
-      maxBalOffset,
+      maxPerfDev,
+      maxTargetDev,
+      maxPriceDev,
       perfUpdateInterval,
-      maxQuoteOffset,
-      maxPriceOffet,
+      yearlyFees,
+      mustAllowlistLPs,
     } = params;
     if (!params.owner) params.owner = ZERO_ADDRESS;
     if (!tokens) tokens = new TokenList();
@@ -196,22 +195,20 @@ export default {
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
     if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
     if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
-    if(!maxTVLoffset) maxTVLoffset = fp(1);
-    if(!maxBalOffset) maxBalOffset = fp(1);
+    if(!maxPerfDev) maxPerfDev = fp(0.1);
+    if(!maxTargetDev) maxTargetDev = fp(0.2);
     if(!perfUpdateInterval) perfUpdateInterval = 1 * DAY;
-    if(!maxQuoteOffset) maxQuoteOffset = fp(1);
-    if(!maxPriceOffet) maxPriceOffet = fp(1);
-    if (undefined == swapEnabledOnStart) swapEnabledOnStart = true;
+    if(!yearlyFees) yearlyFees = 0;
     if (undefined == mustAllowlistLPs) mustAllowlistLPs = false;
-    if (undefined == factoryVersion) factoryVersion = 'default factory version';
     
     let safeguardParameters: InitialSafeguardParams = {
       signer: signer,
-      maxTVLoffset: maxTVLoffset,
-      maxBalOffset: maxBalOffset,
+      maxPerfDev: maxPerfDev,
+      maxTargetDev: maxTargetDev,
       perfUpdateInterval: perfUpdateInterval,
-      maxQuoteOffset: maxQuoteOffset,
-      maxPriceOffet: maxPriceOffet
+      maxPriceDev: maxPriceDev,
+      yearlyFees: yearlyFees,
+      mustAllowlistLPs: mustAllowlistLPs
     };
 
     return {
@@ -219,13 +216,10 @@ export default {
       assetManagers: assetManagers,
       pauseWindowDuration: pauseWindowDuration,
       bufferPeriodDuration: bufferPeriodDuration,
-      swapEnabledOnStart: swapEnabledOnStart,
-      mustAllowlistLPs: mustAllowlistLPs,
       owner: this.toAddress(params.owner),
       from: params.from,
-      factoryVersion: factoryVersion,
       oracles: oracles,
-      safeguardParameters: safeguardParameters      
+      safeguardParameters: safeguardParameters
    };
   },
 
