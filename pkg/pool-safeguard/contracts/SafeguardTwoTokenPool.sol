@@ -284,11 +284,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             require(amountOut <= maxSwapAmount, "error: exceeded swap amount out");
         }
 
+        
+        bytes32 packedPoolParameters = _packedPoolParameters;
         uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(tokenIn);
 
         _fairPricingSafeguard(
             quoteAmountInPerOut,
-            onChainAmountInPerOut
+            onChainAmountInPerOut,
+            packedPoolParameters
         );
 
         _perfBalancesSafeguard(
@@ -297,16 +300,18 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             balanceTokenOut,
             balanceTokenIn.add(amountIn),
             balanceTokenOut.sub(amountOut),
-            onChainAmountInPerOut
+            onChainAmountInPerOut,
+            packedPoolParameters
         );
 
     }
 
     function _fairPricingSafeguard(
         uint256 quoteAmountInPerOut,
-        uint256 onChainAmountInPerOut
-    ) internal view {
-        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDevCompl(_packedPoolParameters), "error: unfair price");
+        uint256 onChainAmountInPerOut,
+        bytes32 packedPoolParameters
+    ) internal pure {
+        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDevCompl(packedPoolParameters), "error: unfair price");
     }
 
     function _perfBalancesSafeguard(
@@ -315,17 +320,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 currentBalanceOut,
         uint256 newBalanceIn,
         uint256 newBalanceOut,
-        uint256 onChainAmountInPerOut
+        uint256 onChainAmountInPerOut,
+        bytes32 packedPoolParameters
     ) internal {
 
         uint256 totalSupply = totalSupply();
 
-        (
-            uint256 maxPerfDevCompl, // 1 - maxPerDev
-            uint256 maxTargetDevCompl, // 1 - maxTargetDev
-            uint256 lastPerfUpdate,
-            uint256 perfUpdateInterval
-        ) = _getPerformanceParams(_packedPoolParameters);
+        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
 
         // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
@@ -355,12 +356,12 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
         uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
 
-        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= maxTargetDevCompl, "error: min balance out is not met");
+        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= _getMaxTargetDevCompl(packedPoolParameters), "error: min balance out is not met");
 
         uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
         uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
 
-        require(newTVLPerPT.divDown(oldTVLPerPT) >= maxPerfDevCompl, "error: low performance");
+        require(newTVLPerPT.divDown(oldTVLPerPT) >= _getMaxPerfDevCompl(packedPoolParameters), "error: low performance");
     }
 
     function _onInitializePool(
@@ -697,13 +698,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function updatePerformance() external nonReentrant {
-        (   
-            ,
-            ,
-            uint256 lastPerfUpdate,
-            uint256 perfUpdateInterval
-        ) = _getPerformanceParams(_packedPoolParameters);
 
+        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(_packedPoolParameters);
+        
         require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
 
         (
@@ -818,15 +815,28 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         bytes32 packedPoolParameters = _packedPoolParameters;
         
-        (
-            maxPerfDevCompl,
-            maxTargetDevCompl,
-            lastPerfUpdate,
-            perfUpdateInterval
-        ) = _getPerformanceParams(packedPoolParameters);
+        maxPerfDevCompl = _getMaxPerfDevCompl(packedPoolParameters);
 
+        maxTargetDevCompl = _getMaxTargetDevCompl(packedPoolParameters);
+        
         maxPriceDevCompl = _getMaxPriceDevCompl(packedPoolParameters);
+        
+        (lastPerfUpdate, perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
 
+    }
+
+    function _getMaxPerfDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxPerfDevCompl) {
+        maxPerfDevCompl = packedPoolParameters.decodeUint(
+            _MAX_PERF_DEV_BIT_OFFSET,
+            _MAX_PERF_DEV_BIT_LENGTH
+        );
+    }
+
+    function _getMaxTargetDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxTargetDevCompl) {
+        maxTargetDevCompl = packedPoolParameters.decodeUint(
+            _MAX_TARGET_DEV_BIT_OFFSET,
+            _MAX_TARGET_DEV_BIT_LENGTH
+        );
     }
 
     function _getMaxPriceDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxPriceDevCompl) {
@@ -838,24 +848,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
     }
 
-    function _getPerformanceParams(bytes32 packedPoolParameters) internal pure
-    returns (
-        uint256 maxPerfDevCompl, // 1 - maxPerfDev
-        uint256 maxTargetDevCompl, // 1 - maxTargetDevCompl
-        uint256 lastPerfUpdate,
-        uint256 perfUpdateInterval
-    ) {
-
-        maxPerfDevCompl = packedPoolParameters.decodeUint(
-            _MAX_PERF_DEV_BIT_OFFSET,
-            _MAX_PERF_DEV_BIT_LENGTH
-        );
-
-        maxTargetDevCompl = packedPoolParameters.decodeUint(
-            _MAX_TARGET_DEV_BIT_OFFSET,
-            _MAX_TARGET_DEV_BIT_LENGTH
-        );
-
+    function _getPerformanceTimeParams(bytes32 packedPoolParameters) internal pure
+    returns(uint256 lastPerfUpdate, uint256 perfUpdateInterval) {
+        
         lastPerfUpdate = packedPoolParameters.decodeUint(
             _PERF_LAST_UPDATE_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
@@ -865,7 +860,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             _PERF_UPDATE_INTERVAL_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
         );
-
     }
 
     function signer() public view override returns(address signerAddress){
