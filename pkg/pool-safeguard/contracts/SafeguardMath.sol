@@ -107,7 +107,7 @@ library SafeguardMath {
         uint256 originBasedSlippage
     ) internal view returns(uint256) {
  
-        if(expectedOrigin != address(0) && expectedOrigin != tx.origin) {
+        if(expectedOrigin != tx.origin) {
             return originBasedSlippage;
         }
 
