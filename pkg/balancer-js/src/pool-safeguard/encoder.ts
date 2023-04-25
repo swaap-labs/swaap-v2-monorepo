@@ -1,9 +1,11 @@
 import { defaultAbiCoder } from '@ethersproject/abi';
-import { BigNumberish } from '@ethersproject/bignumber';
+import { BigNumberish, BigNumber } from '@ethersproject/bignumber';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
-import { stringify } from 'querystring';
 import { signSwapData, signAllowlist } from './SafeguardPoolSigner';
 import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } from './kinds';
+import { MaxUint256 } from '@ethersproject/constants';
+
+const MaxUint128 = BigNumber.from("0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff")
 
 export class SafeguardPoolEncoder {
   /**
@@ -130,14 +132,14 @@ export class SafeguardPoolEncoder {
     expectedOrigin: string,
     maxSwapAmount: BigNumberish,
     quoteAmountInPerOut: BigNumberish,
-    maxBalanceChangeTolerance: BigNumberish,
+    maxBalanceChangeTolerance: BigNumberish,  //  60 bits
     quoteBalanceIn: BigNumberish,
     quoteBalanceOut:BigNumberish,
     balanceBasedSlippage: BigNumberish,
     startTime: BigNumberish,
     timeBasedSlippage: BigNumberish,
     originBasedSlippage: BigNumberish,
-    quoteIndex: BigNumberish,
+    quoteIndex: BigNumberish,                 
     signer: SignerWithAddress
   ): Promise<string>
 {
@@ -188,38 +190,49 @@ export class SafeguardPoolEncoder {
       timeBasedSlippage: BigNumberish,
       originBasedSlippage: BigNumberish
     ) {
+
+    const priceBasedParams = this.packIn256Bits(quoteAmountInPerOut, this.fitIn128bits(maxSwapAmount))
+    const quoteBalances = this.packIn256Bits(quoteBalanceIn, quoteBalanceOut)
+    const balanceBasedParams = this.packIn256Bits(this.fitIn128bits(maxBalanceChangeTolerance), balanceBasedSlippage)
+    const timeBasedParams = this.packIn256Bits(this.fitIn128bits(startTime), timeBasedSlippage)
+
     return defaultAbiCoder.encode(
+      ['address','uint256','uint256','uint256','uint256','uint256'],
       [
-        'address',
-        `tuple(
-          uint256 maxSwapAmount,
-          uint256 quoteAmountInPerOut,
-          uint256 maxBalanceChangeTolerance,
-          uint256 quoteBalanceIn,
-          uint256 quoteBalanceOut,
-          uint256 balanceBasedSlippage,
-          uint256 startTime,
-          uint256 timeBasedSlippage,
-          uint256 originBasedSlippage
-        )`
-      ],
-      [
-        expectedOrigin,
-        {
-          maxSwapAmount: maxSwapAmount,
-          quoteAmountInPerOut: quoteAmountInPerOut,
-          maxBalanceChangeTolerance: maxBalanceChangeTolerance,
-          quoteBalanceIn: quoteBalanceIn,
-          quoteBalanceOut: quoteBalanceOut,
-          balanceBasedSlippage: balanceBasedSlippage,
-          startTime: startTime,
-          timeBasedSlippage: timeBasedSlippage,
-          originBasedSlippage: originBasedSlippage
-        }
+        expectedOrigin, // expected origin
+        priceBasedParams, // relative price + maxSwapAmount
+        quoteBalances, // quote balanceIn + Out
+        balanceBasedParams, // maxBalanceTolerance + balance slope
+        timeBasedParams, // startTime + time slope
+        originBasedSlippage // origin slope
       ]
     );
   }
 
+  static fitIn128bits(a: BigNumberish): BigNumberish {
+    if(BigNumber.from(a).eq(MaxUint256)) {
+      return MaxUint128;
+    }
+    return a;
+  }
+
+  /**
+   * Packs two numbers into 256 bits
+   */
+  static packIn256Bits(a: BigNumberish, b: BigNumberish): BigNumberish {
+    let aBN = BigNumber.from(a);
+    let bBN = BigNumber.from(b);
+
+    if(aBN.gt(MaxUint128)) {
+      throw "Input 'a' too big"
+    }
+
+    if(bBN.gt(MaxUint128)) {
+      throw "Input 'b' too big"
+    }
+  
+    return ((aBN.shl(128)).or(bBN));
+  }
 
   /**
    * Encodes the userData parameter for exiting a WeightedPool by removing a single token in return for an exact amount of BPT

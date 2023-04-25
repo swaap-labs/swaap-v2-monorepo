@@ -15,7 +15,6 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/LogExpMath.sol";
@@ -23,48 +22,19 @@ import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeCast.sol";
 
 library SafeguardMath {
 
-    using SafeguardPoolUserData for bytes;
     using FixedPoint for uint256;
     using SafeCast for uint256;
 
     uint256 private constant _ONE_YEAR = 365 days;
 
     /**
-    * @dev amountInPerOut = baseAmountInPerOut * (1 + slippagePenalty)
-    */
-    function getQuoteAmountInPerOut(
-        bytes memory swapData,
-        uint256 balanceTokenIn,
-        uint256 balanceTokenOut
-    ) internal view returns (uint256, uint256) {
-       (address expectedOrigin, ISafeguardPool.PricingParams memory pricingParams) = swapData.pricingParameters();
-
-        uint256 penalty = FixedPoint.ONE;
-        
-        penalty = penalty.add(getTimeSlippagePenalty(pricingParams.startTime, pricingParams.timeBasedSlippage));
-        
-        penalty = penalty.add(getBalanceSlippagePenalty(
-            balanceTokenIn,
-            balanceTokenOut,
-            pricingParams.balanceChangeTolerance,
-            pricingParams.quoteBalanceIn,
-            pricingParams.quoteBalanceOut,
-            pricingParams.balanceBasedSlippage
-        ));
-
-        penalty = penalty.add(getOriginBasedSlippage(expectedOrigin, pricingParams.originBasedSlippage));
-
-        return (pricingParams.quoteAmountInPerOut.mulUp(penalty), pricingParams.maxSwapAmount);
-    }
-
-    /**
     * @notice slippage based on the lag between quotation and execution time
     */
-    function getTimeSlippagePenalty(
+    function calcTimeSlippagePenalty(
+        uint256 currentTimestamp,
         uint256 startTime,
         uint256 timeBasedSlippage
-    ) internal view returns(uint256) {
-        uint256 currentTimestamp = block.timestamp;
+    ) internal pure returns(uint256) {
 
         if(currentTimestamp <= startTime) {
             return 0;
@@ -77,7 +47,7 @@ library SafeguardMath {
     /**
     * @notice slippage based on the change of the pool's balance between quotation and execution time
     */
-    function getBalanceSlippagePenalty(
+    function calcBalanceBasedPenalty(
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 balanceChangeTolerance,
@@ -102,7 +72,7 @@ library SafeguardMath {
     /**
     * @notice slippage based on the transaction origin
     */
-    function getOriginBasedSlippage(
+    function calcOriginBasedSlippage(
         address expectedOrigin,
         uint256 originBasedSlippage
     ) internal view returns(uint256) {

@@ -33,6 +33,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     using FixedPoint for uint256;
     using WordCodec for bytes32;
     using BasePoolUserData for bytes;
+    using SafeguardPoolUserData for bytes32;
     using SafeguardPoolUserData for bytes;
 
     uint256 private constant _NUM_TOKENS = 2;
@@ -182,7 +183,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (
             uint256 quoteAmountInPerOut,
             uint256 maxSwapAmount
-        ) = SafeguardMath.getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
+        ) = _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
 
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
             return _onSwapGivenIn(
@@ -208,6 +209,62 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             scalingFactorTokenOut
         );
 
+    }
+
+    /// @dev amountInPerOut = baseAmountInPerOut * (1 + slippagePenalty)
+    function _getQuoteAmountInPerOut(
+        bytes memory swapData,
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut
+    ) internal view returns (uint256, uint256) {
+        
+        (
+            address expectedOrigin,
+            bytes32 priceBasedParams,
+            bytes32 quoteBalances,
+            bytes32 balanceBasedParams,
+            bytes32 timeBasedParams,
+            uint256 originBasedSlippage
+        ) = swapData.pricingParameters();
+        
+        uint256 penalty = _getBalanceBasedPenalty(balanceTokenIn, balanceTokenOut, quoteBalances, balanceBasedParams);
+        
+        penalty = penalty.add(_getTimeBasedPenalty(timeBasedParams));
+
+        penalty = penalty.add(SafeguardMath.calcOriginBasedSlippage(expectedOrigin, originBasedSlippage));
+
+        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = priceBasedParams.unpackPairedUints();
+
+        penalty = penalty.add(FixedPoint.ONE);
+
+        return (quoteAmountInPerOut.mulUp(penalty), maxSwapAmount);
+    }
+
+    function _getBalanceBasedPenalty(
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        bytes32 quoteBalances,
+        bytes32 balanceBasedParams
+    ) internal pure returns(uint256) 
+    {
+        (uint256 quoteBalanceIn, uint256 quoteBalanceOut) = quoteBalances.unpackPairedUints();
+
+        (uint256 balanceChangeTolerance, uint256 balanceBasedSlippage) 
+            = balanceBasedParams.unpackPairedUints();
+
+        return SafeguardMath.calcBalanceBasedPenalty(
+            balanceTokenIn,
+            balanceTokenOut,
+            balanceChangeTolerance,
+            quoteBalanceIn,
+            quoteBalanceOut,
+            balanceBasedSlippage
+        );
+    }
+
+    function _getTimeBasedPenalty(bytes32 timeBasedParams) internal view returns(uint256) {
+        (uint256 startTime, uint256 timeBasedSlippage) = timeBasedParams.unpackPairedUints();
+        return SafeguardMath.calcTimeSlippagePenalty(block.timestamp, startTime, timeBasedSlippage);
     }
 
     function _onSwapGivenIn(
@@ -460,7 +517,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (
             uint256 quoteAmountInPerOut,
             uint256 maxSwapAmountIn
-        ) = SafeguardMath.getQuoteAmountInPerOut(swapData, excessTokenBalance, limitTokenBalance);
+        ) = _getQuoteAmountInPerOut(swapData, excessTokenBalance, limitTokenBalance);
 
         (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = swapTokenIn == _token0?
             (joinAmounts[0], joinAmounts[1]) : (joinAmounts[1], joinAmounts[0]);
@@ -566,7 +623,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (
             uint256 quoteAmountInPerOut,
             uint256 maxSwapAmountIn
-        ) = SafeguardMath.getQuoteAmountInPerOut(swapData, limitTokenBalance, excessTokenBalance);
+        ) = _getQuoteAmountInPerOut(swapData, limitTokenBalance, excessTokenBalance);
 
         (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = swapTokenIn == _token0?
             (exitAmounts[1], exitAmounts[0]) : (exitAmounts[0], exitAmounts[1]);

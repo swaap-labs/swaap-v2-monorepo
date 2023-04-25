@@ -29,16 +29,4 @@ interface ISafeguardPool {
         bool    isAllowlistEnabled; // use allowlist flag
     }
 
-    struct PricingParams {
-        uint256 maxSwapAmount; // max swap amount in or out for which the quote is valid
-        uint256 quoteAmountInPerOut; // base quote before slippage
-        uint256 balanceChangeTolerance; // maximum balance change tolerance
-        uint256 quoteBalanceIn; // expected on chain balanceIn
-        uint256 quoteBalanceOut; // expected on chain balanceOut
-        uint256 balanceBasedSlippage; // balance change slippage parameter
-        uint256 startTime; // time before applying time based slippage
-        uint256 timeBasedSlippage; // elapsed time slippage parameter
-        uint256 originBasedSlippage; // slippage based on different tx.origin
-    }
-
 }

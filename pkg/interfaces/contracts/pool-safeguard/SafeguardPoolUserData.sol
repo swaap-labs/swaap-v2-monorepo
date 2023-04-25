@@ -22,6 +22,9 @@ library SafeguardPoolUserData {
     enum JoinKind { INIT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, EXACT_TOKENS_IN_FOR_BPT_OUT }
     enum ExitKind { EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT }
 
+    uint256 private constant _MASK_128_BITS = 0x000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF;
+    uint256 private constant _OFFSET_128_BITS = 128;
+
     function joinKind(bytes memory self) internal pure returns (JoinKind) {
         return abi.decode(self, (JoinKind));
     }
@@ -33,8 +36,15 @@ library SafeguardPoolUserData {
     // Swaps
     
     function pricingParameters(bytes memory self) internal pure
-    returns(address expectedOrigin, ISafeguardPool.PricingParams memory pricingParams) {
-        return abi.decode(self, (address, ISafeguardPool.PricingParams));
+    returns(
+        address expectedOrigin,
+        bytes32 priceBasedParams,
+        bytes32 quoteBalances,
+        bytes32 balanceBasedParams,
+        bytes32 timeBasedParams,
+        uint256 originBasedSlippage
+    ) {
+        return abi.decode(self, (address, bytes32, bytes32, bytes32, bytes32, uint256));
     }
 
     function decodeSignedSwapData(bytes calldata self) internal pure 
@@ -47,6 +57,12 @@ library SafeguardPoolUserData {
         ) = abi.decode(self, (bytes, bytes, uint256, uint256));
     }
 
+    function unpackPairedUints(bytes32 packedUint) internal pure returns(uint256 a, uint256 b) {
+        assembly{
+            a := shr(_OFFSET_128_BITS, packedUint)
+            b := and(_MASK_128_BITS, packedUint)
+        }
+    }
 
     // Joins
 
