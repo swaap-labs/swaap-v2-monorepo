@@ -51,6 +51,7 @@ export default class SafeguardPool extends BasePool {
   assetManagers: string[];
   pauseWindowDuration: BigNumberish;
   bufferPeriodDuration: BigNumberish;
+  quoteIndex: BigNumber = fp(0);
 
   static async create(params: RawSafeguardPoolDeployment): Promise<SafeguardPool> {
     return SafeguardPoolDeployer.deploy(params);
@@ -308,6 +309,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
+    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
 
     const data = await SafeguardPoolEncoder.swap(
       params.chainId,
@@ -327,6 +329,7 @@ export default class SafeguardPool extends BasePool {
       startTime,
       timeBasedSlippage,
       originBasedSlippage,
+      quoteIndex,
       params.signer
     )
 
@@ -395,6 +398,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
+    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
     const signer = params.signer;
 
     let userData = await SafeguardPoolEncoder.joinExitSwap(
@@ -417,6 +421,7 @@ export default class SafeguardPool extends BasePool {
       startTime,
       timeBasedSlippage,
       originBasedSlippage,
+      quoteIndex,
       signer
     );
 
@@ -504,6 +509,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
+    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
     const signer = params.signer;
 
     return {
@@ -532,9 +538,16 @@ export default class SafeguardPool extends BasePool {
         startTime,
         timeBasedSlippage,
         originBasedSlippage,
+        quoteIndex,
         signer
       ),
     };
+  }
+
+  private _newQuoteIndex(): BigNumberish {
+    const currentIndex = this.quoteIndex;
+    this.quoteIndex = this.quoteIndex.add(1);
+    return currentIndex;
   }
 
   private _buildSingleExitGivenInParams(params: SingleExitGivenInSafeguardPool): JoinExitSafeguardPool {

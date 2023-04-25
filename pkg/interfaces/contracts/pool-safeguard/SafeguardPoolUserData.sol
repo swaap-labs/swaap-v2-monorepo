@@ -38,12 +38,13 @@ library SafeguardPoolUserData {
     }
 
     function decodeSignedSwapData(bytes calldata self) internal pure 
-    returns(bytes memory swapData, bytes memory signature, uint256 deadline) {
+    returns(bytes memory swapData, bytes memory signature, uint256 quoteIndex, uint256 deadline) {
         (
             swapData,
             signature,
+            quoteIndex,
             deadline
-        ) = abi.decode(self, (bytes, bytes, uint256));
+        ) = abi.decode(self, (bytes, bytes, uint256, uint256));
     }
 
 
@@ -79,25 +80,37 @@ library SafeguardPoolUserData {
     }
 
     // Join/Exit + Swap
-    function joinExitSwapData(bytes memory self) internal pure 
+    function exactJoinExitSwapData(bytes memory self) internal pure 
     returns (
-        uint256 limitBptAmount,
-        uint256[] memory joinExitAmounts,
         IERC20 swapTokenIn,
         bytes memory swapData,
         bytes memory signature,
+        uint256 quoteIndex,
         uint256 deadline
     ) {
         
         (
             , // corresponds to join or exit kind
-            limitBptAmount, // minBptAmountOut or maxBptAmountIn
-            joinExitAmounts, // join amountsIn or exit amounts Out
+            , // minBptAmountOut or maxBptAmountIn
+            , // join amountsIn or exit amounts Out
             swapTokenIn, // excess token in or limit token in
             swapData, // swap pricing data
             signature, // the signature based on swapData & other quote pricing information
+            quoteIndex, // the index of the quote
             deadline // swap deadline
-        ) = abi.decode(self, (uint8, uint, uint[], IERC20, bytes, bytes, uint256));
+        ) = abi.decode(self, (uint8, uint, uint[], IERC20, bytes, bytes, uint256, uint256));
+
+    }
+
+    // Join/Exit + Swap
+    function exactJoinExitAmountsData(bytes memory self) internal pure 
+    returns (uint256 limitBptAmount, uint256[] memory joinExitAmounts) {
+        
+        (
+            , // corresponds to join or exit kind
+            limitBptAmount, // minBptAmountOut or maxBptAmountIn
+            joinExitAmounts // join amountsIn or exit amounts Out
+        ) = abi.decode(self, (uint8, uint, uint[]));
 
     }
 

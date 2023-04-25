@@ -74,6 +74,7 @@ export type SwapSafeguardPool = {
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
   originBasedSlippage?      : BigNumberish;
+  quoteIndex?               : BigNumberish;
   signer                    : SignerWithAddress;
 };
 
@@ -117,6 +118,7 @@ export type JoinGivenInSafeguardPool = {
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
   originBasedSlippage?      : BigNumberish;
+  quoteIndex?               : BigNumberish;
   signer                    : SignerWithAddress;
   allowlistDeadline?        : BigNumberish;
 };
@@ -164,6 +166,7 @@ export type ExitGivenOutSafeguardPool = {
   originBasedSlippage?      : BigNumberish;
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
+  quoteIndex?               : BigNumberish;
   signer                    : SignerWithAddress;
 };
 

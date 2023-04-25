@@ -79,6 +79,7 @@ export class SafeguardPoolEncoder {
       startTime: BigNumberish,
       timeBasedSlippage: BigNumberish,
       originBasedSlippage: BigNumberish,
+      quoteIndex: BigNumberish,
       signer: SignerWithAddress
     ): Promise<string>
   {
@@ -103,14 +104,15 @@ export class SafeguardPoolEncoder {
       swapTokenIn,
       sender,
       recipient,
+      swapData,
+      quoteIndex,
       deadline,
-      swapData,   
       signer
     );
 
     let signedJoinExiSwapData: string = defaultAbiCoder.encode(
-      ['uint8', 'uint256', 'uint256[]', 'address', 'bytes', 'bytes', 'uint256'],
-      [joinExitKind, limitBptAmount, joinExitAmounts, swapTokenIn, swapData, signature, deadline]
+      ['uint8', 'uint256', 'uint256[]', 'address', 'bytes', 'bytes', 'uint256', 'uint256'],
+      [joinExitKind, limitBptAmount, joinExitAmounts, swapTokenIn, swapData, signature, quoteIndex, deadline]
     );
 
     return signedJoinExiSwapData;
@@ -135,6 +137,7 @@ export class SafeguardPoolEncoder {
     startTime: BigNumberish,
     timeBasedSlippage: BigNumberish,
     originBasedSlippage: BigNumberish,
+    quoteIndex: BigNumberish,
     signer: SignerWithAddress
   ): Promise<string>
 {
@@ -159,14 +162,15 @@ export class SafeguardPoolEncoder {
     tokenIn,
     sender,
     recipient,
+    swapData,
+    quoteIndex,
     deadline,
-    swapData,   
     signer
   );
 
   const userData = defaultAbiCoder.encode(
-    ['bytes', 'bytes', 'uint256'],
-    [swapData, signature, deadline]
+    ['bytes', 'bytes', 'uint256', 'uint256'],
+    [swapData, signature, quoteIndex, deadline]
   );
 
   return userData;

@@ -28,7 +28,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     // keccak256("SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 deadline)")
     bytes32 public constant SWAP_STRUCT_TYPEHASH =
         keccak256(
-            "SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 deadline)"
+            "SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 quoteIndex,uint256 deadline)"
         );
 
     // keccak256("AllowlistStruct(address sender,uint256 deadline)")
@@ -36,7 +36,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
     // NB Do not assign a high value (e.g. max(uint256)) or else it will overflow when adding it to the block.timestamp
     uint256 public constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
 
-    mapping(bytes32 => bool) internal _usedQuotes;
+    mapping(uint256 => uint256) internal usedQuoteBitMap;
 
     /**
      * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
@@ -49,9 +49,10 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         address recipient,
         bytes calldata userData
     ) internal returns (bytes memory) {
-        (bytes memory swapData, bytes memory signature, uint256 deadline) = userData.decodeSignedSwapData();
+        (bytes memory swapData, bytes memory signature, uint256 quoteIndex, uint256 deadline)
+           = userData.decodeSignedSwapData();
 
-        _validateSwapSignature(kind, tokenIn, sender, recipient, swapData, signature, deadline);
+        _validateSwapSignature(kind, tokenIn, sender, recipient, swapData, signature, quoteIndex, deadline);
 
         return swapData;
     }
@@ -65,16 +66,20 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         address recipient,
         bytes memory userData
     ) internal returns (uint256, uint256[] memory, IERC20, bytes memory) {
+        
         (
-            uint256 limitBptAmountOut, // minBptAmountOut or maxBptAmountIn
-            uint256[] memory joinExitAmounts, // join amountsIn or exit amounts Out
             IERC20 swapTokenIn, // excess token in or limit token in
             bytes memory swapData,
             bytes memory signature,
+            uint256 quoteIndex,
             uint256 deadline // swap deadline
-        ) = userData.joinExitSwapData();
+        ) = userData.exactJoinExitSwapData();
 
-        _validateSwapSignature(IVault.SwapKind.GIVEN_IN, swapTokenIn, sender, recipient, swapData, signature, deadline);
+        _validateSwapSignature(
+            IVault.SwapKind.GIVEN_IN, swapTokenIn, sender, recipient, swapData, signature, quoteIndex, deadline
+        );
+
+        (uint256 limitBptAmountOut, uint256[] memory joinExitAmounts) = userData.exactJoinExitAmountsData();
 
         return (limitBptAmountOut, joinExitAmounts, swapTokenIn, swapData);
     }
@@ -86,17 +91,21 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         address recipient,
         bytes memory swapData,
         bytes memory signature,
+        uint256 quoteIndex,
         uint256 deadline
     ) internal {
-        // For a two token pool,we can only include the tokenIn in the signature. For pools that has more than two tokens
-        // the tokenOut must be specified to ensure the correctness of the trade.
+        // For a two token pool,we can only include the tokenIn in the signature. For pools that has more than
+        // two tokens the tokenOut must be specified to ensure the correctness of the trade.
         bytes32 structHash = keccak256(
-            abi.encode(SWAP_STRUCT_TYPEHASH, kind, tokenIn, sender, recipient, keccak256(swapData), deadline)
+            abi.encode(
+                SWAP_STRUCT_TYPEHASH, kind, tokenIn, sender, recipient, keccak256(swapData), quoteIndex, deadline
+            )
         );
 
-        bytes32 digest = _ensureValidSignatureNoNonce(
+        bytes32 digest = _ensureValidBitmapSignature(
             structHash,
             signature,
+            quoteIndex,
             deadline,
             0 // TODO add proper error code
         );
@@ -104,27 +113,41 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         emit Swap(digest);
     }
 
-    function _ensureValidSignatureNoNonce(
+    function _ensureValidBitmapSignature(
         bytes32 structHash,
         bytes memory signature,
+        uint256 quoteIndex,
         uint256 deadline,
         uint256 errorCode
     ) internal returns (bytes32) {
         bytes32 digest = _hashTypedDataV4(structHash);
         _require(_isValidSignature(signer(), digest, signature), errorCode);
 
-        // We could check for the deadline before validating the signature, but this leads to saner error processing (as
-        // we only care about expired deadlines if the signature is correct) and only affects the gas cost of the revert
-        // scenario, which will only occur infrequently, if ever.
+        // We could check for the deadline & quote index before validating the signature, but this leads to saner
+        // error processing (as we only care about expired deadlines & quote if the signature is correct) and only
+        // affects the gas cost of the revert scenario, which will only occur infrequently, if ever.
         // The deadline is timestamp-based: it should not be relied upon for sub-minute accuracy.
         // solhint-disable-next-line not-rely-on-time
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
 
-        // TODO add proper error code
-        _require(!_usedQuotes[digest], 0);
-        _usedQuotes[digest] = true;
+        require(!isQuoteUsed(quoteIndex), "error: quote already used");
+        _registerUsedQuote(quoteIndex);
 
         return digest;
+    }
+
+    function isQuoteUsed(uint256 index) public view returns (bool) {
+        uint256 usedQuoteWordIndex = index / 256;
+        uint256 usedQuoteBitIndex = index % 256;
+        uint256 usedQuoteWord = usedQuoteBitMap[usedQuoteWordIndex];
+        uint256 mask = (1 << usedQuoteBitIndex);
+        return usedQuoteWord & mask == mask;
+    }
+
+    function _registerUsedQuote(uint256 index) private {
+        uint256 usedQuoteWordIndex = index / 256;
+        uint256 usedQuoteBitIndex = index % 256;
+        usedQuoteBitMap[usedQuoteWordIndex] = usedQuoteBitMap[usedQuoteWordIndex] | (1 << usedQuoteBitIndex);
     }
 
     function _validateAllowlistSignature(address sender, bytes memory userData) internal returns (bytes memory) {
