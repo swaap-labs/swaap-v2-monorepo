@@ -200,11 +200,11 @@ export class SafeguardPoolEncoder {
       ['address','uint256','uint256','uint256','uint256','uint256'],
       [
         expectedOrigin, // expected origin
+        originBasedSlippage, // origin slope
         priceBasedParams, // relative price + maxSwapAmount
         quoteBalances, // quote balanceIn + Out
         balanceBasedParams, // maxBalanceTolerance + balance slope
-        timeBasedParams, // startTime + time slope
-        originBasedSlippage // origin slope
+        timeBasedParams // startTime + time slope
       ]
     );
   }

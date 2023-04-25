@@ -220,11 +220,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         
         (
             address expectedOrigin,
+            uint256 originBasedSlippage,
             bytes32 priceBasedParams,
             bytes32 quoteBalances,
             bytes32 balanceBasedParams,
-            bytes32 timeBasedParams,
-            uint256 originBasedSlippage
+            bytes32 timeBasedParams
         ) = swapData.pricingParameters();
         
         uint256 penalty = _getBalanceBasedPenalty(balanceTokenIn, balanceTokenOut, quoteBalances, balanceBasedParams);
