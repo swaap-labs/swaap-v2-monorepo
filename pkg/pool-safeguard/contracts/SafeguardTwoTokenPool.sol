@@ -341,7 +341,6 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             require(amountOut <= maxSwapAmount, "error: exceeded swap amount out");
         }
 
-        
         bytes32 packedPoolParameters = _packedPoolParameters;
         uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(tokenIn);
 
@@ -351,16 +350,25 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             packedPoolParameters
         );
 
-        _perfBalancesSafeguard(
+        uint256 totalSupply = totalSupply();
+
+        _performanceSafeguard(
             tokenIn,
             balanceTokenIn,
             balanceTokenOut,
-            balanceTokenIn.add(amountIn),
-            balanceTokenOut.sub(amountOut),
             onChainAmountInPerOut,
+            totalSupply,
             packedPoolParameters
         );
 
+        _balancesSafeguard(
+            tokenIn,
+            balanceTokenIn.add(amountIn),
+            balanceTokenOut.sub(amountOut),
+            onChainAmountInPerOut,
+            totalSupply,
+            packedPoolParameters
+        );
     }
 
     function _fairPricingSafeguard(
@@ -371,17 +379,14 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDevCompl(packedPoolParameters), "error: unfair price");
     }
 
-    function _perfBalancesSafeguard(
+    function _performanceSafeguard(
         IERC20  tokenIn,
         uint256 currentBalanceIn,
         uint256 currentBalanceOut,
-        uint256 newBalanceIn,
-        uint256 newBalanceOut,
         uint256 onChainAmountInPerOut,
+        uint256 totalSupply,
         bytes32 packedPoolParameters
     ) internal {
-
-        uint256 totalSupply = totalSupply();
 
         (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
 
@@ -398,17 +403,22 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
                 );
             }
         }
+    }
 
-        uint256 hodlBalancePerPTIn;
-        uint256 hodlBalancePerPTOut;
+    function _balancesSafeguard(
+        IERC20  tokenIn,
+        uint256 newBalanceIn,
+        uint256 newBalanceOut,
+        uint256 onChainAmountInPerOut,
+        uint256 totalSupply,
+        bytes32 packedPoolParameters
+    ) internal view {
 
-        {        
-            (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
+        (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
 
-            (hodlBalancePerPTIn, hodlBalancePerPTOut) = tokenIn == _token0?
-                (hodlBalancePerPT0, hodlBalancePerPT1) :
-                (hodlBalancePerPT1, hodlBalancePerPT0); 
-        }
+        (uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) = tokenIn == _token0?
+            (hodlBalancePerPT0, hodlBalancePerPT1) :
+            (hodlBalancePerPT1, hodlBalancePerPT0); 
 
         uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
         uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
