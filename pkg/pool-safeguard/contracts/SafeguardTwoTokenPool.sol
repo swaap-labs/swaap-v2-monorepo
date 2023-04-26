@@ -17,7 +17,7 @@ pragma experimental ABIEncoderV2;
 
 import "./ChainlinkUtils.sol";
 import "./SafeguardMath.sol";
-import "./SignatureSafeguard.sol";
+import "./SignatureTwoTokenSafeguard.sol";
 import "@balancer-labs/v2-pool-utils/contracts/BasePool.sol";
 import "@balancer-labs/v2-interfaces/contracts/vault/IMinimalSwapInfoPool.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidator.sol";
@@ -28,7 +28,7 @@ import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol
 
 // import "hardhat/console.sol";
 
-contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
+contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     
     using FixedPoint for uint256;
     using WordCodec for bytes32;
@@ -166,16 +166,18 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _beforeSwapJoinExit();
 
+        bool isTokenInToken0 = request.tokenIn == _token0;
+
         bytes memory swapData = _swapSignatureSafeguard(
             request.kind,
-            request.tokenIn,
+            isTokenInToken0,
             request.from,
             request.to,
             request.userData
         );
         
-        uint256 scalingFactorTokenIn = _scalingFactor(request.tokenIn);
-        uint256 scalingFactorTokenOut = _scalingFactor(request.tokenOut);
+        uint256 scalingFactorTokenIn = _scalingFactor(isTokenInToken0);
+        uint256 scalingFactorTokenOut = _scalingFactor(!isTokenInToken0);
 
         balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
         balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
@@ -187,7 +189,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         if(request.kind == IVault.SwapKind.GIVEN_IN) {
             return _onSwapGivenIn(
-                request.tokenIn,
+                isTokenInToken0,
                 balanceTokenIn,
                 balanceTokenOut,
                 request.amount,
@@ -199,7 +201,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         }
 
         return _onSwapGivenOut(
-            request.tokenIn,
+            isTokenInToken0,
             balanceTokenIn,
             balanceTokenOut,
             request.amount,
@@ -268,7 +270,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _onSwapGivenIn(
-        IERC20 tokenIn,
+        bool    isTokenInToken0,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountIn,
@@ -282,7 +284,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,
-            tokenIn,
+            isTokenInToken0,
             balanceTokenIn,
             balanceTokenOut,
             amountIn,
@@ -295,7 +297,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _onSwapGivenOut(
-        IERC20 tokenIn,
+        bool    isTokenInToken0,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountOut,
@@ -309,7 +311,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _validateSwap(
             IVault.SwapKind.GIVEN_OUT,
-            tokenIn,
+            isTokenInToken0,
             balanceTokenIn,
             balanceTokenOut,
             amountIn,
@@ -326,7 +328,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     */
     function _validateSwap(
         IVault.SwapKind kind,
-        IERC20  tokenIn,
+        bool    isTokenInToken0,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountIn,
@@ -342,7 +344,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         }
 
         bytes32 packedPoolParameters = _packedPoolParameters;
-        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(tokenIn);
+        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(isTokenInToken0);
 
         _fairPricingSafeguard(
             quoteAmountInPerOut,
@@ -353,7 +355,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256 totalSupply = totalSupply();
 
         _performanceSafeguard(
-            tokenIn,
+            isTokenInToken0,
             balanceTokenIn,
             balanceTokenOut,
             onChainAmountInPerOut,
@@ -362,7 +364,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         );
 
         _balancesSafeguard(
-            tokenIn,
+            isTokenInToken0,
             balanceTokenIn.add(amountIn),
             balanceTokenOut.sub(amountOut),
             onChainAmountInPerOut,
@@ -380,7 +382,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _performanceSafeguard(
-        IERC20  tokenIn,
+        bool    isTokenInToken0,
         uint256 currentBalanceIn,
         uint256 currentBalanceOut,
         uint256 onChainAmountInPerOut,
@@ -392,7 +394,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
-            if(tokenIn == _token0){
+            if(isTokenInToken0){
                 _updatePerformance(currentBalanceIn, currentBalanceOut, onChainAmountInPerOut, totalSupply);
             } else {
                 _updatePerformance(
@@ -406,7 +408,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     }
 
     function _balancesSafeguard(
-        IERC20  tokenIn,
+        bool    isTokenInToken0,
         uint256 newBalanceIn,
         uint256 newBalanceOut,
         uint256 onChainAmountInPerOut,
@@ -416,7 +418,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
 
-        (uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) = tokenIn == _token0?
+        (uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) = isTokenInToken0?
             (hodlBalancePerPT0, hodlBalancePerPT1) :
             (hodlBalancePerPT1, hodlBalancePerPT0); 
 
@@ -517,11 +519,11 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         (
             uint256 minBptAmountOut,
             uint256[] memory joinAmounts,
-            IERC20 swapTokenIn,
+            bool isExcessToken0,
             bytes memory swapData
         ) = _joinExitSwapSignatureSafeguard(sender, recipient, userData);
 
-        (uint256 excessTokenBalance, uint256 limitTokenBalance) = swapTokenIn == _token0?
+        (uint256 excessTokenBalance, uint256 limitTokenBalance) = isExcessToken0?
             (balances[0], balances[1]) : (balances[1], balances[0]);
 
         (
@@ -529,7 +531,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             uint256 maxSwapAmountIn
         ) = _getQuoteAmountInPerOut(swapData, excessTokenBalance, limitTokenBalance);
 
-        (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = swapTokenIn == _token0?
+        (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = isExcessToken0?
             (joinAmounts[0], joinAmounts[1]) : (joinAmounts[1], joinAmounts[0]);
         
         (
@@ -545,7 +547,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,
-            swapTokenIn,
+            isExcessToken0,
             excessTokenBalance,
             limitTokenBalance,
             swapAmountIn,
@@ -619,15 +621,15 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         uint256[] memory balances,
         bytes memory userData
     ) internal returns (uint256, uint256[] memory) {
-
+        
         (
             uint256 maxBptAmountIn,
             uint256[] memory exitAmounts,
-            IERC20 swapTokenIn,
+            bool isLimitToken0,
             bytes memory swapData
         ) = _joinExitSwapSignatureSafeguard(sender, recipient, userData);
 
-        (uint256 excessTokenBalance, uint256 limitTokenBalance) = swapTokenIn == _token0?
+        (uint256 excessTokenBalance, uint256 limitTokenBalance) = isLimitToken0?
             (balances[1], balances[0]) : (balances[0], balances[1]);
 
         (
@@ -635,7 +637,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
             uint256 maxSwapAmountIn
         ) = _getQuoteAmountInPerOut(swapData, limitTokenBalance, excessTokenBalance);
 
-        (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = swapTokenIn == _token0?
+        (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = isLimitToken0?
             (exitAmounts[1], exitAmounts[0]) : (exitAmounts[0], exitAmounts[1]);
 
         (
@@ -651,7 +653,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _validateSwap(
             IVault.SwapKind.GIVEN_IN,
-            swapTokenIn,
+            isLimitToken0,
             limitTokenBalance,
             excessTokenBalance,
             swapAmountIn,
@@ -777,7 +779,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
         _upscaleArray(balances, _scalingFactors());
 
-        uint256 amount0Per1 = _getOnChainAmountInPerOut(_token0);
+        uint256 amount0Per1 = _getOnChainAmountInPerOut(true);
 
         _updatePerformance(balances[0], balances[1], amount0Per1, totalSupply()); 
     }
@@ -859,7 +861,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
     /**
     * @notice returns the relative price such as: amountIn = relativePrice * amountOut
     */
-    function _getOnChainAmountInPerOut(IERC20 tokenIn) internal view returns(uint256) {
+    function _getOnChainAmountInPerOut(bool isTokenInToken0) internal view returns(uint256) {
 
         uint256 price0 = ChainlinkUtils.getLatestPrice(_oracle0);
         uint256 price1 = ChainlinkUtils.getLatestPrice(_oracle1);
@@ -867,7 +869,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
         price0 = _upscale(price0, _priceScaleFactor0);
         price1 = _upscale(price1, _priceScaleFactor1);
         
-        return tokenIn == _token0? price1.divDown(price0) : price0.divDown(price1); 
+        return isTokenInToken0? price1.divDown(price0) : price0.divDown(price1); 
     }
 
     /// @notice returns the pool parameters
@@ -953,6 +955,13 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureSafeguard, BasePool, 
 
     function _scalingFactor(IERC20 token) internal view override returns (uint256) {
         if (token == _token0) {
+            return _scaleFactor0;
+        }
+        return _scaleFactor1;
+    }
+
+    function _scalingFactor(bool isToken0) internal view returns (uint256) {
+        if (isToken0) {
             return _scaleFactor0;
         }
         return _scaleFactor1;

@@ -19,20 +19,19 @@ import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidato
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 
-abstract contract SignatureSafeguard is EOASignaturesValidator {
+abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator {
     using SafeguardPoolUserData for bytes;
 
     event Swap(bytes32 digest);
     event AllowlistJoin(bytes32 digest);
 
-    // keccak256("SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 deadline)")
     bytes32 public constant SWAP_STRUCT_TYPEHASH =
         keccak256(
-            "SwapStruct(uint8 kind,address tokenIn,address sender,address recipient,bytes swapData,uint256 quoteIndex,uint256 deadline)"
+            "SwapStruct(uint8 kind,bool isTokenInToken0,address sender,address recipient,bytes swapData,uint256 quoteIndex,uint256 deadline)"
         );
 
-    // keccak256("AllowlistStruct(address sender,uint256 deadline)")
     bytes32 public constant ALLOWLIST_STRUCT_TYPEHASH = keccak256("AllowlistStruct(address sender,uint256 deadline)");
+
     // NB Do not assign a high value (e.g. max(uint256)) or else it will overflow when adding it to the block.timestamp
     uint256 public constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
 
@@ -44,7 +43,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
      */
     function _swapSignatureSafeguard(
         IVault.SwapKind kind,
-        IERC20 tokenIn,
+        bool isTokenInToken0,
         address sender,
         address recipient,
         bytes calldata userData
@@ -52,7 +51,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         (bytes memory swapData, bytes memory signature, uint256 quoteIndex, uint256 deadline)
            = userData.decodeSignedSwapData();
 
-        _validateSwapSignature(kind, tokenIn, sender, recipient, swapData, signature, quoteIndex, deadline);
+        _validateSwapSignature(kind, isTokenInToken0, sender, recipient, swapData, signature, quoteIndex, deadline);
 
         return swapData;
     }
@@ -65,10 +64,10 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         address sender,
         address recipient,
         bytes memory userData
-    ) internal returns (uint256, uint256[] memory, IERC20, bytes memory) {
+    ) internal returns (uint256, uint256[] memory, bool, bytes memory) {
         
         (
-            IERC20 swapTokenIn, // excess token in or limit token in
+            bool isTokenInToken0, // excess token in or limit token in
             bytes memory swapData,
             bytes memory signature,
             uint256 quoteIndex,
@@ -76,17 +75,17 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         ) = userData.exactJoinExitSwapData();
 
         _validateSwapSignature(
-            IVault.SwapKind.GIVEN_IN, swapTokenIn, sender, recipient, swapData, signature, quoteIndex, deadline
+            IVault.SwapKind.GIVEN_IN, isTokenInToken0, sender, recipient, swapData, signature, quoteIndex, deadline
         );
 
         (uint256 limitBptAmountOut, uint256[] memory joinExitAmounts) = userData.exactJoinExitAmountsData();
 
-        return (limitBptAmountOut, joinExitAmounts, swapTokenIn, swapData);
+        return (limitBptAmountOut, joinExitAmounts, isTokenInToken0, swapData);
     }
 
     function _validateSwapSignature(
         IVault.SwapKind kind,
-        IERC20 tokenIn,
+        bool isTokenInToken0,
         address sender,
         address recipient,
         bytes memory swapData,
@@ -98,7 +97,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator {
         // two tokens the tokenOut must be specified to ensure the correctness of the trade.
         bytes32 structHash = keccak256(
             abi.encode(
-                SWAP_STRUCT_TYPEHASH, kind, tokenIn, sender, recipient, keccak256(swapData), quoteIndex, deadline
+                SWAP_STRUCT_TYPEHASH, kind, isTokenInToken0, sender, recipient, keccak256(swapData), quoteIndex, deadline
             )
         );
 

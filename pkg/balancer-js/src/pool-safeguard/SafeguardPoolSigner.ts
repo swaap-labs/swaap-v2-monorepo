@@ -43,7 +43,7 @@ export async function signSwapData(
     chainId: number,
     contractAddress: string,
     kind: SafeguardPoolSwapKind,
-    tokenIn: string,
+    isTokenInToken0: boolean,
     sender: string,
     recipient: string,
     swapData: string,
@@ -63,20 +63,20 @@ export async function signSwapData(
     // The named list of all type definitions
     const types = {
       SwapStruct: [
-          { name: 'kind'      , type: 'uint8'   },
-          { name: 'tokenIn'   , type: 'address' },
-          { name: 'sender'    , type: 'address' },
-          { name: 'recipient' , type: 'address' },
-          { name: 'swapData'  , type: 'bytes'   },
-          { name: 'quoteIndex', type: 'uint256' },
-          { name: 'deadline'  , type: 'uint256' }
+          { name: 'kind'           , type: 'uint8'   },
+          { name: 'isTokenInToken0', type: 'bool'    },
+          { name: 'sender'         , type: 'address' },
+          { name: 'recipient'      , type: 'address' },
+          { name: 'swapData'       , type: 'bytes'   },
+          { name: 'quoteIndex'     , type: 'uint256' },
+          { name: 'deadline'       , type: 'uint256' }
       ]
     };
 
     // The data to sign
     const value = {
         kind: kind,
-        tokenIn: tokenIn,
+        isTokenInToken0: isTokenInToken0,
         sender: sender,
         recipient: recipient,
         swapData: swapData,

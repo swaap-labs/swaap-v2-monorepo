@@ -70,7 +70,7 @@ export class SafeguardPoolEncoder {
       joinExitKind: SafeguardPoolJoinKind | SafeguardPoolExitKind,
       limitBptAmount: BigNumberish,
       joinExitAmounts: BigNumberish[],
-      swapTokenIn: string,
+      isTokenInToken0: boolean,
       expectedOrigin: string,
       maxSwapAmount: BigNumberish,
       quoteAmountInPerOut: BigNumberish,
@@ -103,7 +103,7 @@ export class SafeguardPoolEncoder {
       chainId,
       contractAddress,
       SafeguardPoolSwapKind.GIVEN_IN,
-      swapTokenIn,
+      isTokenInToken0,
       sender,
       recipient,
       swapData,
@@ -113,8 +113,8 @@ export class SafeguardPoolEncoder {
     );
 
     let signedJoinExiSwapData: string = defaultAbiCoder.encode(
-      ['uint8', 'uint256', 'uint256[]', 'address', 'bytes', 'bytes', 'uint256', 'uint256'],
-      [joinExitKind, limitBptAmount, joinExitAmounts, swapTokenIn, swapData, signature, quoteIndex, deadline]
+      ['uint8', 'uint256', 'uint256[]', 'bool', 'bytes', 'bytes', 'uint256', 'uint256'],
+      [joinExitKind, limitBptAmount, joinExitAmounts, isTokenInToken0, swapData, signature, quoteIndex, deadline]
     );
 
     return signedJoinExiSwapData;
@@ -125,7 +125,7 @@ export class SafeguardPoolEncoder {
     chainId: number,
     contractAddress: string,
     kind: SafeguardPoolSwapKind,
-    tokenIn: string,
+    isTokenInToken0: boolean,
     sender: string,
     recipient: string,
     deadline: BigNumberish,
@@ -161,7 +161,7 @@ export class SafeguardPoolEncoder {
     chainId,
     contractAddress,
     kind,
-    tokenIn,
+    isTokenInToken0,
     sender,
     recipient,
     swapData,
