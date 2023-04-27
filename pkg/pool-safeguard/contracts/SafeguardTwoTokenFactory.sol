@@ -48,12 +48,12 @@ contract SafeguardTwoTokenFactory is BasePoolFactory {
         IERC20[] memory tokens,
         address owner,
         AggregatorV3Interface[] memory oracles,
-        ISafeguardPool.InitialSafeguardParams calldata initialPoolParameters
+        ISafeguardPool.InitialSafeguardParams calldata initialPoolParameters,
+        bool setPegStates
     ) external returns (address) {
         (uint256 pauseWindowDuration, uint256 bufferPeriodDuration) = getPauseConfiguration();
 
-        return
-            _create(
+        address pool = _create(
                 abi.encode(
                     getVault(),
                     name,
@@ -67,5 +67,11 @@ contract SafeguardTwoTokenFactory is BasePoolFactory {
                     initialPoolParameters
                 )
             );
+
+        if(setPegStates) {
+            ISafeguardPool(pool).evaluateStablesPegStates();
+        }
+
+        return pool;
     }
 }

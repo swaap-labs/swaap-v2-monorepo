@@ -27,6 +27,9 @@ interface ISafeguardPool {
         uint256 perfUpdateInterval; // performance update interval
         uint256 yearlyFees; // management fees in yearly %
         bool    isAllowlistEnabled; // use allowlist flag
+        bool    isStable0; // is token 0 a stable coin
+        bool    isStable1; // is token 1 a stable coin
     }
 
+    function evaluateStablesPegStates() external;
 }

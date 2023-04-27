@@ -28,7 +28,8 @@ import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol
 
 // import "hardhat/console.sol";
 
-contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
+contract SafeguardTwoTokenPool is 
+    ISafeguardPool, SignatureTwoTokenSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     
     using FixedPoint for uint256;
     using WordCodec for bytes32;
@@ -56,6 +57,12 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
     AggregatorV3Interface internal immutable _oracle0;
     AggregatorV3Interface internal immutable _oracle1;
 
+    bool internal immutable _isStable0;
+    bool internal immutable _isStable1;
+
+    uint256 internal constant REPEG_PRICE_BOUND = 0.998e18; // repegs at 0.998
+    uint256 internal constant UNPEG_PRICE_BOUND = 0.995e18; // unpegs at 0.995
+
     // tokens scale factor
     uint256 internal immutable _scaleFactor0;
     uint256 internal immutable _scaleFactor1;
@@ -75,14 +82,18 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
     // Allowlist enabled
     bool private _allowlistEnabled;
     
-    // [ 1 - max performance dev | 1 - max hodl dev | 1 - max price dev | perf update interval | last perf update ]
-    // [          64 bits        |      64 bits     |      64 bits      |        32 bits       |      32 bits     ]
+    // [ isPegged0 | isPegged1 | 1 - max performance dev | 1 - max hodl dev | 1 - max price dev | perf update interval | last perf update ]
+    // [   1 bit   |   1 bit   |          62 bits        |      64 bits     |      64 bits      |        32 bits       |      32 bits     ]
     // [ MSB                                                                                                  LSB ]
     bytes32 private _packedPoolParameters;
 
+    // used to determine if stable coin is holding the peg
+    uint256 private constant _TOKEN_0_PEGGED_BIT_OFFSET = 255;
+    uint256 private constant _TOKEN_1_PEGGED_BIT_OFFSET = 254;
+
     // used to determine if the pool is underperforming compared to the last performance update
     uint256 private constant _MAX_PERF_DEV_BIT_OFFSET = 192;
-    uint256 private constant _MAX_PERF_DEV_BIT_LENGTH = 64;
+    uint256 private constant _MAX_PERF_DEV_BIT_LENGTH = 62;
 
     // used to determine if the pool balances deviated from the hodl reference
     uint256 private constant _MAX_TARGET_DEV_BIT_OFFSET = 128;
@@ -156,6 +167,8 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
         _setPerfUpdateInterval(safeguardParameters.perfUpdateInterval);
         _setYearlyRate(safeguardParameters.yearlyFees);
         _setAllowlistBoolean(safeguardParameters.isAllowlistEnabled);
+        _isStable0 = safeguardParameters.isStable0;
+        _isStable1 = safeguardParameters.isStable1;
     }
 
     function onSwap(
@@ -344,7 +357,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
         }
 
         bytes32 packedPoolParameters = _packedPoolParameters;
-        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(isTokenInToken0);
+        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(packedPoolParameters, isTokenInToken0);
 
         _fairPricingSafeguard(
             quoteAmountInPerOut,
@@ -768,7 +781,9 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
 
     function updatePerformance() external nonReentrant {
 
-        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(_packedPoolParameters);
+        bytes32 packedPoolParameters = _packedPoolParameters;
+
+        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
         
         require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
 
@@ -779,7 +794,7 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
 
         _upscaleArray(balances, _scalingFactors());
 
-        uint256 amount0Per1 = _getOnChainAmountInPerOut(true);
+        uint256 amount0Per1 = _getOnChainAmountInPerOut(packedPoolParameters, true);
 
         _updatePerformance(balances[0], balances[1], amount0Per1, totalSupply()); 
     }
@@ -829,9 +844,37 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
         );
     }
 
+    function evaluateStablesPegStates() external override {
+        bytes32 packedPoolParameters = _packedPoolParameters;
+        
+        if(_isStable0) {
+            bool isPegged = _canBePegged(packedPoolParameters, _TOKEN_0_PEGGED_BIT_OFFSET, _oracle0, _priceScaleFactor0);
+            packedPoolParameters.insertBool(isPegged, _TOKEN_0_PEGGED_BIT_OFFSET);
+        }
+        
+        if(_isStable1) {
+            bool isPegged = _canBePegged(packedPoolParameters, _TOKEN_1_PEGGED_BIT_OFFSET, _oracle1, _priceScaleFactor1);
+            packedPoolParameters.insertBool(isPegged, _TOKEN_1_PEGGED_BIT_OFFSET);
+        }
+
+        _packedPoolParameters = packedPoolParameters;
+    }
+
     /**
     * Getters
     */
+
+    function getTokenPegStates() external view returns(bool, bool){
+        bytes32 packedPoolParameters = _packedPoolParameters;
+        return (
+            _isTokenPegged(packedPoolParameters, _TOKEN_0_PEGGED_BIT_OFFSET),
+            _isTokenPegged(packedPoolParameters, _TOKEN_1_PEGGED_BIT_OFFSET)
+        );
+    }
+
+    function _isTokenPegged(bytes32 packedPoolParameters, uint256 tokenPegBitOffset) internal pure returns(bool){
+        return packedPoolParameters.decodeBool(tokenPegBitOffset);
+    }
 
     function isAllowlistEnabled() public view returns(bool) {
         return _allowlistEnabled;
@@ -861,15 +904,30 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
     /**
     * @notice returns the relative price such as: amountIn = relativePrice * amountOut
     */
-    function _getOnChainAmountInPerOut(bool isTokenInToken0) internal view returns(uint256) {
-
-        uint256 price0 = ChainlinkUtils.getLatestPrice(_oracle0);
-        uint256 price1 = ChainlinkUtils.getLatestPrice(_oracle1);
-
-        price0 = _upscale(price0, _priceScaleFactor0);
-        price1 = _upscale(price1, _priceScaleFactor1);
+    function _getOnChainAmountInPerOut(bytes32 packedPoolParameters, bool isTokenInToken0)
+    internal view returns(uint256) {
         
+        uint256 price0;
+        
+        if(_isTokenPegged(packedPoolParameters, _TOKEN_0_PEGGED_BIT_OFFSET)) {
+            price0 = FixedPoint.ONE;
+        } else {
+            price0 = _getPriceFromOracle(_oracle0, _priceScaleFactor0);
+        }
+
+        uint256 price1;
+        
+        if(_isTokenPegged(packedPoolParameters, _TOKEN_1_PEGGED_BIT_OFFSET)) {
+            price1 = FixedPoint.ONE;
+        } else {
+            price1 = _getPriceFromOracle(_oracle1, _priceScaleFactor1);
+        }
+       
         return isTokenInToken0? price1.divDown(price0) : price0.divDown(price1); 
+    }
+
+    function _getPriceFromOracle(AggregatorV3Interface oracle, uint256 priceScaleFactor) internal view returns(uint256){
+        return  _upscale(ChainlinkUtils.getLatestPrice(oracle), priceScaleFactor);
     }
 
     /// @notice returns the pool parameters
@@ -929,6 +987,25 @@ contract SafeguardTwoTokenPool is ISafeguardPool, SignatureTwoTokenSafeguard, Ba
             _PERF_UPDATE_INTERVAL_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
         );
+    }
+
+    function _canBePegged(
+        bytes32 packedPoolParameters,
+        uint256 tokenPegBitOffset,
+        AggregatorV3Interface oracle,
+        uint256 priceScaleFactor
+    ) internal view returns(bool) {
+
+        uint256 currentPrice = _getPriceFromOracle(oracle, priceScaleFactor);
+        bool isTokenPegged = _isTokenPegged(packedPoolParameters, tokenPegBitOffset);
+        
+        if(!isTokenPegged && currentPrice >= REPEG_PRICE_BOUND) {
+            return true; // token should gain back peg 
+        } else if (isTokenPegged && currentPrice <= UNPEG_PRICE_BOUND) {
+            return false; // token should be unpegged
+        }
+
+        return isTokenPegged;
     }
 
     function signer() public view override returns(address signerAddress){
