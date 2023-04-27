@@ -97,14 +97,7 @@ library SafeguardPoolUserData {
 
     // Join/Exit + Swap
     function exactJoinExitSwapData(bytes memory self) internal pure 
-    returns (
-        IERC20 swapTokenIn,
-        bytes memory swapData,
-        bytes memory signature,
-        uint256 quoteIndex,
-        uint256 deadline
-    ) {
-        
+    returns (bool swapTokenIn, bytes memory swapData, bytes memory signature, uint256 quoteIndex, uint256 deadline){
         (
             , // corresponds to join or exit kind
             , // minBptAmountOut or maxBptAmountIn
@@ -114,7 +107,7 @@ library SafeguardPoolUserData {
             signature, // the signature based on swapData & other quote pricing information
             quoteIndex, // the index of the quote
             deadline // swap deadline
-        ) = abi.decode(self, (uint8, uint, uint[], IERC20, bytes, bytes, uint256, uint256));
+        ) = abi.decode(self, (uint8, uint, uint[], bool, bytes, bytes, uint256, uint256));
 
     }
 
