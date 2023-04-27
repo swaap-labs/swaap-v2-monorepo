@@ -849,12 +849,12 @@ contract SafeguardTwoTokenPool is
         
         if(_isStable0) {
             bool isPegged = _canBePegged(packedPoolParameters, _TOKEN_0_PEGGED_BIT_OFFSET, _oracle0, _priceScaleFactor0);
-            packedPoolParameters.insertBool(isPegged, _TOKEN_0_PEGGED_BIT_OFFSET);
+            packedPoolParameters = packedPoolParameters.insertBool(isPegged, _TOKEN_0_PEGGED_BIT_OFFSET);
         }
         
         if(_isStable1) {
             bool isPegged = _canBePegged(packedPoolParameters, _TOKEN_1_PEGGED_BIT_OFFSET, _oracle1, _priceScaleFactor1);
-            packedPoolParameters.insertBool(isPegged, _TOKEN_1_PEGGED_BIT_OFFSET);
+            packedPoolParameters = packedPoolParameters.insertBool(isPegged, _TOKEN_1_PEGGED_BIT_OFFSET);
         }
 
         _packedPoolParameters = packedPoolParameters;
