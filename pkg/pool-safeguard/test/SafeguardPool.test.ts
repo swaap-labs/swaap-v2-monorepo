@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat';
-import { BigNumber, Contract } from 'ethers';
+import { BigNumber } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 
@@ -9,17 +9,14 @@ import OraclesDeployer from '@balancer-labs/v2-helpers/src/models/oracles/Oracle
 import SafeguardPool from '@balancer-labs/v2-helpers/src/models/pools/safeguard/SafeguardPool';
 import { RawSafeguardPoolDeployment } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types';
 import Vault from '@balancer-labs/v2-helpers/src/models/vault/Vault';
-import { SafeguardPoolJoinKind, SwapKind } from '@balancer-labs/balancer-js';
-import { BigNumberish, fp, fpDiv, fpMul, FP_100_PCT } from '@balancer-labs/v2-helpers/src/numbers';
-import { range } from 'lodash';
+import { BigNumberish, fp } from '@balancer-labs/v2-helpers/src/numbers';
 import { actionId } from '@balancer-labs/v2-helpers/src/models/misc/actions';
-import { deploy, getArtifact } from '@balancer-labs/v2-helpers/src/contract';
-import { MAX_UINT256, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
+import { ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
-import { DAY } from '@balancer-labs/v2-helpers/src/time';
+import { DAY, advanceToTimestamp, SECOND } from '@balancer-labs/v2-helpers/src/time';
 import '@balancer-labs/v2-common/setupTests'
 import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
-import { SwapSafeguardPool } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types'
+import { calcYearlyRate, calcAccumulatedManagementFees } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/math'
 
 let vault: Vault;
 let allTokens: TokenList;
@@ -44,6 +41,7 @@ const chainId = 31337;
 
 const initialBalances = [fp(15), fp(15)];
 const initPrices = [1, 1];
+const tolerance = fp(1e-9);
 
 describe('SafeguardPool', function () {
 
@@ -98,8 +96,10 @@ describe('SafeguardPool', function () {
     await pool.init({ initialBalances, recipient: lp });
   });
 
-  describe('join/exit pool', () => {
-      
+  describe('Join/exit', () => {
+
+    context('Join/Exit', () => {
+        
       it('Initial balances are correct', async () => {        
         const currentBalances = await pool.getBalances();
         for(let i = 0; i < currentBalances.length; i++){
@@ -116,11 +116,11 @@ describe('SafeguardPool', function () {
         const balance1 = await allTokens.tokens[1].balanceOf(deployer);
         const expectedBalances = [balance0, balance1].map((currentBalance, index) => currentBalance.sub(initialBalances[index].mul(bptOut).div(fp(100))));
         
-        console.log((await pool.joinAllGivenOut({
+        await pool.joinAllGivenOut({
           bptOut: bptOut,
           from: deployer,
           recipient: lp
-        })).receipt.gasUsed);
+        })
 
         const lpBalanceAfter = await pool.balanceOf(lp.address);
         expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.add(bptOut));
@@ -187,206 +187,206 @@ describe('SafeguardPool', function () {
         expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.sub(bptIn));
       });
     });
+  });
     
-    context('Swaps', () => {
+  context('Swap', () => {
+    
+    it('Swap given in', async () => {
+
+      const amountIn = fp(0.5);
+      const currentBalances = await pool.getBalances();
+      const inIndex = 0;
+      const outIndex = inIndex == 0? 1 : 0;
+
+      const expectedBalanceIn = currentBalances[inIndex].add(amountIn);
+
+      await pool.swapGivenIn({
+        chainId: chainId,
+        in: inIndex,
+        out: outIndex,
+        amount: amountIn,
+        signer: signer,
+        from: deployer,
+        recipient: lp.address
+      });
       
-      it('Swap given in', async () => {
+      const updatedBalances = await pool.getBalances();
+      expect(updatedBalances[inIndex]).to.be.equal(expectedBalanceIn)
 
-        const amountIn = fp(0.5);
-        const currentBalances = await pool.getBalances();
-        const inIndex = 0;
-        const outIndex = inIndex == 0? 1 : 0;
-
-        const expectedBalanceIn = currentBalances[inIndex].add(amountIn);
-
-        await pool.swapGivenIn({
-          chainId: chainId,
-          in: inIndex,
-          out: outIndex,
-          amount: amountIn,
-          signer: signer,
-          from: deployer,
-          recipient: lp.address
-        });
-        
-        const updatedBalances = await pool.getBalances();
-        expect(updatedBalances[inIndex]).to.be.equal(expectedBalanceIn)
-
-      });
-
-      it('Swap given out', async () => {
-
-        const amountOut = fp(0.5);
-        const currentBalances = await pool.getBalances();
-        const inIndex = 0;
-        const outIndex = inIndex == 0? 1 : 0;
-
-        const expectedBalanceIn = currentBalances[outIndex].sub(amountOut);
-
-        await pool.swapGivenIn({
-          chainId: chainId,
-          in: inIndex,
-          out: outIndex,
-          amount: amountOut,
-          signer: signer,
-          from: deployer,
-          recipient: lp.address
-        });
-        
-        const updatedBalances = await pool.getBalances();
-        expect(updatedBalances[outIndex]).to.be.equal(expectedBalanceIn)
-
-      });
     });
 
-    context('Detailed Swap', () => {
+    it('Swap given out', async () => {
+
+      const amountOut = fp(0.5);
+      const currentBalances = await pool.getBalances();
+      const inIndex = 0;
+      const outIndex = inIndex == 0? 1 : 0;
+
+      const expectedBalanceIn = currentBalances[outIndex].sub(amountOut);
+
+      await pool.swapGivenIn({
+        chainId: chainId,
+        in: inIndex,
+        out: outIndex,
+        amount: amountOut,
+        signer: signer,
+        from: deployer,
+        recipient: lp.address
+      });
       
-      it('Swap given in', async () => {
-
-        const startBlock = await ethers.provider.getBlockNumber();
-        const startBlockTimestamp = (await ethers.provider.getBlock(startBlock)).timestamp;
-        
-        const currentBalances = await pool.getBalances();
-
-        const inIndex = 0;
-        const outIndex = inIndex == 0? 1 : 0;
-
-        const amountIn = fp(0.5);
-
-        await allTokens.mint({ to: trader, amount: fp(1000) });
-        await allTokens.approve({to: vault, amount: fp(1000), from: trader});
-
-        const amountInPerOut = await pool.getAmountInPerOut(inIndex)
-
-        expect(amountInPerOut).to.be.eq("1000000000000000000")
-
-        const expectedAmountOut = amountIn
-        
-        const startTime = startBlockTimestamp
-        const timeBasedSlippage = 0.0001
-        const originBasedSlippage = 0.0005
-
-        let swapInput: SwapSafeguardPool = {
-          chainId: chainId,
-          in: inIndex,
-          out: outIndex,
-          amount: amountIn,
-          recipient: trader.address,
-          from: trader,
-          deadline: startBlockTimestamp + 100000,
-          maxSwapAmount: fp(0.5),
-          quoteAmountInPerOut:amountInPerOut,
-          maxBalanceChangeTolerance: fp(0.075),
-          quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
-          quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
-          balanceBasedSlippage: fp(0.0002),
-          startTime: startTime,
-          timeBasedSlippage: fp(timeBasedSlippage),
-          signer: signer,
-          expectedOrigin: ZERO_ADDRESS,
-          originBasedSlippage: fp(originBasedSlippage),
-        }
-        
-        const expectedPoolBalanceIn = currentBalances[inIndex].add(amountIn);
-        
-        const startUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
-        const startUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
-        
-        await pool.swapGivenIn(swapInput) // swap execution
-
-        const endPoolBalances = await pool.getBalances();
-        
-        const endUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
-        const endUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
-
-        const endBlock = await ethers.provider.getBlockNumber();
-        const endBlockTimestamp: number = (await ethers.provider.getBlock(endBlock)).timestamp;
-
-        var penalty = 1
-        penalty += timeBasedSlippage * (endBlockTimestamp - startBlockTimestamp)
-        penalty += originBasedSlippage
-        
-        const reducedAmountOut = expectedAmountOut.mul(fp(1)).div(fp(penalty))
-
-        expect(endPoolBalances[inIndex]).to.be.eq(expectedPoolBalanceIn)
-        expect(endUserBalanceIn).to.be.eq(startUserBalanceIn.sub(amountIn))
-        expect(endUserBalanceOut).to.be.eq(startUserBalanceOut.add(reducedAmountOut))
+      const updatedBalances = await pool.getBalances();
+      expect(updatedBalances[outIndex]).to.be.equal(expectedBalanceIn)
 
     });
   });
 
-  it('Swap given out', async () => {
-
-    const startBlock = await ethers.provider.getBlockNumber();
-    const startBlockTimestamp = (await ethers.provider.getBlock(startBlock)).timestamp;
+  context('Detailed Swap', () => {
     
-    const currentBalances = await pool.getBalances();
+    it('Swap given in', async () => {
 
-    const inIndex = 0;
-    const outIndex = inIndex == 0? 1 : 0;
+      const startBlock = await ethers.provider.getBlockNumber();
+      const startBlockTimestamp = (await ethers.provider.getBlock(startBlock)).timestamp;
+      
+      const currentBalances = await pool.getBalances();
 
-    const amountOut = fp(0.5);
+      const inIndex = 0;
+      const outIndex = inIndex == 0? 1 : 0;
 
-    await allTokens.mint({ to: trader, amount: fp(1000) });
-    await allTokens.approve({to: vault, amount: fp(1000), from: trader});
+      const amountIn = fp(0.5);
 
-    const amountInPerOut = await pool.getAmountInPerOut(inIndex)
+      await allTokens.mint({ to: trader, amount: fp(1000) });
+      await allTokens.approve({to: vault, amount: fp(1000), from: trader});
 
-    expect(amountInPerOut).to.be.eq("1000000000000000000")
+      const amountInPerOut = await pool.getAmountInPerOut(inIndex)
 
-    const expectedAmountIn = amountOut
+      expect(amountInPerOut).to.be.eq("1000000000000000000")
 
-    const startTime = startBlockTimestamp
-    const timeBasedSlippage = 0.0001
-    const originBasedSlippage = 0.0005
+      const expectedAmountOut = amountIn
+      
+      const startTime = startBlockTimestamp
+      const timeBasedSlippage = 0.0001
+      const originBasedSlippage = 0.0005
 
-    let swapInput: SwapSafeguardPool = {
-      chainId: chainId,
-      in: inIndex,
-      out: outIndex,
-      amount: amountOut,
-      recipient: trader.address,
-      from: trader,
-      deadline: startBlockTimestamp + 100000,
-      maxSwapAmount: fp(0.5),
-      quoteAmountInPerOut:amountInPerOut,
-      maxBalanceChangeTolerance: fp(0.075),
-      quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
-      quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
-      balanceBasedSlippage: fp(0.0002),
-      startTime: startTime,
-      timeBasedSlippage: fp(timeBasedSlippage),
-      signer: signer,
-      expectedOrigin: ZERO_ADDRESS,
-      originBasedSlippage: fp(originBasedSlippage),
-    }
-    
-    const expectedPoolBalanceOut = currentBalances[outIndex].sub(amountOut);
-    
-    const startUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
-    const startUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
-    
-    await pool.swapGivenOut(swapInput) // swap execution
+      let swapInput: SwapSafeguardPool = {
+        chainId: chainId,
+        in: inIndex,
+        out: outIndex,
+        amount: amountIn,
+        recipient: trader.address,
+        from: trader,
+        deadline: startBlockTimestamp + 100000,
+        maxSwapAmount: fp(0.5),
+        quoteAmountInPerOut:amountInPerOut,
+        maxBalanceChangeTolerance: fp(0.075),
+        quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
+        quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
+        balanceBasedSlippage: fp(0.0002),
+        startTime: startTime,
+        timeBasedSlippage: fp(timeBasedSlippage),
+        signer: signer,
+        expectedOrigin: ZERO_ADDRESS,
+        originBasedSlippage: fp(originBasedSlippage),
+      }
+      
+      const expectedPoolBalanceIn = currentBalances[inIndex].add(amountIn);
+      
+      const startUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
+      const startUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
+      
+      await pool.swapGivenIn(swapInput) // swap execution
 
-    const endPoolBalances = await pool.getBalances();
-    
-    const endUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
-    const endUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
+      const endPoolBalances = await pool.getBalances();
+      
+      const endUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
+      const endUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
 
-    const endBlock = await ethers.provider.getBlockNumber();
-    const endBlockTimestamp: number = (await ethers.provider.getBlock(endBlock)).timestamp;
+      const endBlock = await ethers.provider.getBlockNumber();
+      const endBlockTimestamp: number = (await ethers.provider.getBlock(endBlock)).timestamp;
 
-    var penalty = 1
-    penalty += timeBasedSlippage * (endBlockTimestamp - startBlockTimestamp)
-    penalty += originBasedSlippage
-    
-    const increasedAmountIn = expectedAmountIn.mul(fp(penalty)).div(fp(1))
+      var penalty = 1
+      penalty += timeBasedSlippage * (endBlockTimestamp - startBlockTimestamp)
+      penalty += originBasedSlippage
+      
+      const reducedAmountOut = expectedAmountOut.mul(fp(1)).div(fp(penalty))
 
-    expect(endPoolBalances[outIndex]).to.be.eq(expectedPoolBalanceOut)
-    expect(endUserBalanceIn).to.be.eq(startUserBalanceIn.sub(increasedAmountIn))
-    expect(endUserBalanceOut).to.be.eq(startUserBalanceOut.add(amountOut))
+      expect(endPoolBalances[inIndex]).to.be.eq(expectedPoolBalanceIn)
+      expect(endUserBalanceIn).to.be.eq(startUserBalanceIn.sub(amountIn))
+      expect((((startUserBalanceOut.add(reducedAmountOut)).mul(fp(1)).div(endUserBalanceOut)).sub(fp(1))).abs()).to.be.lessThan(tolerance)
+    });
 
-});
+    it('Swap given out', async () => {
+
+      const startBlock = await ethers.provider.getBlockNumber();
+      const startBlockTimestamp = (await ethers.provider.getBlock(startBlock)).timestamp;
+      
+      const currentBalances = await pool.getBalances();
+
+      const inIndex = 0;
+      const outIndex = inIndex == 0? 1 : 0;
+
+      const amountOut = fp(0.5);
+
+      await allTokens.mint({ to: trader, amount: fp(1000) });
+      await allTokens.approve({to: vault, amount: fp(1000), from: trader});
+
+      const amountInPerOut = await pool.getAmountInPerOut(inIndex)
+
+      expect(amountInPerOut).to.be.eq("1000000000000000000")
+
+      const expectedAmountIn = amountOut
+
+      const startTime = startBlockTimestamp
+      const timeBasedSlippage = 0.0001
+      const originBasedSlippage = 0.0005
+
+      let swapInput: SwapSafeguardPool = {
+        chainId: chainId,
+        in: inIndex,
+        out: outIndex,
+        amount: amountOut,
+        recipient: trader.address,
+        from: trader,
+        deadline: startBlockTimestamp + 100000,
+        maxSwapAmount: fp(0.5),
+        quoteAmountInPerOut:amountInPerOut,
+        maxBalanceChangeTolerance: fp(0.075),
+        quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
+        quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
+        balanceBasedSlippage: fp(0.0002),
+        startTime: startTime,
+        timeBasedSlippage: fp(timeBasedSlippage),
+        signer: signer,
+        expectedOrigin: ZERO_ADDRESS,
+        originBasedSlippage: fp(originBasedSlippage),
+      }
+      
+      const expectedPoolBalanceOut = currentBalances[outIndex].sub(amountOut);
+      
+      const startUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
+      const startUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
+      
+      await pool.swapGivenOut(swapInput) // swap execution
+
+      const endPoolBalances = await pool.getBalances();
+      
+      const endUserBalanceIn = await allTokens.tokens[inIndex].balanceOf(trader);
+      const endUserBalanceOut = await allTokens.tokens[outIndex].balanceOf(trader);
+
+      const endBlock = await ethers.provider.getBlockNumber();
+      const endBlockTimestamp: number = (await ethers.provider.getBlock(endBlock)).timestamp;
+
+      var penalty = 1
+      penalty += timeBasedSlippage * (endBlockTimestamp - startBlockTimestamp)
+      penalty += originBasedSlippage
+      
+      const increasedAmountIn = expectedAmountIn.mul(fp(penalty)).div(fp(1))
+
+      expect(endPoolBalances[outIndex]).to.be.eq(expectedPoolBalanceOut)
+      expect((((startUserBalanceIn.sub(increasedAmountIn)).mul(fp(1)).div(endUserBalanceIn)).sub(fp(1))).abs()).to.be.lessThan(tolerance)
+      expect(endUserBalanceOut).to.be.eq(startUserBalanceOut.add(amountOut))
+
+    });
+  });
 
   context('Enable allowlist', () => {
     it('JoinAllGivenOut', async() => {
@@ -397,244 +397,82 @@ describe('SafeguardPool', function () {
       const bptOut = fp(10);
       const lpBalanceBefore = await pool.balanceOf(lp.address);
 
-      console.log((await pool.joinAllGivenOut({
+      await pool.joinAllGivenOut({
         bptOut: bptOut,
         from: deployer,
         recipient: lp,
         chainId: chainId,
         signer: signer
-      })).receipt.gasUsed);
+      })
 
       const lpBalanceAfter = await pool.balanceOf(lp.address);
       expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.add(bptOut));
     });
   });
   
-//   describe('weights and scaling factors', () => {
-//     for (const numTokens of range(2, MAX_TOKENS + 1)) {
-//       context(`with ${numTokens} tokens`, () => {
-//         let pool: WeightedPool;
-//         let tokens: TokenList;
+  describe('Protocol Fees', () => {
 
-//         sharedBeforeEach('deploy pool', async () => {
-//           tokens = allTokens.subset(numTokens);
+    context('Management Fees', () => {
 
-//           pool = await WeightedPool.create({
-//             poolType: WeightedPoolType.WEIGHTED_POOL,
-//             tokens,
-//             weights: WEIGHTS.slice(0, numTokens),
-//             swapFeePercentage: POOL_SWAP_FEE_PERCENTAGE,
-//           });
-//         });
+      it ('Management Fees', async () => {
+        
+        const yearlyFees = 3 / 100
 
-//         it('sets token weights', async () => {
-//           const normalizedWeights = await pool.getNormalizedWeights();
+        const bptIn = fp(1);
 
-//           expect(normalizedWeights).to.deep.equal(pool.normalizedWeights);
-//         });
+        const action = await actionId(pool.instance, 'setManagementFees');
+        await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+        await pool.setManagementFees(deployer, fp(yearlyFees))
+        let block = await ethers.provider.getBlockNumber();
+        const maagementFeesInitTimestmap = (await ethers.provider.getBlock(block)).timestamp;
 
-//         it('sets scaling factors', async () => {
-//           const poolScalingFactors = await pool.getScalingFactors();
-//           const tokenScalingFactors = tokens.map((token) => fp(10 ** (18 - token.decimals)));
+        const exitResult = await pool.multiExitGivenIn({
+          bptIn: bptIn,
+          from: lp,
+          recipient: lp
+        });
 
-//           expect(poolScalingFactors).to.deep.equal(tokenScalingFactors);
-//         });
-//       });
-//     }
-//   });
+        const collector = (await pool.vault.getFeesCollector()).address
 
-//   describe('permissioned actions', () => {
-//     let pool: Contract;
+        expectEvent.notEmitted(exitResult.receipt, 'Transfer');
 
-//     sharedBeforeEach('deploy pool', async () => {
-//       const vault = await Vault.create();
+        const totalSupply = await pool.totalSupply();
 
-//       pool = await deploy('MockWeightedPool', {
-//         args: [
-//           {
-//             name: '',
-//             symbol: '',
-//             tokens: allTokens.subset(2).addresses,
-//             normalizedWeights: [fp(0.5), fp(0.5)],
-//             rateProviders: new Array(2).fill(ZERO_ADDRESS),
-//             assetManagers: new Array(2).fill(ZERO_ADDRESS),
-//             swapFeePercentage: POOL_SWAP_FEE_PERCENTAGE,
-//           },
+        block = await ethers.provider.getBlockNumber();
+        let currentTimestamp = (await ethers.provider.getBlock(block)).timestamp;
+        await advanceToTimestamp(currentTimestamp + 365 * DAY);
 
-//           vault.address,
-//           vault.getFeesProvider().address,
-//           0,
-//           0,
-//           ZERO_ADDRESS,
-//         ],
-//       });
-//     });
+        const exitResultBis = await pool.multiExitGivenIn({
+          bptIn: bptIn,
+          from: lp,
+          recipient: lp
+        });
 
-//     function itIsOwnerOnly(method: string) {
-//       it(`${method} requires the caller to be the owner`, async () => {
-//         expect(await pool.isOwnerOnlyAction(await actionId(pool, method))).to.be.true;
-//       });
-//     }
+        block = await ethers.provider.getBlockNumber();
+        currentTimestamp = (await ethers.provider.getBlock(block)).timestamp;
 
-//     function itIsNotOwnerOnly(method: string) {
-//       it(`${method} doesn't require the caller to be the owner`, async () => {
-//         expect(await pool.isOwnerOnlyAction(await actionId(pool, method))).to.be.false;
-//       });
-//     }
+        const expected = fp(
+          calcAccumulatedManagementFees(
+            (currentTimestamp - maagementFeesInitTimestmap) * SECOND,
+            calcYearlyRate(yearlyFees),
+            totalSupply.div(fp(1)).toNumber()
+          )
+        )
+        expect(exitResultBis.receipt.events != undefined, "empty events")
 
-//     const poolArtifact = getArtifact('v2-pool-weighted/WeightedPool');
-//     const nonViewFunctions = poolArtifact.abi
-//       .filter(
-//         (elem) =>
-//           elem.type === 'function' && (elem.stateMutability === 'payable' || elem.stateMutability === 'nonpayable')
-//       )
-//       .map((fn) => fn.name);
+        const firstEvent = exitResultBis.receipt.events![0]
+        try {
+          expect(firstEvent.topics[0]).to.be.eq("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef") // Transfer(address,address,uint256)
+          expect(firstEvent.topics[1]).to.be.eq("0x0000000000000000000000000000000000000000000000000000000000000000") // from
+          expect("0x"+firstEvent.topics[2].slice(26)).to.be.eq(collector.toLowerCase()) // to
+          expect(((BigNumber.from(firstEvent.data).mul(fp(1)).div(expected)).sub(fp(1))).abs()).to.be.lessThan(tolerance) // to
+        } catch(e) {
+          throw e;
+        }
 
-//     const expectedOwnerOnlyFunctions = ['setSwapFeePercentage'];
+      });
+    });
 
-//     const expectedNotOwnerOnlyFunctions = nonViewFunctions.filter((fn) => !expectedOwnerOnlyFunctions.includes(fn));
+  });
 
-//     describe('owner only actions', () => {
-//       for (const expectedOwnerOnlyFunction of expectedOwnerOnlyFunctions) {
-//         itIsOwnerOnly(expectedOwnerOnlyFunction);
-//       }
-//     });
-
-//     describe('non owner only actions', () => {
-//       for (const expectedNotOwnerOnlyFunction of expectedNotOwnerOnlyFunctions) {
-//         itIsNotOwnerOnly(expectedNotOwnerOnlyFunction);
-//       }
-//     });
-//   });
-
-//   describe('protocol fees', () => {
-//     const swapFeePercentage = fp(0.1); // 10 %
-//     const protocolFeePercentage = fp(0.5); // 50 %
-//     const numTokens = 2;
-
-//     let tokens: TokenList;
-//     let pool: WeightedPool;
-//     let vaultContract: Contract;
-
-//     sharedBeforeEach('deploy pool', async () => {
-//       tokens = allTokens.subset(numTokens);
-//       const vault = await Vault.create();
-//       vaultContract = vault.instance;
-
-//       await vault.setSwapFeePercentage(protocolFeePercentage);
-
-//       pool = await WeightedPool.create({
-//         poolType: WeightedPoolType.WEIGHTED_POOL,
-//         tokens,
-//         weights: WEIGHTS.slice(0, numTokens),
-//         swapFeePercentage: swapFeePercentage,
-//         vault,
-//       });
-//     });
-
-//     context('once initialized', () => {
-//       sharedBeforeEach('initialize pool', async () => {
-//         // Init pool with equal balances so that each BPT accounts for approximately one underlying token.
-//         const equalBalances = Array(numTokens).fill(fp(100));
-
-//         await allTokens.mint({ to: lp.address, amount: fp(1000) });
-//         await allTokens.approve({ from: lp, to: pool.vault.address });
-
-//         await pool.init({ from: lp, recipient: lp.address, initialBalances: equalBalances });
-//       });
-
-//       context('with protocol fees', () => {
-//         let unmintedBPT: BigNumber;
-
-//         sharedBeforeEach('swap bpt in', async () => {
-//           const amount = fp(20);
-//           const tokenIn = tokens.first;
-//           const tokenOut = tokens.second;
-
-//           const originalInvariant = await pool.instance.getInvariant();
-
-//           const singleSwap = {
-//             poolId: await pool.getPoolId(),
-//             kind: SwapKind.GivenIn,
-//             assetIn: tokenIn.address,
-//             assetOut: tokenOut.address,
-//             amount: amount,
-//             userData: '0x',
-//           };
-
-//           const funds: FundManagement = {
-//             sender: lp.address,
-//             recipient: lp.address,
-//             fromInternalBalance: false,
-//             toInternalBalance: false,
-//           };
-
-//           await vaultContract.connect(lp).swap(singleSwap, funds, 0, MAX_UINT256);
-
-//           const postInvariant = await pool.instance.getInvariant();
-//           const swapFeesPercentage = FP_100_PCT.sub(fpDiv(originalInvariant, postInvariant));
-//           const protocolOwnershipPercentage = fpMul(swapFeesPercentage, protocolFeePercentage);
-
-//           unmintedBPT = fpMul(
-//             await pool.totalSupply(),
-//             fpDiv(protocolOwnershipPercentage, FP_100_PCT.sub(protocolOwnershipPercentage))
-//           );
-//         });
-
-//         it('the actual supply takes into account unminted protocol fees', async () => {
-//           const totalSupply = await pool.totalSupply();
-//           const expectedActualSupply = totalSupply.add(unmintedBPT);
-
-//           expect(await pool.getActualSupply()).to.almostEqual(expectedActualSupply, 1e-6);
-//         });
-
-//         function itReactsToProtocolFeePercentageChangesCorrectly(feeType: number) {
-//           it('due protocol fees are minted on protocol fee cache update', async () => {
-//             await pool.vault.setFeeTypePercentage(feeType, protocolFeePercentage.div(2));
-//             const receipt = await (await pool.updateProtocolFeePercentageCache()).wait();
-
-//             const event = expectEvent.inReceipt(receipt, 'Transfer', {
-//               from: ZERO_ADDRESS,
-//               to: (await pool.vault.getFeesCollector()).address,
-//             });
-
-//             expect(event.args.value).to.be.almostEqual(unmintedBPT, 1e-6);
-//           });
-
-//           it('repeated protocol fee cache updates do not mint any more fees', async () => {
-//             await pool.vault.setFeeTypePercentage(feeType, protocolFeePercentage.div(2));
-//             await pool.updateProtocolFeePercentageCache();
-
-//             await pool.vault.setFeeTypePercentage(feeType, protocolFeePercentage.div(4));
-//             const receipt = await (await pool.updateProtocolFeePercentageCache()).wait();
-
-//             expectEvent.notEmitted(receipt, 'Transfer');
-//           });
-
-//           context('when paused', () => {
-//             sharedBeforeEach('pause pool', async () => {
-//               await pool.pause();
-//             });
-
-//             it('reverts on protocol fee cache updated', async () => {
-//               await pool.vault.setFeeTypePercentage(feeType, protocolFeePercentage.div(2));
-//               await expect(pool.updateProtocolFeePercentageCache()).to.be.revertedWith('PAUSED');
-//             });
-//           });
-//         }
-
-//         context('on swap protocol fee change', () => {
-//           itReactsToProtocolFeePercentageChangesCorrectly(ProtocolFee.SWAP);
-//         });
-
-//         context('on yield protocol fee change', () => {
-//           itReactsToProtocolFeePercentageChangesCorrectly(ProtocolFee.YIELD);
-//         });
-
-//         context('on aum protocol fee change', () => {
-//           itReactsToProtocolFeePercentageChangesCorrectly(ProtocolFee.AUM);
-//         });
-//       });
-//     });
-//   });
 });
