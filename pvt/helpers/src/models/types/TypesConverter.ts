@@ -28,6 +28,7 @@ import {
 import {
   RawSafeguardPoolDeployment,
   SafeguardPoolDeployment,
+  InitialOracleParams,
   InitialSafeguardParams
 } from '../pools/safeguard/types';
 import { getSigner } from '../../../../../pkg/deployments/src';
@@ -177,10 +178,11 @@ export default {
     let {
       tokens,
       oracles,
+      stableTokens,
+      disableOracles,
       assetManagers,
       pauseWindowDuration,
       bufferPeriodDuration,
-      swapEnabledOnStart,
       signer,
       maxPerfDev,
       maxTargetDev,
@@ -192,6 +194,8 @@ export default {
     if (!params.owner) params.owner = ZERO_ADDRESS;
     if (!tokens) tokens = new TokenList();
     if (!oracles) oracles = Array(tokens.length).fill(ZERO_ADDRESS);
+    if (!stableTokens) stableTokens = Array(tokens.length).fill(false);
+    if (!disableOracles) disableOracles = Array(tokens.length).fill(false);
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
     if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
     if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
@@ -201,6 +205,14 @@ export default {
     if(!yearlyFees) yearlyFees = 0;
     if (undefined == mustAllowlistLPs) mustAllowlistLPs = false;
     
+    let oracleParameters : InitialOracleParams[] = tokens.map((t, i) => {
+      return {
+        oracle: oracles![i],
+        isStable: stableTokens![i],
+        disableOracle: disableOracles![i]
+      }
+    });
+
     let safeguardParameters: InitialSafeguardParams = {
       signer: signer,
       maxPerfDev: maxPerfDev,
@@ -218,7 +230,7 @@ export default {
       bufferPeriodDuration: bufferPeriodDuration,
       owner: this.toAddress(params.owner),
       from: params.from,
-      oracles: oracles,
+      oracleParameters: oracleParameters,
       safeguardParameters: safeguardParameters
    };
   },

@@ -10,9 +10,38 @@ import Oracle from '../../oracles/Oracle';
 import { Account, NAry } from '../../types/types';
 import Vault from '../../vault/Vault';
 
+// IVault vault,
+// string memory name,
+// string memory symbol,
+// IERC20[] memory tokens,
+// address[] memory assetManagers,
+// uint256 pauseWindowDuration,
+// uint256 bufferPeriodDuration,
+// address owner,
+// InitialOracleParams[] memory oracleParams,
+// InitialSafeguardParams memory safeguardParameters
+
+// struct InitialSafeguardParams {
+//   address signer; // address that signs the quotes
+//   uint256 maxPerfDev; // maximum performance deviation
+//   uint256 maxTargetDev; // maximum balance deviation from hodl benchmark
+//   uint256 maxPriceDev; // maximum price deviation
+//   uint256 perfUpdateInterval; // performance update interval
+//   uint256 yearlyFees; // management fees in yearly %
+//   bool    isAllowlistEnabled; // use allowlist flag
+// }
+
+// struct InitialOracleParams {
+//   AggregatorV3Interface oracle;
+//   bool isStable;
+//   bool disableOracle;
+// }
+
 export type RawSafeguardPoolDeployment = {
   tokens?: TokenList;
   oracles?: Oracle[];
+  stableTokens?: boolean[];
+  disableOracles?: boolean[];
   assetManagers?: string[];
   pauseWindowDuration?: BigNumberish;
   bufferPeriodDuration?: BigNumberish;
@@ -34,15 +63,21 @@ export type RawSafeguardPoolDeployment = {
 
 export type SafeguardPoolDeployment = {
   tokens: TokenList;
-  oracles: Oracle[];
   assetManagers: string[];
   pauseWindowDuration: BigNumberish;
   bufferPeriodDuration: BigNumberish;
   owner?: string;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
-  safeguardParameters : InitialSafeguardParams
+  oracleParameters : InitialOracleParams[];
+  safeguardParameters : InitialSafeguardParams;
 };
+
+export type InitialOracleParams = {
+  oracle: Oracle;
+  isStable: boolean;
+  disableOracle: boolean;
+}
 
 export type InitialSafeguardParams = {
   signer: SignerWithAddress;

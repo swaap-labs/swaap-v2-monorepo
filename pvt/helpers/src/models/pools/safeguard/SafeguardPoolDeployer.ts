@@ -26,7 +26,7 @@ export default {
     const {
       tokens,
       assetManagers,
-      oracles,
+      oracleParameters,
       pauseWindowDuration,
       bufferPeriodDuration
     } = deployment;
@@ -36,7 +36,7 @@ export default {
       poolId,
       vault,
       tokens,
-      oracles,
+      oracleParameters.map((oracleParam) => oracleParam.oracle),
       assetManagers,
       pauseWindowDuration,
       bufferPeriodDuration
@@ -50,11 +50,9 @@ export default {
       assetManagers,
       pauseWindowDuration,
       bufferPeriodDuration,
-      swapEnabledOnStart,
-      mustAllowlistLPs,
       owner,
       from,
-      oracles,
+      oracleParameters,
       safeguardParameters
     } = params;
 
@@ -70,8 +68,13 @@ export default {
             pauseWindowDuration,
             bufferPeriodDuration,
             TypesConverter.toAddress(owner),
-            // swapEnabledOnStart,
-            oracles.map((oracle) => oracle.address),
+            oracleParameters.map((oracleParam) => {
+              return {
+                oracle: oracleParam.oracle.address,
+                isStable: oracleParam.isStable,
+                disableOracle: oracleParam.disableOracle,
+              }
+            }),
             {
               ...safeguardParameters,
               signer: safeguardParameters.signer.address,
