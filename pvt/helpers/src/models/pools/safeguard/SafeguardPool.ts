@@ -332,7 +332,6 @@ export default class SafeguardPool extends BasePool {
       quoteIndex,
       params.signer
     )
-
     return {
       kind,
       poolAddress: this.address,
@@ -585,6 +584,11 @@ export default class SafeguardPool extends BasePool {
   async setSwapFeePercentage(from: SignerWithAddress, swapFeePercentage: BigNumberish): Promise<ContractTransaction> {
     const pool = this.instance.connect(from);
     return pool.setSwapFeePercentage(swapFeePercentage);
+  }
+
+  async setManagementFees(from: SignerWithAddress, yearlyFees: BigNumberish) {
+    const pool = this.instance.connect(from);
+    return pool.setManagementFees(yearlyFees);
   }
 
   async addAllowedAddress(from: SignerWithAddress, member: Account): Promise<ContractTransaction> {

@@ -93,3 +93,19 @@ export function calcBptOutGivenAllTokensIn(
 
   return fp(rOpt.mul(totalSupply));
 }
+
+export function calcYearlyRate(yearlyFees: number): number {
+  const logInput = 1 - yearlyFees;
+  const logResult = Math.log(logInput)
+  return -logResult / (365 * 24 * 3600);
+}
+
+export function calcAccumulatedManagementFees(
+    elapsedTime: number,
+    yearlyRate: number,
+    currentSupply: number
+): number {
+    const expInput = yearlyRate * elapsedTime;
+    const expResult = Math.exp(expInput);
+    return (currentSupply * (expResult - 1));
+}
