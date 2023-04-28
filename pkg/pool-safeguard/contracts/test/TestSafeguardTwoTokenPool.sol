@@ -28,7 +28,7 @@ contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
         uint256 pauseWindowDuration,
         uint256 bufferPeriodDuration,
         address owner,
-        AggregatorV3Interface[] memory oracles,
+        InitialOracleParams[] memory oracleParams,
         InitialSafeguardParams memory safeguardParameters
     ) SafeguardTwoTokenPool(
         vault,
@@ -39,7 +39,7 @@ contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
         pauseWindowDuration,
         bufferPeriodDuration,
         owner,
-        oracles,
+        oracleParams,
         safeguardParameters
     ) {
         

@@ -20,6 +20,7 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v2-pool-utils/contracts/factories/BasePoolFactory.sol";
 
 import "./SafeguardTwoTokenPool.sol";
+import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
 
 contract SafeguardTwoTokenFactory is BasePoolFactory {
     constructor(
@@ -47,26 +48,26 @@ contract SafeguardTwoTokenFactory is BasePoolFactory {
         string memory symbol,
         IERC20[] memory tokens,
         address owner,
-        AggregatorV3Interface[] memory oracles,
-        ISafeguardPool.InitialSafeguardParams calldata initialPoolParameters,
+        ISafeguardPool.InitialOracleParams[] calldata oracleParams,
+        ISafeguardPool.InitialSafeguardParams calldata safeguardParameters,
         bool setPegStates
     ) external returns (address) {
         (uint256 pauseWindowDuration, uint256 bufferPeriodDuration) = getPauseConfiguration();
+        
+        bytes memory constructorArgs = abi.encode(
+            getVault(),
+            name,
+            symbol,
+            tokens,
+            new address[](tokens.length), // Don't allow asset managers
+            pauseWindowDuration,
+            bufferPeriodDuration,
+            owner,
+            oracleParams,
+            safeguardParameters
+        );
 
-        address pool = _create(
-                abi.encode(
-                    getVault(),
-                    name,
-                    symbol,
-                    tokens,
-                    new address[](tokens.length), // Don't allow asset managers
-                    pauseWindowDuration,
-                    bufferPeriodDuration,
-                    owner,
-                    oracles,
-                    initialPoolParameters
-                )
-            );
+        address pool = _create(constructorArgs);
 
         if(setPegStates) {
             ISafeguardPool(pool).evaluateStablesPegStates();

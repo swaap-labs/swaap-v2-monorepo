@@ -16,6 +16,7 @@ pragma solidity >=0.7.0 <0.9.0;
 pragma experimental ABIEncoderV2;
 
 import "../solidity-utils/openzeppelin/IERC20.sol";
+import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
 
 interface ISafeguardPool {
 
@@ -27,8 +28,12 @@ interface ISafeguardPool {
         uint256 perfUpdateInterval; // performance update interval
         uint256 yearlyFees; // management fees in yearly %
         bool    isAllowlistEnabled; // use allowlist flag
-        bool    isStable0; // is token 0 a stable coin
-        bool    isStable1; // is token 1 a stable coin
+    }
+
+    struct InitialOracleParams {
+        AggregatorV3Interface oracle;
+        bool isStable;
+        bool disableOracle;
     }
 
     function evaluateStablesPegStates() external;
