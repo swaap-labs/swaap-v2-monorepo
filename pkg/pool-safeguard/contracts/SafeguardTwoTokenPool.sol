@@ -41,9 +41,9 @@ contract SafeguardTwoTokenPool is
     uint256 private constant _INITIAL_BPT = 100 ether;
 
     // Pool parameters constants
-    uint256 private constant _MAX_PERFORMANCE_DEVIATION = 15e16; // 15%
-    uint256 private constant _MAX_TARGET_DEVIATION = 20e16; // 20%
-    uint256 private constant _MAX_PRICE_DEVIATION = 10e16; // 10%
+    uint256 private constant _MAX_PERFORMANCE_DEVIATION = 85e16; // 15% max tolerance
+    uint256 private constant _MAX_TARGET_DEVIATION = 80e16; // 20% max tolerance
+    uint256 private constant _MAX_PRICE_DEVIATION = 90e16; // 10% max tolerance
     uint256 private constant _MIN_PERFORMANCE_UPDATE_INTERVAL = 1 hours;
 
     // NB Max yearly fee should fit in a 32 bits slot
@@ -77,12 +77,12 @@ contract SafeguardTwoTokenPool is
     // For a max fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
     uint32 private _yearlyRate;
 
-    // Allowlist enabled
-    bool private _allowlistEnabled;
+    // Allowlist enabled / disabled
+    bool private _mustAllowlistLPs;
     
-    // [ isPegged0 | isPegged1 | flexibleOracle0 | flexibleOracle1 | 1 - max performance dev | 1 - max hodl dev | 1 - max price dev | perf update interval | last perf update ]
-    // [   1 bit   |   1 bit   |      1 bit      |      1 bit      |          60 bits        |      64 bits     |      64 bits      |        32 bits       |      32 bits     ]
-    // [ MSB                                                                                                                                                              LSB ]
+    // [ isPegged0 | isPegged1 | flexibleOracle0 | flexibleOracle1 | max performance dev | max hodl dev | max price dev | perf update interval | last perf update ]
+    // [   1 bit   |   1 bit   |      1 bit      |      1 bit      |       60 bits       |    64 bits   |    64 bits    |        32 bits       |      32 bits     ]
+    // [ MSB                                                                                                                                                  LSB ]
     bytes32 private _packedPoolParameters;
 
     // used to determine if stable coin is holding the peg
@@ -118,8 +118,6 @@ contract SafeguardTwoTokenPool is
     uint256 private constant _HODL_BALANCE_BIT_OFFSET_0 = 128;
     uint256 private constant _HODL_BALANCE_BIT_OFFSET_1 = 0;
     uint256 private constant _HODL_BALANCE_BIT_LENGTH   = 128;
-
-    event PerformanceUpdateIntervalChanged(uint256 performanceUpdateInterval);
 
     constructor(
         IVault vault,
@@ -177,12 +175,12 @@ contract SafeguardTwoTokenPool is
 
         // pool related parameters
         _setSigner(safeguardParameters.signer);
-        _setMaxPerfDevComplement(safeguardParameters.maxPerfDev);
-        _setMaxTargetDevComplement(safeguardParameters.maxTargetDev);
-        _setMaxPriceDevComplement(safeguardParameters.maxPriceDev);
+        _setMaxPerfDev(safeguardParameters.maxPerfDev);
+        _setMaxTargetDev(safeguardParameters.maxTargetDev);
+        _setMaxPriceDev(safeguardParameters.maxPriceDev);
         _setPerfUpdateInterval(safeguardParameters.perfUpdateInterval);
         _setYearlyRate(safeguardParameters.yearlyFees);
-        _setAllowlistBoolean(safeguardParameters.isAllowlistEnabled);
+        _setMustAllowlistLPs(safeguardParameters.mustAllowlistLPs);
 
     }
 
@@ -406,7 +404,7 @@ contract SafeguardTwoTokenPool is
         uint256 onChainAmountInPerOut,
         bytes32 packedPoolParameters
     ) internal pure {
-        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDevCompl(packedPoolParameters), "error: unfair price");
+        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDev(packedPoolParameters), "error: unfair price");
     }
 
     function _performanceSafeguard(
@@ -453,12 +451,12 @@ contract SafeguardTwoTokenPool is
         uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
         uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
 
-        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= _getMaxTargetDevCompl(packedPoolParameters), "error: min balance out is not met");
+        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= _getMaxTargetDev(packedPoolParameters), "error: min balance out is not met");
 
         uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
         uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
 
-        require(newTVLPerPT.divDown(oldTVLPerPT) >= _getMaxPerfDevCompl(packedPoolParameters), "error: low performance");
+        require(newTVLPerPT.divDown(oldTVLPerPT) >= _getMaxPerfDev(packedPoolParameters), "error: low performance");
     }
 
     function _onInitializePool(
@@ -704,7 +702,11 @@ contract SafeguardTwoTokenPool is
     * Setters
     */
 
-    function setFlexibleOracleOnOff(bool isFlexibleOracle0, bool isFlexibleOracle1) external authenticate {
+    function setFlexibleOracleStates(
+        bool isFlexibleOracle0,
+        bool isFlexibleOracle1
+    ) external override authenticate whenNotPaused {
+       
         bytes32 packedPoolParameters = _packedPoolParameters;
 
         if(_isStable0) {
@@ -724,26 +726,30 @@ contract SafeguardTwoTokenPool is
         }
 
         _packedPoolParameters = packedPoolParameters;
+        // we do not use the inputs of the function because they may not me update the state if the token isn't stable
+        emit FlexibleOracleStatesUpdated(_isFlexibleOracle0(packedPoolParameters), _isFlexibleOracle1(packedPoolParameters));
     }
 
-    function setAllowlistBoolean(bool isAllowlistEnabled) external authenticate whenNotPaused {
-        _setAllowlistBoolean(isAllowlistEnabled);
+    function setMustAllowlistLPs(bool mustAllowlistLPs) external override authenticate whenNotPaused {
+        _setMustAllowlistLPs(mustAllowlistLPs);
     }
 
-    function _setAllowlistBoolean(bool isAllowlistEnabled) internal {
-        _allowlistEnabled = isAllowlistEnabled;
+    function _setMustAllowlistLPs(bool mustAllowlistLPs) private {
+        _mustAllowlistLPs = mustAllowlistLPs;
+        emit MustAllowlistLPsSet(mustAllowlistLPs);
     }
 
-    function setSigner(address signer) external authenticate whenNotPaused {
+    function setSigner(address signer) external override authenticate whenNotPaused {
         _setSigner(signer);
     }
 
     function _setSigner(address signer) internal {
         require(signer != address(0), "error: signer cannot be a null address");
         _signer = signer;
+        emit SignerChanged(signer);
     }
 
-    function setPerfUpdateInterval(uint256 perfUpdateInterval) external authenticate whenNotPaused {
+    function setPerfUpdateInterval(uint256 perfUpdateInterval) external override authenticate whenNotPaused {
         _setPerfUpdateInterval(perfUpdateInterval);
     }
 
@@ -757,67 +763,73 @@ contract SafeguardTwoTokenPool is
             _PERF_TIME_BIT_LENGTH
         );
 
-        emit PerformanceUpdateIntervalChanged(perfUpdateInterval);
+        emit PerfUpdateIntervalChanged(perfUpdateInterval);
     }    
     
     /**
     * @param maxPerfDev the maximum performance deviation tolerance
     */
-    function setMaxPerfDevComplement(uint256 maxPerfDev) external authenticate whenNotPaused {
-        _setMaxPerfDevComplement(maxPerfDev);
+    function setMaxPerfDev(uint256 maxPerfDev) external override authenticate whenNotPaused {
+        _setMaxPerfDev(maxPerfDev);
     }
 
-    /// @dev for gas optimization purposes we store (1 - max deviation tolerance)
-    function _setMaxPerfDevComplement(uint256 maxPerfDev) internal {
+    /// @dev for gas optimization purposes we store (1 - max tolerance)
+    function _setMaxPerfDev(uint256 maxPerfDev) internal {
         
-        require(maxPerfDev <= _MAX_PERFORMANCE_DEVIATION, "error: tolerance too large");
+        require(maxPerfDev <= FixedPoint.ONE, "error: tolerance too low");
+        require(maxPerfDev >= _MAX_PERFORMANCE_DEVIATION, "error: tolerance too large");
         
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            FixedPoint.ONE.sub(maxPerfDev),
+            maxPerfDev,
             _MAX_PERF_DEV_BIT_OFFSET,
             _MAX_PERF_DEV_BIT_LENGTH
         );
+        emit MaxPerfDevChanged(maxPerfDev);
     }
 
     /**
     * @param maxTargetDev the maximum deviation tolerance from target reserve (hodl benchmark)
     */
-    function setMaxTargetDevComplement(uint256 maxTargetDev) external authenticate whenNotPaused {
-        _setMaxTargetDevComplement(maxTargetDev);
+    function setMaxTargetDev(uint256 maxTargetDev) external override authenticate whenNotPaused {
+        _setMaxTargetDev(maxTargetDev);
     }
     
-    /// @dev for gas optimization purposes we store (1 - max deviation tolerance)
-    function _setMaxTargetDevComplement(uint256 maxTargetDev) internal {
-        
-        require(maxTargetDev <= _MAX_TARGET_DEVIATION, "error: tolerance too large");
+    /// @dev for gas optimization purposes we store (1 - max tolerance)
+    function _setMaxTargetDev(uint256 maxTargetDev) internal {
+
+        require(maxTargetDev <= FixedPoint.ONE, "error: tolerance too low");
+        require(maxTargetDev >= _MAX_TARGET_DEVIATION, "error: tolerance too large");
         
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            FixedPoint.ONE - maxTargetDev,
+            maxTargetDev,
             _MAX_TARGET_DEV_BIT_OFFSET,
             _MAX_TARGET_DEV_BIT_LENGTH
         );
+        emit MaxTargetDevChanged(maxTargetDev);
     }
 
     /**
     * @param maxPriceDev the maximum price deviation tolerance
     */
-    function setMaxPriceDevComplement(uint256 maxPriceDev) external authenticate whenNotPaused {
-        _setMaxPriceDevComplement(maxPriceDev);
+    function setMaxPriceDev(uint256 maxPriceDev) external override authenticate whenNotPaused {
+        _setMaxPriceDev(maxPriceDev);
     }
 
-    /// @dev for gas optimization purposes we store the complement of the tolerance (1 - tolerance)
-    function _setMaxPriceDevComplement(uint256 maxPriceDev) internal {
+    /// @dev for gas optimization purposes we store (1 - max tolerance)
+    function _setMaxPriceDev(uint256 maxPriceDev) internal {
 
-        require(maxPriceDev <= _MAX_PRICE_DEVIATION, "error: tolerance too large");
+        require(maxPriceDev <= FixedPoint.ONE, "error: tolerance too low");
+        require(maxPriceDev >= _MAX_PRICE_DEVIATION, "error: tolerance too large");
 
         _packedPoolParameters = _packedPoolParameters.insertUint(
-            FixedPoint.ONE - maxPriceDev,
+            maxPriceDev,
             _MAX_PRICE_DEV_BIT_OFFSET,
             _MAX_PRICE_DEV_BIT_LENGTH
         );
+        emit MaxPriceDevChanged(maxPriceDev);
     }
 
-    function updatePerformance() external nonReentrant {
+    function updatePerformance() external override nonReentrant whenNotPaused {
 
         bytes32 packedPoolParameters = _packedPoolParameters;
 
@@ -847,16 +859,18 @@ contract SafeguardTwoTokenPool is
         
         uint256 currentTVLPerPT = (balance0.add(balance1.mulDown(amount0Per1))).divDown(totalSupply);
         
-        (uint256 hodlBalancesPerPT0, uint256 hodlBalancesPerPT1) = getHodlBalancesPerPT();
+        (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
         
-        uint256 oldTVLPerPT = hodlBalancesPerPT0.add(hodlBalancesPerPT1.mulDown(amount0Per1));
+        uint256 oldTVLPerPT = hodlBalancePerPT0.add(hodlBalancePerPT1.mulDown(amount0Per1));
         
         uint256 currentPerformance = currentTVLPerPT.divDown(oldTVLPerPT);
 
-        hodlBalancesPerPT0 = hodlBalancesPerPT0.mulDown(currentPerformance);
-        hodlBalancesPerPT1 = hodlBalancesPerPT1.mulDown(currentPerformance);
+        hodlBalancePerPT0 = hodlBalancePerPT0.mulDown(currentPerformance);
+        hodlBalancePerPT1 = hodlBalancePerPT1.mulDown(currentPerformance);
 
-        _setHodlBalancesPerPT(hodlBalancesPerPT0, hodlBalancesPerPT1);
+        _setHodlBalancesPerPT(hodlBalancePerPT0, hodlBalancePerPT1);
+
+        emit PerformanceUpdated(hodlBalancePerPT0, hodlBalancePerPT1, amount0Per1, block.timestamp);
     }
 
     function _setHodlBalancesPerPT(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) private {
@@ -882,7 +896,7 @@ contract SafeguardTwoTokenPool is
         );
     }
 
-    function evaluateStablesPegStates() external override {
+    function evaluateStablesPegStates() external override whenNotPaused {
         bytes32 packedPoolParameters = _packedPoolParameters;
         
         if(_isStable0 && _isFlexibleOracle0(packedPoolParameters)) {
@@ -896,6 +910,7 @@ contract SafeguardTwoTokenPool is
         }
 
         _packedPoolParameters = packedPoolParameters;
+        emit PegStatesUpdated(_isTokenPegged0(packedPoolParameters), _isTokenPegged1(packedPoolParameters));
     }
 
     /**
@@ -919,7 +934,7 @@ contract SafeguardTwoTokenPool is
     }
 
     function isAllowlistEnabled() public view returns(bool) {
-        return _allowlistEnabled;
+        return _mustAllowlistLPs;
     }
 
     /**
@@ -975,20 +990,20 @@ contract SafeguardTwoTokenPool is
     /// @notice returns the pool parameters
     function getPoolParameters() public view
     returns (
-        uint256 maxPerfDevCompl, // 1 - maxPerfDev
-        uint256 maxTargetDevCompl, // 1 - maxTargetDev
-        uint256 maxPriceDevCompl, // 1 - maxPriveDev
+        uint256 maxPerfDev,
+        uint256 maxTargetDev,
+        uint256 maxPriceDev,
         uint256 lastPerfUpdate,
         uint256 perfUpdateInterval
     ) {
 
         bytes32 packedPoolParameters = _packedPoolParameters;
         
-        maxPerfDevCompl = _getMaxPerfDevCompl(packedPoolParameters);
+        maxPerfDev = _getMaxPerfDev(packedPoolParameters);
 
-        maxTargetDevCompl = _getMaxTargetDevCompl(packedPoolParameters);
+        maxTargetDev = _getMaxTargetDev(packedPoolParameters);
         
-        maxPriceDevCompl = _getMaxPriceDevCompl(packedPoolParameters);
+        maxPriceDev = _getMaxPriceDev(packedPoolParameters);
         
         (lastPerfUpdate, perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
 
@@ -1002,23 +1017,23 @@ contract SafeguardTwoTokenPool is
         return packedPoolParameters.decodeBool(_FLEXIBLE_ORACLE_1_BIT_OFFSET);
     }
 
-    function _getMaxPerfDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxPerfDevCompl) {
-        maxPerfDevCompl = packedPoolParameters.decodeUint(
+    function _getMaxPerfDev(bytes32 packedPoolParameters) internal pure returns (uint256 maxPerfDev) {
+        maxPerfDev = packedPoolParameters.decodeUint(
             _MAX_PERF_DEV_BIT_OFFSET,
             _MAX_PERF_DEV_BIT_LENGTH
         );
     }
 
-    function _getMaxTargetDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxTargetDevCompl) {
-        maxTargetDevCompl = packedPoolParameters.decodeUint(
+    function _getMaxTargetDev(bytes32 packedPoolParameters) internal pure returns (uint256 maxTargetDev) {
+        maxTargetDev = packedPoolParameters.decodeUint(
             _MAX_TARGET_DEV_BIT_OFFSET,
             _MAX_TARGET_DEV_BIT_LENGTH
         );
     }
 
-    function _getMaxPriceDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxPriceDevCompl) {
+    function _getMaxPriceDev(bytes32 packedPoolParameters) internal pure returns (uint256 maxPriceDev) {
 
-        maxPriceDevCompl = packedPoolParameters.decodeUint(
+        maxPriceDev = packedPoolParameters.decodeUint(
             _MAX_PRICE_DEV_BIT_OFFSET,
             _MAX_PRICE_DEV_BIT_LENGTH
         );

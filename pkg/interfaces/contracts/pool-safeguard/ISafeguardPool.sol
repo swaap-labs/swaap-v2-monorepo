@@ -20,6 +20,16 @@ import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
 
 interface ISafeguardPool {
 
+    event PegStatesUpdated(bool isPegged0, bool isPegged1);
+    event FlexibleOracleStatesUpdated(bool isFlexibleOracle0, bool isFlexibleOracle1);
+    event SignerChanged(address signer);
+    event MustAllowlistLPsSet(bool mustAllowlistLPs);
+    event PerfUpdateIntervalChanged(uint256 perfUpdateInterval);
+    event MaxPerfDevChanged(uint256 maxPerfDev);
+    event MaxTargetDevChanged(uint256 maxTargetDev);
+    event MaxPriceDevChanged(uint256 maxPriceDev);
+    event PerformanceUpdated(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1, uint256 amount0Per1, uint256 time);
+
     struct InitialSafeguardParams {
         address signer; // address that signs the quotes
         uint256 maxPerfDev; // maximum performance deviation
@@ -27,7 +37,7 @@ interface ISafeguardPool {
         uint256 maxPriceDev; // maximum price deviation
         uint256 perfUpdateInterval; // performance update interval
         uint256 yearlyFees; // management fees in yearly %
-        bool    isAllowlistEnabled; // use allowlist flag
+        bool    mustAllowlistLPs; // must use allowlist flag
     }
 
     struct InitialOracleParams {
@@ -36,5 +46,30 @@ interface ISafeguardPool {
         bool isFlexibleOracle;
     }
 
+    /// @dev sets or removes flexible oracles
+    function setFlexibleOracleStates(bool isFlexibleOracle0, bool isFlexibleOracle1) external;
+
+    /// @dev sets or removes allowlist 
+    function setMustAllowlistLPs(bool mustAllowlistLPs) external;
+
+    /// @dev sets the quote signer
+    function setSigner(address signer) external;
+
+    /// @dev sets the performance update interval
+    function setPerfUpdateInterval(uint256 perfUpdateInterval) external;
+
+    /// @dev sets the max performance deviation
+    function setMaxPerfDev(uint256 maxPerfDev) external;
+
+    /// @dev sets the maximum deviation from target balances
+    function setMaxTargetDev(uint256 maxTargetDev) external;
+
+    /// @dev sets the maximum quote price deviation from the oracles
+    function setMaxPriceDev(uint256 maxPriceDev) external;
+
+    /// @dev updates the performance and the hodl balances (should be permissionless)
+    function updatePerformance() external;
+
+    /// @dev unpegs or repegs oracles based on the latest prices (should be permissionless)
     function evaluateStablesPegStates() external;
 }
