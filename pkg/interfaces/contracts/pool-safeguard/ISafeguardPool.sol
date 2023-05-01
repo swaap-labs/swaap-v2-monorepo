@@ -33,7 +33,7 @@ interface ISafeguardPool {
     struct InitialOracleParams {
         AggregatorV3Interface oracle;
         bool isStable;
-        bool disableOracle;
+        bool isFlexibleOracle;
     }
 
     function evaluateStablesPegStates() external;

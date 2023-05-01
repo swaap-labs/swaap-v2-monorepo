@@ -72,7 +72,7 @@ export default {
               return {
                 oracle: oracleParam.oracle.address,
                 isStable: oracleParam.isStable,
-                disableOracle: oracleParam.disableOracle,
+                isFlexibleOracle: oracleParam.isFlexibleOracle,
               }
             }),
             {

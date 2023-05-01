@@ -179,7 +179,7 @@ export default {
       tokens,
       oracles,
       stableTokens,
-      disableOracles,
+      flexibleOracles,
       assetManagers,
       pauseWindowDuration,
       bufferPeriodDuration,
@@ -195,7 +195,7 @@ export default {
     if (!tokens) tokens = new TokenList();
     if (!oracles) oracles = Array(tokens.length).fill(ZERO_ADDRESS);
     if (!stableTokens) stableTokens = Array(tokens.length).fill(false);
-    if (!disableOracles) disableOracles = Array(tokens.length).fill(false);
+    if (!flexibleOracles) flexibleOracles = Array(tokens.length).fill(false);
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
     if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
     if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
@@ -209,7 +209,7 @@ export default {
       return {
         oracle: oracles![i],
         isStable: stableTokens![i],
-        disableOracle: disableOracles![i]
+        isFlexibleOracle: flexibleOracles![i]
       }
     });
 

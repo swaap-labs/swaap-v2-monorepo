@@ -80,18 +80,18 @@ contract SafeguardTwoTokenPool is
     // Allowlist enabled
     bool private _allowlistEnabled;
     
-    // [ isPegged0 | isPegged1 | disableOracle0 | disableOracle1 | 1 - max performance dev | 1 - max hodl dev | 1 - max price dev | perf update interval | last perf update ]
-    // [   1 bit   |   1 bit   |     1 bit      |     1 bit      |          60 bits        |      64 bits     |      64 bits      |        32 bits       |      32 bits     ]
-    // [ MSB                                                                                                                                                            LSB ]
+    // [ isPegged0 | isPegged1 | flexibleOracle0 | flexibleOracle1 | 1 - max performance dev | 1 - max hodl dev | 1 - max price dev | perf update interval | last perf update ]
+    // [   1 bit   |   1 bit   |      1 bit      |      1 bit      |          60 bits        |      64 bits     |      64 bits      |        32 bits       |      32 bits     ]
+    // [ MSB                                                                                                                                                              LSB ]
     bytes32 private _packedPoolParameters;
 
     // used to determine if stable coin is holding the peg
     uint256 private constant _TOKEN_0_PEGGED_BIT_OFFSET = 255;
     uint256 private constant _TOKEN_1_PEGGED_BIT_OFFSET = 254;
 
-    // used to determine if the oracle mode is disabled or not
-    uint256 private constant _ORACLE_MODE_0_BIT_OFFSET = 253;
-    uint256 private constant _ORACLE_MODE_1_BIT_OFFSET = 252;
+    // used to determine if the oracle can be pegged to a fixed value
+    uint256 private constant _FLEXIBLE_ORACLE_0_BIT_OFFSET = 253;
+    uint256 private constant _FLEXIBLE_ORACLE_1_BIT_OFFSET = 252;
 
     // used to determine if the pool is underperforming compared to the last performance update
     uint256 private constant _MAX_PERF_DEV_BIT_OFFSET = 192;
@@ -167,14 +167,12 @@ contract SafeguardTwoTokenPool is
         _isStable0 = oracleParams[0].isStable;
         _isStable1 = oracleParams[1].isStable;
 
-        if(oracleParams[0].isStable && oracleParams[0].disableOracle) {
-            // disables oracle 0
-            _packedPoolParameters = _packedPoolParameters.insertBool(true, _ORACLE_MODE_0_BIT_OFFSET);
+        if(oracleParams[0].isStable && oracleParams[0].isFlexibleOracle) {
+            _packedPoolParameters = _packedPoolParameters.insertBool(true, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
         }
 
-        if(oracleParams[1].isStable && oracleParams[1].disableOracle) {
-            // disable oracle 1
-            _packedPoolParameters = _packedPoolParameters.insertBool(true, _ORACLE_MODE_1_BIT_OFFSET);
+        if(oracleParams[1].isStable && oracleParams[1].isFlexibleOracle) {
+            _packedPoolParameters = _packedPoolParameters.insertBool(true, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
         }
 
         // pool related parameters
@@ -706,13 +704,13 @@ contract SafeguardTwoTokenPool is
     * Setters
     */
 
-    function setOracleModeOnOff(bool disableOracle0, bool disableOracle1) external authenticate {
+    function setFlexibleOracleOnOff(bool flexibleOracle0, bool flexibleOracle1) external authenticate {
         bytes32 packedPoolParameters = _packedPoolParameters;
         if(_isStable0) {
-            packedPoolParameters = packedPoolParameters.insertBool(disableOracle0, _ORACLE_MODE_0_BIT_OFFSET);
+            packedPoolParameters = packedPoolParameters.insertBool(flexibleOracle0, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
         }
         if(_isStable1) {
-            packedPoolParameters = packedPoolParameters.insertBool(disableOracle1, _ORACLE_MODE_1_BIT_OFFSET);
+            packedPoolParameters = packedPoolParameters.insertBool(flexibleOracle1, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
         }
         _packedPoolParameters = packedPoolParameters;
     }
@@ -876,12 +874,12 @@ contract SafeguardTwoTokenPool is
     function evaluateStablesPegStates() external override {
         bytes32 packedPoolParameters = _packedPoolParameters;
         
-        if(_isStable0 && _isOracleDisabled0(packedPoolParameters)) {
+        if(_isStable0 && _isFlexibleOracle0(packedPoolParameters)) {
             bool newPegState = _canBePegged(_isTokenPegged0(packedPoolParameters), _oracle0, _priceScaleFactor0);
             packedPoolParameters = packedPoolParameters.insertBool(newPegState, _TOKEN_0_PEGGED_BIT_OFFSET);
         }
         
-        if(_isStable1 && _isOracleDisabled1(packedPoolParameters)) {
+        if(_isStable1 && _isFlexibleOracle1(packedPoolParameters)) {
             bool newPegState = _canBePegged(_isTokenPegged1(packedPoolParameters), _oracle1, _priceScaleFactor1);
             packedPoolParameters = packedPoolParameters.insertBool(newPegState, _TOKEN_1_PEGGED_BIT_OFFSET);
         }
@@ -942,7 +940,7 @@ contract SafeguardTwoTokenPool is
         
         uint256 price0;
         
-        if(_isStable0 && _isOracleDisabled0(packedPoolParameters) && _isTokenPegged0(packedPoolParameters)) {
+        if(_isStable0 && _isFlexibleOracle0(packedPoolParameters) && _isTokenPegged0(packedPoolParameters)) {
             price0 = FixedPoint.ONE;
         } else {
             price0 = _getPriceFromOracle(_oracle0, _priceScaleFactor0);
@@ -950,7 +948,7 @@ contract SafeguardTwoTokenPool is
 
         uint256 price1;
         
-        if(_isStable1 && _isOracleDisabled1(packedPoolParameters) && _isTokenPegged1(packedPoolParameters)) {
+        if(_isStable1 && _isFlexibleOracle1(packedPoolParameters) && _isTokenPegged1(packedPoolParameters)) {
             price1 = FixedPoint.ONE;
         } else {
             price1 = _getPriceFromOracle(_oracle1, _priceScaleFactor1);
@@ -985,12 +983,12 @@ contract SafeguardTwoTokenPool is
 
     }
 
-    function _isOracleDisabled0(bytes32 packedPoolParameters) internal pure returns(bool) {
-        return packedPoolParameters.decodeBool(_ORACLE_MODE_0_BIT_OFFSET);
+    function _isFlexibleOracle0(bytes32 packedPoolParameters) internal pure returns(bool) {
+        return packedPoolParameters.decodeBool(_FLEXIBLE_ORACLE_0_BIT_OFFSET);
     }
     
-    function _isOracleDisabled1(bytes32 packedPoolParameters) internal pure returns(bool) {
-        return packedPoolParameters.decodeBool(_ORACLE_MODE_1_BIT_OFFSET);
+    function _isFlexibleOracle1(bytes32 packedPoolParameters) internal pure returns(bool) {
+        return packedPoolParameters.decodeBool(_FLEXIBLE_ORACLE_1_BIT_OFFSET);
     }
 
     function _getMaxPerfDevCompl(bytes32 packedPoolParameters) internal pure returns (uint256 maxPerfDevCompl) {
