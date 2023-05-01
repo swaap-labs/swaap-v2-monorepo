@@ -704,14 +704,25 @@ contract SafeguardTwoTokenPool is
     * Setters
     */
 
-    function setFlexibleOracleOnOff(bool flexibleOracle0, bool flexibleOracle1) external authenticate {
+    function setFlexibleOracleOnOff(bool isFlexibleOracle0, bool isFlexibleOracle1) external authenticate {
         bytes32 packedPoolParameters = _packedPoolParameters;
+
         if(_isStable0) {
-            packedPoolParameters = packedPoolParameters.insertBool(flexibleOracle0, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
+            if(!isFlexibleOracle0) {
+                // if the oracle is no longer flexible we need to reset the peg state
+                packedPoolParameters = packedPoolParameters.insertBool(false, _TOKEN_0_PEGGED_BIT_OFFSET);
+            }
+            packedPoolParameters = packedPoolParameters.insertBool(isFlexibleOracle0, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
         }
+
         if(_isStable1) {
-            packedPoolParameters = packedPoolParameters.insertBool(flexibleOracle1, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
+            if(!isFlexibleOracle1) {
+                // if the oracle is no longer flexible we need to reset the peg state
+                packedPoolParameters = packedPoolParameters.insertBool(false, _TOKEN_1_PEGGED_BIT_OFFSET);
+            }
+            packedPoolParameters = packedPoolParameters.insertBool(isFlexibleOracle1, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
         }
+
         _packedPoolParameters = packedPoolParameters;
     }
 
