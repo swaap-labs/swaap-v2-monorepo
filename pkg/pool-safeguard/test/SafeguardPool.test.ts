@@ -72,9 +72,9 @@ describe('SafeguardPool', function () {
       })
     ];
 
-    maxPerfDev = fp(0.1);
-    maxTargetDev = fp(0.2);
-    maxPriceDev = fp(0.03);
+    maxPerfDev = fp(0.9);
+    maxTargetDev = fp(0.8);
+    maxPriceDev = fp(0.97);
     perfUpdateInterval = 1 * DAY;
     yearlyFees = 0;
     mustAllowlistLPs = false;
@@ -390,9 +390,9 @@ describe('SafeguardPool', function () {
 
   context('Enable allowlist', () => {
     it('JoinAllGivenOut', async() => {
-      const action = await actionId(pool.instance, 'setAllowlistBoolean');
+      const action = await actionId(pool.instance, 'setMustAllowlistLPs');
       await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
-      await pool.instance.setAllowlistBoolean(true);
+      await pool.instance.setMustAllowlistLPs(true);
       
       const bptOut = fp(10);
       const lpBalanceBefore = await pool.balanceOf(lp.address);
