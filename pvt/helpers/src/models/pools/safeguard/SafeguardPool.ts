@@ -27,7 +27,7 @@ import {
   PoolQueryResult,
   CircuitBreakerState,
 } from './types';
-
+import { signSwapData } from '@balancer-labs/balancer-js/src/pool-safeguard/SafeguardPoolSigner';
 import Oracle from "../../oracles/Oracle";
 
 import {
@@ -159,14 +159,6 @@ export default class SafeguardPool extends BasePool {
     return this.queryJoin(await this._buildJoinGivenInParams(params));
   }
 
-  async joinGivenOut(params: JoinGivenOutSafeguardPool): Promise<JoinResult> {
-    return this.join(this._buildJoinGivenOutParams(params));
-  }
-
-  async queryJoinGivenOut(params: JoinGivenOutSafeguardPool): Promise<JoinQueryResult> {
-    return this.queryJoin(this._buildJoinGivenOutParams(params));
-  }
-
   async joinAllGivenOut(params: JoinAllGivenOutSafeguardPool): Promise<JoinResult> {
     return this.join(await this._buildJoinAllGivenOutParams(params));
   }
@@ -181,14 +173,6 @@ export default class SafeguardPool extends BasePool {
 
   async queryExitGivenOut(params: ExitGivenOutSafeguardPool): Promise<ExitQueryResult> {
     return this.queryExit(await this._buildExitGivenOutParams(params));
-  }
-
-  async singleExitGivenIn(params: SingleExitGivenInSafeguardPool): Promise<ExitResult> {
-    return this.exit(this._buildSingleExitGivenInParams(params));
-  }
-
-  async querySingleExitGivenIn(params: SingleExitGivenInSafeguardPool): Promise<ExitQueryResult> {
-    return this.queryExit(this._buildSingleExitGivenInParams(params));
   }
 
   async multiExitGivenIn(params: MultiExitGivenInSafeguardPool): Promise<ExitResult> {
@@ -348,6 +332,55 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
+  async buildSwapDecodedUserData(kind: number, params: SwapSafeguardPool): Promise<[string, string, BigNumberish, BigNumberish]> {
+    const currentBalances = await this.getBalances();
+    const { tokens } = await this.vault.getPoolTokens(this.poolId);
+    const tokenIn = typeof params.in === 'number' ? tokens[params.in] : params.in.address;
+    const tokenOut = typeof params.out === 'number' ? tokens[params.out] : params.out.address;
+    const sender = params.from? TypesConverter.toAddress(params.from) : await this._defaultSenderAddress();
+    const recipient = params.recipient ?? ZERO_ADDRESS;
+    const deadline = params.deadline?? MAX_UINT256;
+    const expectedOrigin = params.expectedOrigin?? sender;
+    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
+    const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(tokenIn);
+    const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
+    const quoteBalanceIn = params.quoteBalanceIn?? (tokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const quoteBalanceOut = params.quoteBalanceOut?? (tokenOut == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
+    const startTime = params.startTime?? MAX_UINT256;
+    const timeBasedSlippage = params.timeBasedSlippage?? 0;
+    const originBasedSlippage = params.originBasedSlippage?? 0;
+    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
+
+    let swapData: string = SafeguardPoolEncoder.encodeSwapData(
+      expectedOrigin,
+      maxSwapAmount,
+      quoteAmountInPerOut,
+      maxBalanceChangeTolerance,
+      quoteBalanceIn,
+      quoteBalanceOut,
+      balanceBasedSlippage,
+      startTime,
+      timeBasedSlippage,
+      originBasedSlippage
+    );
+
+    let signature: string = await signSwapData(
+      params.chainId,
+      this.address,
+      kind,
+      tokenIn == tokens[0],
+      sender,
+      recipient,
+      swapData,
+      quoteIndex,
+      deadline,
+      params.signer
+    );
+
+    return [swapData, signature, quoteIndex, deadline];
+  }
+
   private async _buildInitParams(params: InitSafeguardPool): Promise<JoinExitSafeguardPool> {
     const { initialBalances: balances } = params;
     const amountsIn = Array.isArray(balances) ? balances : Array(this.tokens.length).fill(balances);
@@ -447,17 +480,6 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
-  private _buildJoinGivenOutParams(params: JoinGivenOutSafeguardPool): JoinExitSafeguardPool {
-    return {
-      from: params.from,
-      recipient: params.recipient,
-      lastChangeBlock: params.lastChangeBlock,
-      currentBalances: params.currentBalances,
-      protocolFeePercentage: params.protocolFeePercentage,
-      data: SafeguardPoolEncoder.joinTokenInForExactBPTOut(params.bptOut, this.tokens.indexOf(params.token)),
-    };
-  }
-
   private async _buildJoinAllGivenOutParams(params: JoinAllGivenOutSafeguardPool): Promise<JoinExitSafeguardPool> {
     
     let userData = await SafeguardPoolEncoder.joinAllTokensInForExactBPTOut(params.bptOut);
@@ -549,17 +571,6 @@ export default class SafeguardPool extends BasePool {
     return currentIndex;
   }
 
-  private _buildSingleExitGivenInParams(params: SingleExitGivenInSafeguardPool): JoinExitSafeguardPool {
-    return {
-      from: params.from,
-      recipient: params.recipient,
-      lastChangeBlock: params.lastChangeBlock,
-      currentBalances: params.currentBalances,
-      protocolFeePercentage: params.protocolFeePercentage,
-      data: SafeguardPoolEncoder.exitExactBPTInForOneTokenOut(params.bptIn, this.tokens.indexOf(params.token)),
-    };
-  }
-
   private _buildMultiExitGivenInParams(params: MultiExitGivenInSafeguardPool): JoinExitSafeguardPool {
     return {
       from: params.from,
@@ -629,6 +640,120 @@ export default class SafeguardPool extends BasePool {
 
   async getCircuitBreakerState(token: Token | string): Promise<CircuitBreakerState> {
     return await this.instance.getCircuitBreakerState(TypesConverter.toAddress(token));
+  }
+
+  async validateSwap(
+    kind: number,
+    isTokenInToken0: boolean,
+    balanceTokenIn: BigNumber,
+    balanceTokenOut: BigNumber,
+    amountIn: BigNumber,
+    amountOut: BigNumber,
+    quoteAmountInPerOut: BigNumber,
+    maxSwapAmount: BigNumber,
+  ): Promise<any> {
+    return await this.instance.validateSwap(
+      kind,
+      isTokenInToken0,
+      balanceTokenIn,
+      balanceTokenOut,
+      amountIn,
+      amountOut,
+      quoteAmountInPerOut,
+      maxSwapAmount,
+    );
+  }
+
+  async getBalanceAndPrice(isTokenInToken0: boolean): Promise<[BigNumber, BigNumber, BigNumber]> {
+    const currentBalances = await this.getBalances();
+    const amountInPerOut = await this.getAmountInPerOut(isTokenInToken0 ? 0: 1)
+    return [
+      isTokenInToken0 ? currentBalances[0] : currentBalances[1],
+      isTokenInToken0 ? currentBalances[1] : currentBalances[0],
+      bn(amountInPerOut)
+    ]
+  };
+
+  async swapSignatureSafeguard(
+    kind: number,
+    isTokenInToken0: boolean,
+    sender: string,
+    recipient: string,
+    userData: string,
+  ): Promise<[BigNumber, BigNumber, BigNumber]> {
+    return await this.instance.swapSignatureSafeguard(
+      kind,
+      isTokenInToken0,
+      sender,
+      recipient,
+      userData
+    );
+  };
+
+  async validateSwapSignature(
+    kind: number,
+    isTokenInToken0: boolean,
+    sender: string,
+    recipient: string,
+    swapData: string,
+    signature: string,
+    quoteIndex: BigNumberish,
+    deadline: BigNumberish,
+  ) {
+    await this.instance.validateSwapSignature(
+      kind,
+      isTokenInToken0,
+      sender,
+      recipient,
+      swapData,
+      signature,
+      quoteIndex,
+      deadline
+    );
+  };
+
+  async ensureValidReplayableSignature(
+    structHash: string,
+    signature: string,
+    deadline: BigNumber,
+    errorCode: number
+
+  ) {
+    await this.instance.ensureValidReplayableSignature(
+      structHash,
+      signature,
+      deadline,
+      errorCode
+    )
+  }
+
+  async buildSwapUserData(params: SwapSafeguardPool): Promise<MinimalSwap> {
+    return await this._buildSwapParams(SwapKind.GivenIn, params);
+  }
+
+  async isQuoteUsed(isQuoteValid: BigNumberish): Promise<boolean> {
+    return await this.instance.isQuoteUsedTest(isQuoteValid);
+  }
+
+  async isLPAllowed(sender: string, userData: string): Promise<ContractReceipt> {
+    return await this.instance.callStatic.isLPAllowed(sender, userData);
+  }
+
+  async getALlowListUserData(
+    chainId: number, 
+    sender: string, 
+    deadline: BigNumber, 
+    signer: SignerWithAddress,
+    joinData: string
+  ): Promise<string> {
+    return await SafeguardPoolEncoder.allowlist(
+      chainId,
+      this.address,
+      sender,
+      deadline,
+      joinData,
+      signer
+    );
   }
 
 }

@@ -109,3 +109,73 @@ export function calcAccumulatedManagementFees(
     const expResult = Math.exp(expInput);
     return (currentSupply * (expResult - 1));
 }
+
+export function calcTimeSlippagePenalty(
+  currentTimestamp: number,
+  startTime: number,
+  timeBasedSlippage: number
+): number  {
+  if(currentTimestamp <= startTime) {
+      return 0;
+  }
+  return timeBasedSlippage * (currentTimestamp - startTime)
+}
+
+export function calcJoinSwapAmounts(
+  excessTokenBalance: number,
+  limitTokenBalance: number,
+  excessTokenAmountIn: number,
+  limitTokenAmountIn: number,
+  quoteAmountInPerOut: number
+): [number, number] {
+  const foo = excessTokenAmountIn * limitTokenBalance
+  const bar = limitTokenAmountIn * excessTokenBalance
+  if (foo < bar) {
+    throw "error: wrong tokenIn in excess"
+  }
+  const num = foo - bar;
+  const denom = limitTokenBalance + limitTokenAmountIn + (excessTokenBalance + excessTokenAmountIn) / quoteAmountInPerOut
+  const swapAmountIn = num / denom
+  const swapAmountOut = swapAmountIn / quoteAmountInPerOut
+  return [swapAmountIn, swapAmountOut]
+}
+
+export function calcJoinSwapROpt(
+  excessTokenBalance: number,
+  excessTokenAmountIn: number,
+  swapAmountIn: number
+): number {
+  const num = excessTokenAmountIn - swapAmountIn
+  const denom = excessTokenBalance + swapAmountIn
+  return num / denom
+}
+
+export function calcExitSwapAmounts(
+  excessTokenBalance: number,
+  limitTokenBalance: number,
+  excessTokenAmountOut: number,
+  limitTokenAmountOut: number,
+  quoteAmountInPerOut: number,
+): [number, number] {
+
+  const foo = excessTokenAmountOut * limitTokenBalance
+  const bar = limitTokenAmountOut * excessTokenBalance
+  if (foo < bar) {
+    throw "error: wrong tokenOut in excess"
+  }
+  const num = foo - bar
+  const denom = limitTokenBalance - limitTokenAmountOut + (excessTokenBalance - excessTokenAmountOut) * quoteAmountInPerOut
+  const swapAmountOut = num / denom
+  const swapAmountIn = quoteAmountInPerOut * swapAmountOut
+  return [swapAmountIn, swapAmountOut]
+}
+
+export function calcExitSwapROpt(
+  excessTokenBalance: number,
+  excessTokenAmountOut: number,
+  swapAmountOut: number
+): number {
+  const num = excessTokenAmountOut - swapAmountOut
+  const denom = excessTokenBalance - swapAmountOut
+  return num / denom
+}

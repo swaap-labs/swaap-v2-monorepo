@@ -18,6 +18,87 @@ import "../SafeguardMath.sol";
 
 contract TestSafeguardMath {
 
+    function calcTimeSlippagePenalty(
+        uint256 currentTimestamp,
+        uint256 startTime,
+        uint256 timeBasedSlippage
+    ) external pure returns(uint256) {
+        return SafeguardMath.calcTimeBasedPenalty(currentTimestamp, startTime, timeBasedSlippage);
+    }
+
+    function calcBalanceBasedPenalty(
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        uint256 balanceChangeTolerance,
+        uint256 quoteBalanceIn,
+        uint256 quoteBalanceOut,
+        uint256 balanceBasedSlippage
+    ) external pure returns (uint256) {
+        return SafeguardMath.calcBalanceBasedPenalty(
+            balanceTokenIn,
+            balanceTokenOut,
+            balanceChangeTolerance,
+            quoteBalanceIn,
+            quoteBalanceOut,
+            balanceBasedSlippage
+        );
+    }
+
+    function calcOriginBasedSlippage(
+        address expectedOrigin,
+        uint256 originBasedSlippage
+    ) external view returns(uint256) {
+        return SafeguardMath.calcOriginBasedPenalty(expectedOrigin, originBasedSlippage);
+    }
+
+    function calcJoinSwapAmounts(
+        uint256 excessTokenBalance,
+        uint256 limitTokenBalance,
+        uint256 excessTokenAmountIn,
+        uint256 limitTokenAmountIn,
+        uint256 quoteAmountInPerOut
+    ) external pure returns (uint256, uint256) {
+        return SafeguardMath.calcJoinSwapAmounts(
+            excessTokenBalance,
+            limitTokenBalance,
+            excessTokenAmountIn,
+            limitTokenAmountIn,
+            quoteAmountInPerOut
+        );
+    }
+
+    function calcJoinSwapROpt(
+        uint256 excessTokenBalance,
+        uint256 excessTokenAmountIn,
+        uint256 swapAmountIn
+    ) external pure returns (uint256) {
+        return SafeguardMath.calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
+    }
+
+    function calcExitSwapAmounts(
+        uint256 excessTokenBalance,
+        uint256 limitTokenBalance,
+        uint256 excessTokenAmountIn,
+        uint256 limitTokenAmountIn,
+        uint256 quoteAmountInPerOut
+    ) external pure returns (uint256, uint256) {
+        return SafeguardMath.calcExitSwapAmounts(
+            excessTokenBalance,
+            limitTokenBalance,
+            excessTokenAmountIn,
+            limitTokenAmountIn,
+            quoteAmountInPerOut
+        );
+    }
+
+    function calcExitSwapROpt(
+        uint256 excessTokenBalance,
+        uint256 excessTokenAmountOut,
+        uint256 swapAmountOut
+    ) external pure returns (uint256) {
+        return SafeguardMath.calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
+    }
+
     function calcYearlyRate(uint256 yearlyFees) external pure returns(uint256) {
         return SafeguardMath.calcYearlyRate(yearlyFees);
     }
@@ -27,7 +108,6 @@ contract TestSafeguardMath {
         uint256 yearlyRate,
         uint256 currentSupply
     ) external pure returns(uint256) {
-
         return SafeguardMath.calcAccumulatedManagementFees(
             elapsedTime,
             yearlyRate,

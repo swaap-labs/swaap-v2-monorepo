@@ -35,9 +35,9 @@ export default class Oracle {
     return this.decimals;
   }
 
-  async setPrice(price: Decimal): Promise<ContractTransaction> {
+  async setPrice(price: BigNumber): Promise<ContractTransaction> {
     
-    return this.instance.setPrice(price.mul(decimal(10).pow(this.decimals)));
+    return this.instance.setPrice(price);
 
   }
 

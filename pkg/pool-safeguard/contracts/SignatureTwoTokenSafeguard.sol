@@ -23,8 +23,8 @@ import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguar
 abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;
 
-    event Swap(bytes32 digest);
-    event AllowlistJoin(bytes32 digest);
+    event SwapSignatureValidation(bytes32 digest);
+    event AllowlistJoinSignatureValidation(bytes32 digest);
 
     bytes32 public constant SWAP_STRUCT_TYPEHASH =
         keccak256(
@@ -110,7 +110,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
             0 // TODO add proper error code
         );
 
-        emit Swap(digest);
+        emit SwapSignatureValidation(digest);
     }
 
     function _ensureValidBitmapSignature(
@@ -130,13 +130,13 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
         // solhint-disable-next-line not-rely-on-time
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
 
-        require(!isQuoteUsed(quoteIndex), "error: quote already used");
+        require(!_isQuoteUsed(quoteIndex), "error: quote already used");
         _registerUsedQuote(quoteIndex);
 
         return digest;
     }
 
-    function isQuoteUsed(uint256 index) public view returns (bool) {
+    function _isQuoteUsed(uint256 index) internal view returns (bool) {
         uint256 usedQuoteWordIndex = index / 256;
         uint256 usedQuoteBitIndex = index % 256;
         uint256 usedQuoteWord = _usedQuoteBitMap[usedQuoteWordIndex];
@@ -162,7 +162,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
             699 // TODO add proper error code
         );
 
-        emit AllowlistJoin(digest);
+        emit AllowlistJoinSignatureValidation(digest);
 
         return joinData;
     }

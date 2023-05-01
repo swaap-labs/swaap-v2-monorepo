@@ -16,6 +16,7 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "../SafeguardTwoTokenPool.sol";
+import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 
 contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
 
@@ -41,8 +42,82 @@ contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
         owner,
         oracleParams,
         safeguardParameters
-    ) {
-        
+    ) {}
+
+    function validateSwap(
+        IVault.SwapKind kind,
+        bool    isTokenInToken0,
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint256 quoteAmountInPerOut,
+        uint256 maxSwapAmount
+    ) external {  
+        return SafeguardTwoTokenPool._validateSwap(
+            kind,
+            isTokenInToken0,
+            balanceTokenIn,
+            balanceTokenOut,
+            amountIn,
+            amountOut,
+            quoteAmountInPerOut,
+            maxSwapAmount
+        );
+    }
+
+    function swapSignatureSafeguard(
+        IVault.SwapKind kind,
+        bool isTokenInToken0,
+        address sender,
+        address recipient,
+        bytes calldata userData
+    ) external returns (bytes memory) {
+        return _swapSignatureSafeguard(
+            kind,
+            isTokenInToken0,
+            sender,
+            recipient,
+            userData
+        );
+    }
+
+    function validateSwapSignature(
+        IVault.SwapKind kind,
+        bool isTokenInToken0,
+        address sender,
+        address recipient,
+        bytes memory swapData,
+        bytes memory signature,
+        uint256 quoteIndex,
+        uint256 deadline
+    ) external {
+        _validateSwapSignature(
+            kind,
+            isTokenInToken0,
+            sender,
+            recipient,
+            swapData,
+            signature,
+            quoteIndex,
+            deadline
+        );
+    }
+
+    function isQuoteUsedTest(
+        uint256 index
+    ) external view returns (bool) {
+        return _isQuoteUsed(
+            index
+        );
+    }
+
+    function isLPAllowed(address sender, bytes memory userData) external returns (bytes memory) {
+        return _isLPAllowed(sender, userData);
+    }
+
+    function getMinimumBpt() external pure returns (uint256) {
+        return _getMinimumBpt();
     }
 
 }

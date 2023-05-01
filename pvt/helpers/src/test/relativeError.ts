@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { Decimal } from 'decimal.js';
-import { BigNumberish, bn, pct } from '../numbers';
+import { BigNumberish, bn, pct, fp, BigNumber } from '../numbers';
 
 export function expectEqualWithError(actual: BigNumberish, expected: BigNumberish, error: BigNumberish = 0.001): void {
   actual = bn(actual);
@@ -43,4 +43,9 @@ export function expectLessThanOrEqualWithError(
 export function expectRelativeError(actual: Decimal, expected: Decimal, maxRelativeError: Decimal): void {
   const lessThanOrEqualTo = actual.dividedBy(expected).sub(1).abs().lessThanOrEqualTo(maxRelativeError);
   expect(lessThanOrEqualTo, 'Relative error too big').to.be.true;
+}
+
+export function expectRelativeErrorBN(actual: BigNumber, expected: BigNumber, maxRelativeError: BigNumber): void {
+  expect(expected.eq(0), 'Expected value should be different from 0').to.be.false;
+  expect(((actual.mul(fp(1)).div(expected)).sub(fp(1))).abs(), 'Relative error too big').to.be.lessThan(maxRelativeError)
 }

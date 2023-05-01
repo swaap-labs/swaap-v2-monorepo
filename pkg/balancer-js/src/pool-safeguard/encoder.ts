@@ -142,41 +142,37 @@ export class SafeguardPoolEncoder {
     quoteIndex: BigNumberish,                 
     signer: SignerWithAddress
   ): Promise<string>
-{
-
-  let swapData: string = this.encodeSwapData(
-    expectedOrigin,
-    maxSwapAmount,
-    quoteAmountInPerOut,
-    maxBalanceChangeTolerance,
-    quoteBalanceIn,
-    quoteBalanceOut,
-    balanceBasedSlippage,
-    startTime,
-    timeBasedSlippage,
-    originBasedSlippage
-  );
-
-  let signature: string = await signSwapData(
-    chainId,
-    contractAddress,
-    kind,
-    isTokenInToken0,
-    sender,
-    recipient,
-    swapData,
-    quoteIndex,
-    deadline,
-    signer
-  );
-
-  const userData = defaultAbiCoder.encode(
-    ['bytes', 'bytes', 'uint256', 'uint256'],
-    [swapData, signature, quoteIndex, deadline]
-  );
-
-  return userData;
-}
+  {
+    let swapData: string = this.encodeSwapData(
+      expectedOrigin,
+      maxSwapAmount,
+      quoteAmountInPerOut,
+      maxBalanceChangeTolerance,
+      quoteBalanceIn,
+      quoteBalanceOut,
+      balanceBasedSlippage,
+      startTime,
+      timeBasedSlippage,
+      originBasedSlippage
+    );
+    let signature: string = await signSwapData(
+      chainId,
+      contractAddress,
+      kind,
+      isTokenInToken0,
+      sender,
+      recipient,
+      swapData,
+      quoteIndex,
+      deadline,
+      signer
+    );
+    const userData = defaultAbiCoder.encode(
+      ['bytes', 'bytes', 'uint256', 'uint256'],
+      [swapData, signature, quoteIndex, deadline]
+    );
+    return userData;
+  }
 
   static encodeSwapData(
       expectedOrigin: string,

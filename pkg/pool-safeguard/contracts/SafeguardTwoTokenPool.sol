@@ -25,7 +25,6 @@ import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.
 import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
-// import "hardhat/console.sol";
 
 contract SafeguardTwoTokenPool is 
     ISafeguardPool, SignatureTwoTokenSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
@@ -352,7 +351,7 @@ contract SafeguardTwoTokenPool is
         uint256 amountOut,
         uint256 quoteAmountInPerOut,
         uint256 maxSwapAmount
-    ) private {
+    ) internal {
 
         if(kind == IVault.SwapKind.GIVEN_IN) {
             require(amountIn <= maxSwapAmount, "error: exceeded swap amount in");

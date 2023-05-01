@@ -86,7 +86,6 @@ library SafeguardMath {
         return 0;
     }
 
-
     /**********************************************************************************************
     // aE = amountIn in excess                                                                   //
     // aL = limiting amountIn                                                                    //
@@ -110,7 +109,7 @@ library SafeguardMath {
         uint256 num = foo - bar;
 
         uint256 denom = limitTokenBalance.add(limitTokenAmountIn);
-        denom = denom.add((excessTokenAmountIn.add(limitTokenAmountIn)).divDown(quoteAmountInPerOut));
+        denom = denom.add((excessTokenBalance.add(excessTokenAmountIn)).divDown(quoteAmountInPerOut));
 
         uint256 swapAmountIn = num.divDown(denom);
         uint256 swapAmountOut = swapAmountIn.divDown(quoteAmountInPerOut);
@@ -146,18 +145,18 @@ library SafeguardMath {
     function calcExitSwapAmounts(
         uint256 excessTokenBalance,
         uint256 limitTokenBalance,
-        uint256 excessTokenAmountIn,
-        uint256 limitTokenAmountIn,
+        uint256 excessTokenAmountOut,
+        uint256 limitTokenAmountOut,
         uint256 quoteAmountInPerOut
     ) internal pure returns (uint256, uint256) {
 
-        uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
-        uint256 bar = limitTokenAmountIn.mulDown(excessTokenBalance);
+        uint256 foo = excessTokenAmountOut.mulDown(limitTokenBalance);
+        uint256 bar = limitTokenAmountOut.mulDown(excessTokenBalance);
         require(foo >= bar, "error: wrong tokenOut in excess");
         uint256 num = foo - bar;
 
-        uint256 denom = limitTokenBalance.sub(limitTokenAmountIn);
-        denom = denom.add((excessTokenAmountIn.sub(limitTokenAmountIn)).mulDown(quoteAmountInPerOut));
+        uint256 denom = limitTokenBalance.sub(limitTokenAmountOut);
+        denom = denom.add((excessTokenBalance.sub(excessTokenAmountOut)).mulDown(quoteAmountInPerOut));
 
         uint256 swapAmountOut = num.divDown(denom);
         uint256 swapAmountIn = quoteAmountInPerOut.mulDown(swapAmountOut);
@@ -169,7 +168,7 @@ library SafeguardMath {
     // aE = amountOut in excess                                                                  //
     // bE = current balance of excess token                        / aE - sOut  \                //
     // sOut = swap amount out needed before the exit       rOpt = | ----------- |                //
-    // rOpt = amountOut TV / current pool TVL                       \ bE - sOut  /                //
+    // rOpt = amountOut TV / current pool TVL                      \ bE - sOut  /                //
     **********************************************************************************************/
     function calcExitSwapROpt(
         uint256 excessTokenBalance,
