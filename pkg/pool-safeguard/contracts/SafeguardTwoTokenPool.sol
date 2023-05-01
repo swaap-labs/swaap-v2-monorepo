@@ -83,7 +83,7 @@ contract SafeguardTwoTokenPool is
     // [ isPegged0 | isPegged1 | flexibleOracle0 | flexibleOracle1 | max performance dev | max hodl dev | max price dev | perf update interval | last perf update ]
     // [   1 bit   |   1 bit   |      1 bit      |      1 bit      |       60 bits       |    64 bits   |    64 bits    |        32 bits       |      32 bits     ]
     // [ MSB                                                                                                                                                  LSB ]
-    bytes32 private _packedPoolParameters;
+    bytes32 private _packedPoolParams;
 
     // used to determine if stable coin is holding the peg
     uint256 private constant _TOKEN_0_PEGGED_BIT_OFFSET = 255;
@@ -166,11 +166,11 @@ contract SafeguardTwoTokenPool is
         _isStable1 = oracleParams[1].isStable;
 
         if(oracleParams[0].isStable && oracleParams[0].isFlexibleOracle) {
-            _packedPoolParameters = _packedPoolParameters.insertBool(true, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
+            _packedPoolParams = _packedPoolParams.insertBool(true, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
         }
 
         if(oracleParams[1].isStable && oracleParams[1].isFlexibleOracle) {
-            _packedPoolParameters = _packedPoolParameters.insertBool(true, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
+            _packedPoolParams = _packedPoolParams.insertBool(true, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
         }
 
         // pool related parameters
@@ -369,14 +369,10 @@ contract SafeguardTwoTokenPool is
             require(amountOut <= maxSwapAmount, "error: exceeded swap amount out");
         }
 
-        bytes32 packedPoolParameters = _packedPoolParameters;
-        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(packedPoolParameters, isTokenInToken0);
+        bytes32 packedPoolParams = _packedPoolParams;
+        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(packedPoolParams, isTokenInToken0);
 
-        _fairPricingSafeguard(
-            quoteAmountInPerOut,
-            onChainAmountInPerOut,
-            packedPoolParameters
-        );
+        _fairPricingSafeguard(quoteAmountInPerOut, onChainAmountInPerOut, packedPoolParams);
 
         uint256 totalSupply = totalSupply();
 
@@ -386,7 +382,7 @@ contract SafeguardTwoTokenPool is
             balanceTokenOut,
             onChainAmountInPerOut,
             totalSupply,
-            packedPoolParameters
+            packedPoolParams
         );
 
         _balancesSafeguard(
@@ -395,16 +391,16 @@ contract SafeguardTwoTokenPool is
             balanceTokenOut.sub(amountOut),
             onChainAmountInPerOut,
             totalSupply,
-            packedPoolParameters
+            packedPoolParams
         );
     }
 
     function _fairPricingSafeguard(
         uint256 quoteAmountInPerOut,
         uint256 onChainAmountInPerOut,
-        bytes32 packedPoolParameters
+        bytes32 packedPoolParams
     ) internal pure {
-        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDev(packedPoolParameters), "error: unfair price");
+        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDev(packedPoolParams), "error: unfair price");
     }
 
     function _performanceSafeguard(
@@ -413,10 +409,10 @@ contract SafeguardTwoTokenPool is
         uint256 currentBalanceOut,
         uint256 onChainAmountInPerOut,
         uint256 totalSupply,
-        bytes32 packedPoolParameters
+        bytes32 packedPoolParams
     ) internal {
 
-        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
+        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParams);
 
         // lastPerfUpdate & perfUpdateInterval are stored in 32 bits so they cannot overflow
         if(block.timestamp > lastPerfUpdate + perfUpdateInterval){
@@ -439,7 +435,7 @@ contract SafeguardTwoTokenPool is
         uint256 newBalanceOut,
         uint256 onChainAmountInPerOut,
         uint256 totalSupply,
-        bytes32 packedPoolParameters
+        bytes32 packedPoolParams
     ) internal view {
 
         (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
@@ -451,12 +447,12 @@ contract SafeguardTwoTokenPool is
         uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
         uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
 
-        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= _getMaxTargetDev(packedPoolParameters), "error: min balance out is not met");
+        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= _getMaxTargetDev(packedPoolParams), "error: min balance out is not met");
 
         uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
         uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
 
-        require(newTVLPerPT.divDown(oldTVLPerPT) >= _getMaxPerfDev(packedPoolParameters), "error: low performance");
+        require(newTVLPerPT.divDown(oldTVLPerPT) >= _getMaxPerfDev(packedPoolParams), "error: low performance");
     }
 
     function _onInitializePool(
@@ -707,27 +703,27 @@ contract SafeguardTwoTokenPool is
         bool isFlexibleOracle1
     ) external override authenticate whenNotPaused {
        
-        bytes32 packedPoolParameters = _packedPoolParameters;
+        bytes32 packedPoolParams = _packedPoolParams;
 
         if(_isStable0) {
             if(!isFlexibleOracle0) {
                 // if the oracle is no longer flexible we need to reset the peg state
-                packedPoolParameters = packedPoolParameters.insertBool(false, _TOKEN_0_PEGGED_BIT_OFFSET);
+                packedPoolParams = packedPoolParams.insertBool(false, _TOKEN_0_PEGGED_BIT_OFFSET);
             }
-            packedPoolParameters = packedPoolParameters.insertBool(isFlexibleOracle0, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
+            packedPoolParams = packedPoolParams.insertBool(isFlexibleOracle0, _FLEXIBLE_ORACLE_0_BIT_OFFSET);
         }
 
         if(_isStable1) {
             if(!isFlexibleOracle1) {
                 // if the oracle is no longer flexible we need to reset the peg state
-                packedPoolParameters = packedPoolParameters.insertBool(false, _TOKEN_1_PEGGED_BIT_OFFSET);
+                packedPoolParams = packedPoolParams.insertBool(false, _TOKEN_1_PEGGED_BIT_OFFSET);
             }
-            packedPoolParameters = packedPoolParameters.insertBool(isFlexibleOracle1, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
+            packedPoolParams = packedPoolParams.insertBool(isFlexibleOracle1, _FLEXIBLE_ORACLE_1_BIT_OFFSET);
         }
 
-        _packedPoolParameters = packedPoolParameters;
+        _packedPoolParams = packedPoolParams;
         // we do not use the inputs of the function because they may not me update the state if the token isn't stable
-        emit FlexibleOracleStatesUpdated(_isFlexibleOracle0(packedPoolParameters), _isFlexibleOracle1(packedPoolParameters));
+        emit FlexibleOracleStatesUpdated(_isFlexibleOracle0(packedPoolParams), _isFlexibleOracle1(packedPoolParams));
     }
 
     function setMustAllowlistLPs(bool mustAllowlistLPs) external override authenticate whenNotPaused {
@@ -757,7 +753,7 @@ contract SafeguardTwoTokenPool is
 
         require(perfUpdateInterval >= _MIN_PERFORMANCE_UPDATE_INTERVAL, "error: performance update interval too low");
 
-        _packedPoolParameters = _packedPoolParameters.insertUint(
+        _packedPoolParams = _packedPoolParams.insertUint(
             perfUpdateInterval,
             _PERF_UPDATE_INTERVAL_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
@@ -779,7 +775,7 @@ contract SafeguardTwoTokenPool is
         require(maxPerfDev <= FixedPoint.ONE, "error: tolerance too low");
         require(maxPerfDev >= _MAX_PERFORMANCE_DEVIATION, "error: tolerance too large");
         
-        _packedPoolParameters = _packedPoolParameters.insertUint(
+        _packedPoolParams = _packedPoolParams.insertUint(
             maxPerfDev,
             _MAX_PERF_DEV_BIT_OFFSET,
             _MAX_PERF_DEV_BIT_LENGTH
@@ -800,7 +796,7 @@ contract SafeguardTwoTokenPool is
         require(maxTargetDev <= FixedPoint.ONE, "error: tolerance too low");
         require(maxTargetDev >= _MAX_TARGET_DEVIATION, "error: tolerance too large");
         
-        _packedPoolParameters = _packedPoolParameters.insertUint(
+        _packedPoolParams = _packedPoolParams.insertUint(
             maxTargetDev,
             _MAX_TARGET_DEV_BIT_OFFSET,
             _MAX_TARGET_DEV_BIT_LENGTH
@@ -821,7 +817,7 @@ contract SafeguardTwoTokenPool is
         require(maxPriceDev <= FixedPoint.ONE, "error: tolerance too low");
         require(maxPriceDev >= _MAX_PRICE_DEVIATION, "error: tolerance too large");
 
-        _packedPoolParameters = _packedPoolParameters.insertUint(
+        _packedPoolParams = _packedPoolParams.insertUint(
             maxPriceDev,
             _MAX_PRICE_DEV_BIT_OFFSET,
             _MAX_PRICE_DEV_BIT_LENGTH
@@ -831,9 +827,9 @@ contract SafeguardTwoTokenPool is
 
     function updatePerformance() external override nonReentrant whenNotPaused {
 
-        bytes32 packedPoolParameters = _packedPoolParameters;
+        bytes32 packedPoolParams = _packedPoolParams;
 
-        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
+        (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParams);
         
         require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
 
@@ -844,7 +840,7 @@ contract SafeguardTwoTokenPool is
 
         _upscaleArray(balances, _scalingFactors());
 
-        uint256 amount0Per1 = _getOnChainAmountInPerOut(packedPoolParameters, true);
+        uint256 amount0Per1 = _getOnChainAmountInPerOut(packedPoolParams, true);
 
         _updatePerformance(balances[0], balances[1], amount0Per1, totalSupply()); 
     }
@@ -889,7 +885,7 @@ contract SafeguardTwoTokenPool is
 
         _hodlBalancesPerPT = hodlBalancesPerPT;
 
-        _packedPoolParameters = _packedPoolParameters.insertUint(
+        _packedPoolParams = _packedPoolParams.insertUint(
             block.timestamp,
             _PERF_LAST_UPDATE_BIT_OFFSET,
             _PERF_TIME_BIT_LENGTH
@@ -897,20 +893,20 @@ contract SafeguardTwoTokenPool is
     }
 
     function evaluateStablesPegStates() external override whenNotPaused {
-        bytes32 packedPoolParameters = _packedPoolParameters;
+        bytes32 packedPoolParams = _packedPoolParams;
         
-        if(_isStable0 && _isFlexibleOracle0(packedPoolParameters)) {
-            bool newPegState = _canBePegged(_isTokenPegged0(packedPoolParameters), _oracle0, _priceScaleFactor0);
-            packedPoolParameters = packedPoolParameters.insertBool(newPegState, _TOKEN_0_PEGGED_BIT_OFFSET);
+        if(_isStable0 && _isFlexibleOracle0(packedPoolParams)) {
+            bool newPegState = _canBePegged(_isTokenPegged0(packedPoolParams), _oracle0, _priceScaleFactor0);
+            packedPoolParams = packedPoolParams.insertBool(newPegState, _TOKEN_0_PEGGED_BIT_OFFSET);
         }
         
-        if(_isStable1 && _isFlexibleOracle1(packedPoolParameters)) {
-            bool newPegState = _canBePegged(_isTokenPegged1(packedPoolParameters), _oracle1, _priceScaleFactor1);
-            packedPoolParameters = packedPoolParameters.insertBool(newPegState, _TOKEN_1_PEGGED_BIT_OFFSET);
+        if(_isStable1 && _isFlexibleOracle1(packedPoolParams)) {
+            bool newPegState = _canBePegged(_isTokenPegged1(packedPoolParams), _oracle1, _priceScaleFactor1);
+            packedPoolParams = packedPoolParams.insertBool(newPegState, _TOKEN_1_PEGGED_BIT_OFFSET);
         }
 
-        _packedPoolParameters = packedPoolParameters;
-        emit PegStatesUpdated(_isTokenPegged0(packedPoolParameters), _isTokenPegged1(packedPoolParameters));
+        _packedPoolParams = packedPoolParams;
+        emit PegStatesUpdated(_isTokenPegged0(packedPoolParams), _isTokenPegged1(packedPoolParams));
     }
 
     /**
@@ -918,19 +914,16 @@ contract SafeguardTwoTokenPool is
     */
 
     function getTokenPegStates() external view returns(bool, bool){
-        bytes32 packedPoolParameters = _packedPoolParameters;
-        return (
-            _isTokenPegged0(packedPoolParameters),
-            _isTokenPegged1(packedPoolParameters)
-        );
+        bytes32 packedPoolParams = _packedPoolParams;
+        return (_isTokenPegged0(packedPoolParams), _isTokenPegged1(packedPoolParams));
     }
 
-    function _isTokenPegged0(bytes32 packedPoolParameters) internal pure returns(bool){
-        return packedPoolParameters.decodeBool(_TOKEN_0_PEGGED_BIT_OFFSET);
+    function _isTokenPegged0(bytes32 packedPoolParams) internal pure returns(bool){
+        return packedPoolParams.decodeBool(_TOKEN_0_PEGGED_BIT_OFFSET);
     }
 
-    function _isTokenPegged1(bytes32 packedPoolParameters) internal pure returns(bool){
-        return packedPoolParameters.decodeBool(_TOKEN_1_PEGGED_BIT_OFFSET);
+    function _isTokenPegged1(bytes32 packedPoolParams) internal pure returns(bool){
+        return packedPoolParams.decodeBool(_TOKEN_1_PEGGED_BIT_OFFSET);
     }
 
     function isAllowlistEnabled() public view returns(bool) {
@@ -961,12 +954,12 @@ contract SafeguardTwoTokenPool is
     /**
     * @notice returns the relative price such as: amountIn = relativePrice * amountOut
     */
-    function _getOnChainAmountInPerOut(bytes32 packedPoolParameters, bool isTokenInToken0)
+    function _getOnChainAmountInPerOut(bytes32 packedPoolParams, bool isTokenInToken0)
     internal view returns(uint256) {
         
         uint256 price0;
         
-        if(_isStable0 && _isFlexibleOracle0(packedPoolParameters) && _isTokenPegged0(packedPoolParameters)) {
+        if(_isStable0 && _isFlexibleOracle0(packedPoolParams) && _isTokenPegged0(packedPoolParams)) {
             price0 = FixedPoint.ONE;
         } else {
             price0 = _getPriceFromOracle(_oracle0, _priceScaleFactor0);
@@ -974,7 +967,7 @@ contract SafeguardTwoTokenPool is
 
         uint256 price1;
         
-        if(_isStable1 && _isFlexibleOracle1(packedPoolParameters) && _isTokenPegged1(packedPoolParameters)) {
+        if(_isStable1 && _isFlexibleOracle1(packedPoolParams) && _isTokenPegged1(packedPoolParams)) {
             price1 = FixedPoint.ONE;
         } else {
             price1 = _getPriceFromOracle(_oracle1, _priceScaleFactor1);
@@ -997,61 +990,44 @@ contract SafeguardTwoTokenPool is
         uint256 perfUpdateInterval
     ) {
 
-        bytes32 packedPoolParameters = _packedPoolParameters;
+        bytes32 packedPoolParams = _packedPoolParams;
         
-        maxPerfDev = _getMaxPerfDev(packedPoolParameters);
+        maxPerfDev = _getMaxPerfDev(packedPoolParams);
 
-        maxTargetDev = _getMaxTargetDev(packedPoolParameters);
+        maxTargetDev = _getMaxTargetDev(packedPoolParams);
         
-        maxPriceDev = _getMaxPriceDev(packedPoolParameters);
+        maxPriceDev = _getMaxPriceDev(packedPoolParams);
         
-        (lastPerfUpdate, perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParameters);
+        (lastPerfUpdate, perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParams);
 
     }
 
-    function _isFlexibleOracle0(bytes32 packedPoolParameters) internal pure returns(bool) {
-        return packedPoolParameters.decodeBool(_FLEXIBLE_ORACLE_0_BIT_OFFSET);
+    function _isFlexibleOracle0(bytes32 packedPoolParams) internal pure returns(bool) {
+        return packedPoolParams.decodeBool(_FLEXIBLE_ORACLE_0_BIT_OFFSET);
     }
     
-    function _isFlexibleOracle1(bytes32 packedPoolParameters) internal pure returns(bool) {
-        return packedPoolParameters.decodeBool(_FLEXIBLE_ORACLE_1_BIT_OFFSET);
+    function _isFlexibleOracle1(bytes32 packedPoolParams) internal pure returns(bool) {
+        return packedPoolParams.decodeBool(_FLEXIBLE_ORACLE_1_BIT_OFFSET);
     }
 
-    function _getMaxPerfDev(bytes32 packedPoolParameters) internal pure returns (uint256 maxPerfDev) {
-        maxPerfDev = packedPoolParameters.decodeUint(
-            _MAX_PERF_DEV_BIT_OFFSET,
-            _MAX_PERF_DEV_BIT_LENGTH
-        );
+    function _getMaxPerfDev(bytes32 packedPoolParams) internal pure returns (uint256 maxPerfDev) {
+        maxPerfDev = packedPoolParams.decodeUint(_MAX_PERF_DEV_BIT_OFFSET, _MAX_PERF_DEV_BIT_LENGTH);
     }
 
-    function _getMaxTargetDev(bytes32 packedPoolParameters) internal pure returns (uint256 maxTargetDev) {
-        maxTargetDev = packedPoolParameters.decodeUint(
-            _MAX_TARGET_DEV_BIT_OFFSET,
-            _MAX_TARGET_DEV_BIT_LENGTH
-        );
+    function _getMaxTargetDev(bytes32 packedPoolParams) internal pure returns (uint256 maxTargetDev) {
+        maxTargetDev = packedPoolParams.decodeUint(_MAX_TARGET_DEV_BIT_OFFSET, _MAX_TARGET_DEV_BIT_LENGTH);
     }
 
-    function _getMaxPriceDev(bytes32 packedPoolParameters) internal pure returns (uint256 maxPriceDev) {
-
-        maxPriceDev = packedPoolParameters.decodeUint(
-            _MAX_PRICE_DEV_BIT_OFFSET,
-            _MAX_PRICE_DEV_BIT_LENGTH
-        );
-
+    function _getMaxPriceDev(bytes32 packedPoolParams) internal pure returns (uint256 maxPriceDev) {
+        maxPriceDev = packedPoolParams.decodeUint(_MAX_PRICE_DEV_BIT_OFFSET, _MAX_PRICE_DEV_BIT_LENGTH);
     }
 
-    function _getPerformanceTimeParams(bytes32 packedPoolParameters) internal pure
+    function _getPerformanceTimeParams(bytes32 packedPoolParams) internal pure
     returns(uint256 lastPerfUpdate, uint256 perfUpdateInterval) {
         
-        lastPerfUpdate = packedPoolParameters.decodeUint(
-            _PERF_LAST_UPDATE_BIT_OFFSET,
-            _PERF_TIME_BIT_LENGTH
-        );
+        lastPerfUpdate = packedPoolParams.decodeUint(_PERF_LAST_UPDATE_BIT_OFFSET, _PERF_TIME_BIT_LENGTH);
 
-        perfUpdateInterval = packedPoolParameters.decodeUint(
-            _PERF_UPDATE_INTERVAL_BIT_OFFSET,
-            _PERF_TIME_BIT_LENGTH
-        );
+        perfUpdateInterval = packedPoolParams.decodeUint(_PERF_UPDATE_INTERVAL_BIT_OFFSET, _PERF_TIME_BIT_LENGTH);
     }
 
     function _canBePegged(
