@@ -48,7 +48,6 @@ contract SafeguardTwoTokenPool is
 
     // NB Max yearly fee should fit in a 32 bits slot
     uint256 private constant _MAX_YEARLY_FEES = 10e16; // corresponds to 10% fees
-    uint256 private constant _MIN_CLAIM_FEES_FREQUENCY = 1 hours;
 
     IERC20 internal immutable _token0;
     IERC20 internal immutable _token1;
@@ -1104,13 +1103,14 @@ contract SafeguardTwoTokenPool is
         uint256 currentTime = block.timestamp;
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
-        if(elapsedTime >= _MIN_CLAIM_FEES_FREQUENCY) {
+        if(elapsedTime > 0) {
+            // update last claim time
             _previousClaimTime = uint32(currentTime);
 
             uint256 yearlyRate = uint256(_yearlyRate);
             
             if(yearlyRate > 0) {
-                
+                // returns bpt that needs to be minted
                 uint256 protocolFees = SafeguardMath.calcAccumulatedManagementFees(
                     elapsedTime,
                     yearlyRate,
@@ -1127,7 +1127,6 @@ contract SafeguardTwoTokenPool is
         _setManagementFees(yearlyFees);
     }
 
-    // TODO see if we update management fees according to the latest protocolSwapFeePercentage     
     function _setManagementFees(uint256 yearlyFees) private {               
         // claim previous manag
         claimManagementFees();
