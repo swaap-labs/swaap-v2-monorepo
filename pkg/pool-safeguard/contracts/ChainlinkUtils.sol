@@ -20,7 +20,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 
 library ChainlinkUtils {
 
-    uint256 constant private _ORACLE_TIMEOUT = 1 days;
+    uint256 constant private _ORACLE_TIMEOUT = 1.5 days;
 
     function getLatestPrice(AggregatorV3Interface oracle) internal view returns (uint256) {
         (
