@@ -77,7 +77,8 @@ contract SafeguardTwoTokenPool is
 
     // Management fees related variables
     uint32 private _previousClaimTime;
-    // For a max yearly fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
+    // NB For a max yearly fee of 10% it is safe to use 32 bits for the yearlyRate.
+    // For higher fees more bits should be allocated.
     uint32 private _yearlyRate;
     // yearly management fees
     uint64 private _yearlyFees;
@@ -440,21 +441,12 @@ contract SafeguardTwoTokenPool is
         bytes32 packedPoolParams
     ) internal view {
 
-        (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
-
-        (uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) = isTokenInToken0?
-            (hodlBalancePerPT0, hodlBalancePerPT1) :
-            (hodlBalancePerPT1, hodlBalancePerPT0); 
-
-        uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
-        uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
-
-        require(newBalanceOutPerPT.divDown(hodlBalancePerPTOut) >= _getMaxTargetDev(packedPoolParams), "error: min balance out is not met");
-
-        uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
-        uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
-
-        require(newTVLPerPT.divDown(oldTVLPerPT) >= _getMaxPerfDev(packedPoolParams), "error: low performance");
+        (uint256 performance, uint256 targetDev) 
+            = _getPerfAndTargetDev(isTokenInToken0, newBalanceIn, newBalanceOut, onChainAmountInPerOut, totalSupply);
+        
+        require(performance >= _getMaxPerfDev(packedPoolParams), "error: low performance");
+        
+        require(targetDev >= _getMaxTargetDev(packedPoolParams), "error: min balance out is not met");
     }
 
     function _onInitializePool(
@@ -835,10 +827,7 @@ contract SafeguardTwoTokenPool is
         
         require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
 
-        (
-            ,
-            uint256[] memory balances,
-        ) = getVault().getPoolTokens(getPoolId());
+        (, uint256[] memory balances, ) = getVault().getPoolTokens(getPoolId());
 
         _upscaleArray(balances, _scalingFactors());
 
@@ -915,9 +904,37 @@ contract SafeguardTwoTokenPool is
     * Getters
     */
 
-    function getTokenPegStates() external view returns(bool, bool){
-        bytes32 packedPoolParams = _packedPoolParams;
-        return (_isTokenPegged0(packedPoolParams), _isTokenPegged1(packedPoolParams));
+    function getPoolPerformance() external view override returns(uint256 performance){
+        (, uint256[] memory balances, ) = getVault().getPoolTokens(getPoolId());
+
+        _upscaleArray(balances, _scalingFactors());
+
+        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(_packedPoolParams, true);
+
+        (performance, ) = _getPerfAndTargetDev(true, balances[0], balances[1], onChainAmountInPerOut, totalSupply());
+    }
+
+    function _getPerfAndTargetDev(
+        bool    isTokenInToken0,
+        uint256 newBalanceIn,
+        uint256 newBalanceOut,
+        uint256 onChainAmountInPerOut,
+        uint256 totalSupply
+    ) internal view returns (uint256, uint256) {
+
+        (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
+
+        (uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) = isTokenInToken0?
+            (hodlBalancePerPT0, hodlBalancePerPT1) :
+            (hodlBalancePerPT1, hodlBalancePerPT0); 
+
+        uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
+        uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
+
+        uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
+        uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
+
+        return(newTVLPerPT.divDown(oldTVLPerPT), newBalanceOut.divDown(hodlBalancePerPTOut));
     }
 
     function _isTokenPegged0(bytes32 packedPoolParams) internal pure returns(bool){
@@ -928,7 +945,7 @@ contract SafeguardTwoTokenPool is
         return packedPoolParams.decodeBool(_TOKEN_1_PEGGED_BIT_OFFSET);
     }
 
-    function isAllowlistEnabled() public view returns(bool) {
+    function isAllowlistEnabled() public view override returns(bool) {
         return _mustAllowlistLPs;
     }
 
@@ -937,7 +954,7 @@ contract SafeguardTwoTokenPool is
     * @return hodlBalancePerPT0 the target hodl balance of token 0
     * @return hodlBalancePerPT1 the target hodl balance of token 1
     */
-    function getHodlBalancesPerPT() public view returns(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) {
+    function getHodlBalancesPerPT() public view override returns(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) {
         
         bytes32 hodlBalancesPerPT = _hodlBalancesPerPT;
     
@@ -951,6 +968,10 @@ contract SafeguardTwoTokenPool is
                 _HODL_BALANCE_BIT_LENGTH
         );
     
+    }
+
+    function getOnChainAmountInPerOut(address tokenIn) external view override returns(uint256) {
+        return _getOnChainAmountInPerOut(_packedPoolParams, IERC20(tokenIn) == _token0);
     }
 
     /**
@@ -983,7 +1004,7 @@ contract SafeguardTwoTokenPool is
     }
 
     /// @notice returns the pool parameters
-    function getPoolParameters() public view
+    function getPoolParameters() public view override
     returns (
         uint256 maxPerfDev,
         uint256 maxTargetDev,
@@ -1032,7 +1053,7 @@ contract SafeguardTwoTokenPool is
         perfUpdateInterval = packedPoolParams.decodeUint(_PERF_UPDATE_INTERVAL_BIT_OFFSET, _PERF_TIME_BIT_LENGTH);
     }
 
-    function getOracleParams() public view returns(OracleParams[] memory) {
+    function getOracleParams() public view override returns(OracleParams[] memory) {
         OracleParams[] memory oracleParams = new OracleParams[](2);
         bytes32 packedPoolParams = _packedPoolParams;
 
@@ -1077,11 +1098,8 @@ contract SafeguardTwoTokenPool is
         return isTokenPegged;
     }
 
-    function signer() public view override returns(address signerAddress){
+    function signer() public view override(ISignatureSafeguard, SignatureTwoTokenSafeguard) returns(address){
         return _signer;
-        // assembly {
-        //     signerAddress := shr(sload(_packedData.slot), _SIGNER_ADDRESS_OFFSET)
-        // }
     }
 
     function _getTotalTokens() internal pure override returns (uint256) {
@@ -1170,7 +1188,7 @@ contract SafeguardTwoTokenPool is
         emit ManagementFeesUpdated(yearlyFees);
     }
 
-    function getManagementFeesParams() public view returns(uint256, uint256, uint256) {
+    function getManagementFeesParams() public view override returns(uint256, uint256, uint256) {
         return (_yearlyFees, _yearlyRate, _previousClaimTime);
     }
 }

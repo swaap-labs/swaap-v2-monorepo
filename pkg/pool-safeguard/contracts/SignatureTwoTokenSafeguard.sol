@@ -18,8 +18,9 @@ pragma experimental ABIEncoderV2;
 import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidator.sol";
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
+import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguard.sol";
 
-abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator {
+abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;
 
     event Swap(bytes32 digest);
@@ -187,5 +188,5 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator {
         return digest;
     }
 
-    function signer() public view virtual returns (address);
+    function signer() public view override virtual returns (address);
 }

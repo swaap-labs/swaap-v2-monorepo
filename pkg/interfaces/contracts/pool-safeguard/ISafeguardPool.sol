@@ -17,8 +17,10 @@ pragma experimental ABIEncoderV2;
 
 import "../solidity-utils/openzeppelin/IERC20.sol";
 import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
+import "../vault/IBasePool.sol";
+import "./ISignatureSafeguard.sol";
 
-interface ISafeguardPool {
+interface ISafeguardPool is IBasePool, ISignatureSafeguard {
 
     event PegStatesUpdated(bool isPegged0, bool isPegged1);
     event FlexibleOracleStatesUpdated(bool isFlexibleOracle0, bool isFlexibleOracle1);
@@ -56,6 +58,10 @@ interface ISafeguardPool {
         uint256 priceScalingFactor;
     }
 
+    /*
+    * Setters
+    */
+    
     /// @dev sets or removes flexible oracles
     function setFlexibleOracleStates(bool isFlexibleOracle0, bool isFlexibleOracle1) external;
 
@@ -85,4 +91,36 @@ interface ISafeguardPool {
 
     /// @dev claims accumulated management fees
     function claimManagementFees() external;
+
+    /*
+    * Getters
+    */
+
+    /// @dev returns the current pool's performance
+    function getPoolPerformance() external view returns(uint256);
+    
+    /// @dev returns if the pool 
+    function isAllowlistEnabled() external view returns(bool);
+    
+    /// @dev returns the current target balances of the pool based on the hodl strategy and latest performance
+    function getHodlBalancesPerPT() external view returns(uint256, uint256);
+    
+    /// @dev returns the on-chain oracle price of tokenIn such that price = amountIn / amountOut
+    function getOnChainAmountInPerOut(address tokenIn) external view returns(uint256);
+    
+    /// @dev returns the current pool's safeguard parameters
+    function getPoolParameters() external view returns(
+        uint256 maxPerfDev,
+        uint256 maxTargetDev,
+        uint256 maxPriceDev,
+        uint256 lastPerfUpdate,
+        uint256 perfUpdateInterval
+    );
+    
+    /// @dev returns the current pool oracle parameters
+    function getOracleParams() external view returns(OracleParams[] memory);
+
+    /// @dev returns the yearly fees, yearly rate and the latest fee claim time
+    function getManagementFeesParams() external view returns(uint256, uint256, uint256);
+
 }
