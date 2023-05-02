@@ -1099,7 +1099,7 @@ contract SafeguardTwoTokenPool is
     /**
     * @dev Claims management fees if necessary
     */
-    function claimManagementFees() public {
+    function claimManagementFees() public override {
         uint256 currentTime = block.timestamp;
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
@@ -1116,8 +1116,12 @@ contract SafeguardTwoTokenPool is
                     yearlyRate,
                     totalSupply()
                 );
-            
+
                 _payProtocolFees(protocolFees);
+
+                emit ManagementFeesClaimed(protocolFees, yearlyRate, currentTime);
+            } else {
+                emit ManagementFeesClaimed(0, yearlyRate, currentTime);
             }
 
         }
@@ -1137,6 +1141,7 @@ contract SafeguardTwoTokenPool is
     function _setYearlyRate(uint256 yearlyFees) private {
         require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
         _yearlyRate = uint32(SafeguardMath.calcYearlyRate(yearlyFees));
+        emit ManagementFeesUpdated(yearlyFees);
     }
 
 }
