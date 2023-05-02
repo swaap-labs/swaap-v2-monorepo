@@ -48,6 +48,14 @@ interface ISafeguardPool {
         bool isFlexibleOracle;
     }
 
+    struct OracleParams {
+        AggregatorV3Interface oracle;
+        bool isStable;
+        bool isFlexibleOracle;
+        bool isPegged;
+        uint256 priceScalingFactor;
+    }
+
     /// @dev sets or removes flexible oracles
     function setFlexibleOracleStates(bool isFlexibleOracle0, bool isFlexibleOracle1) external;
 

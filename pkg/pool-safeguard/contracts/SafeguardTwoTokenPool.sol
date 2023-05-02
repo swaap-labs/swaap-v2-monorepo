@@ -72,14 +72,16 @@ contract SafeguardTwoTokenPool is
     // quote signer
     address private _signer;
 
-    // Management fees related variables
-    uint32 private _previousClaimTime;
-    // For a max fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
-    uint32 private _yearlyRate;
-
     // Allowlist enabled / disabled
     bool private _mustAllowlistLPs;
-    
+
+    // Management fees related variables
+    uint32 private _previousClaimTime;
+    // For a max yearly fee of 10% it is safe to use 32 bits for the yearlyRate. For higher fees more bits should be allocated.
+    uint32 private _yearlyRate;
+    // yearly management fees
+    uint64 private _yearlyFees;
+
     // [ isPegged0 | isPegged1 | flexibleOracle0 | flexibleOracle1 | max performance dev | max hodl dev | max price dev | perf update interval | last perf update ]
     // [   1 bit   |   1 bit   |      1 bit      |      1 bit      |       60 bits       |    64 bits   |    64 bits    |        32 bits       |      32 bits     ]
     // [ MSB                                                                                                                                                  LSB ]
@@ -1030,6 +1032,29 @@ contract SafeguardTwoTokenPool is
         perfUpdateInterval = packedPoolParams.decodeUint(_PERF_UPDATE_INTERVAL_BIT_OFFSET, _PERF_TIME_BIT_LENGTH);
     }
 
+    function getOracleParams() public view returns(OracleParams[] memory) {
+        OracleParams[] memory oracleParams = new OracleParams[](2);
+        bytes32 packedPoolParams = _packedPoolParams;
+
+        oracleParams[0] = OracleParams({
+            oracle: _oracle0,
+            isStable: _isStable0,
+            isFlexibleOracle: _isFlexibleOracle0(packedPoolParams),
+            isPegged: _isTokenPegged0(packedPoolParams),
+            priceScalingFactor: _priceScaleFactor0
+        });
+
+        oracleParams[1] = OracleParams({
+            oracle: _oracle1,
+            isStable: _isStable1,
+            isFlexibleOracle: _isFlexibleOracle1(packedPoolParams),
+            isPegged: _isTokenPegged1(packedPoolParams),
+            priceScalingFactor: _priceScaleFactor1
+        });
+
+        return oracleParams;
+    }
+
     function _canBePegged(
         bool isTokenPegged,
         AggregatorV3Interface oracle,
@@ -1140,8 +1165,12 @@ contract SafeguardTwoTokenPool is
 
     function _setYearlyRate(uint256 yearlyFees) private {
         require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
+        _yearlyFees = uint64(yearlyFees);
         _yearlyRate = uint32(SafeguardMath.calcYearlyRate(yearlyFees));
         emit ManagementFeesUpdated(yearlyFees);
     }
 
+    function getManagementFeesParams() public view returns(uint256, uint256, uint256) {
+        return (_yearlyFees, _yearlyRate, _previousClaimTime);
+    }
 }
