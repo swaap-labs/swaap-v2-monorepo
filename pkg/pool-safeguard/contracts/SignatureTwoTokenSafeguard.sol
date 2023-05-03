@@ -36,7 +36,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
     // NB Do not assign a high value (e.g. max(uint256)) or else it will overflow when adding it to the block.timestamp
     uint256 public constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
 
-    mapping(uint256 => uint256) internal usedQuoteBitMap;
+    mapping(uint256 => uint256) internal _usedQuoteBitMap;
 
     /**
      * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
@@ -139,7 +139,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
     function isQuoteUsed(uint256 index) public view returns (bool) {
         uint256 usedQuoteWordIndex = index / 256;
         uint256 usedQuoteBitIndex = index % 256;
-        uint256 usedQuoteWord = usedQuoteBitMap[usedQuoteWordIndex];
+        uint256 usedQuoteWord = _usedQuoteBitMap[usedQuoteWordIndex];
         uint256 mask = (1 << usedQuoteBitIndex);
         return usedQuoteWord & mask == mask;
     }
@@ -147,7 +147,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
     function _registerUsedQuote(uint256 index) private {
         uint256 usedQuoteWordIndex = index / 256;
         uint256 usedQuoteBitIndex = index % 256;
-        usedQuoteBitMap[usedQuoteWordIndex] = usedQuoteBitMap[usedQuoteWordIndex] | (1 << usedQuoteBitIndex);
+        _usedQuoteBitMap[usedQuoteWordIndex] = _usedQuoteBitMap[usedQuoteWordIndex] | (1 << usedQuoteBitIndex);
     }
 
     function _validateAllowlistSignature(address sender, bytes memory userData) internal returns (bytes memory) {
@@ -186,6 +186,10 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
         _require(deadline <= block.timestamp + MAX_REMAINING_SIGNATURE_VALIDITY, Errors.EXPIRED_SIGNATURE);
 
         return digest;
+    }
+
+    function getQuoteBitmap(uint256 wordIndex) external view override returns(uint){
+        return _usedQuoteBitMap[wordIndex];
     }
 
     function signer() public view override virtual returns (address);

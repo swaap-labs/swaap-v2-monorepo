@@ -20,4 +20,6 @@ interface ISignatureSafeguard {
     /// @dev returns quote signer's address
     function signer() external returns(address); 
 
+    /// @dev returns the bitmap word value
+    function getQuoteBitmap(uint256 wordIndex) external view returns(uint);
 }
