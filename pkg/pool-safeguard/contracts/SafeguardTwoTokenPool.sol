@@ -846,7 +846,7 @@ contract SafeguardTwoTokenPool is
 
         _setHodlBalancesPerPT(hodlBalancePerPT0, hodlBalancePerPT1);
 
-        emit PerformanceUpdated(hodlBalancePerPT0, hodlBalancePerPT1, amount0Per1, block.timestamp);
+        emit PerformanceUpdated(hodlBalancePerPT0, hodlBalancePerPT1, currentPerformance, amount0Per1, block.timestamp);
     }
 
     function _setHodlBalancesPerPT(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) private {

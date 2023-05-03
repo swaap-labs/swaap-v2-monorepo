@@ -30,10 +30,16 @@ interface ISafeguardPool is IBasePool, ISignatureSafeguard {
     event MaxPerfDevChanged(uint256 maxPerfDev);
     event MaxTargetDevChanged(uint256 maxTargetDev);
     event MaxPriceDevChanged(uint256 maxPriceDev);
-    event PerformanceUpdated(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1, uint256 amount0Per1, uint256 time);
     event ManagementFeesUpdated(uint256 yearlyFees);
     event ManagementFeesClaimed(uint256 feesClaimed, uint256 yearlyRate, uint256 time);
-
+    event PerformanceUpdated(
+        uint256 hodlBalancePerPT0,
+        uint256 hodlBalancePerPT1,
+        uint256 performance,
+        uint256 amount0Per1,
+        uint256 time
+    );
+    
     struct InitialSafeguardParams {
         address signer; // address that signs the quotes
         uint256 maxPerfDev; // maximum performance deviation
