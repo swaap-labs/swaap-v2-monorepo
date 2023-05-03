@@ -30,7 +30,7 @@ library SafeguardMath {
     /**
     * @notice slippage based on the lag between quotation and execution time
     */
-    function calcTimeSlippagePenalty(
+    function calcTimeBasedPenalty(
         uint256 currentTimestamp,
         uint256 startTime,
         uint256 timeBasedSlippage
@@ -56,11 +56,9 @@ library SafeguardMath {
         uint256 balanceBasedSlippage
     ) internal pure returns (uint256) {
         
-        uint256 balanceDevIn = balanceTokenIn >= quoteBalanceIn ?
-            0 : (quoteBalanceIn - balanceTokenIn).divDown(quoteBalanceIn);
+        uint256 balanceDevIn = calcBalanceDeviation(balanceTokenIn, quoteBalanceIn);
 
-        uint256 balanceDevOut = balanceTokenOut >= quoteBalanceOut ?
-            0 : (quoteBalanceOut - balanceTokenOut).divDown(quoteBalanceOut);
+        uint256 balanceDevOut = calcBalanceDeviation(balanceTokenOut, quoteBalanceOut);
 
         uint256 maxDeviation = Math.max(balanceDevIn, balanceDevOut);
 
@@ -69,10 +67,14 @@ library SafeguardMath {
         return balanceBasedSlippage.mulUp(maxDeviation);
     }
 
+    function calcBalanceDeviation(uint256 currentBalance, uint256 quoteBalance) internal pure returns(uint256) {
+        return currentBalance >= quoteBalance ? 0 : (quoteBalance - currentBalance).divDown(currentBalance);
+    }
+
     /**
     * @notice slippage based on the transaction origin
     */
-    function calcOriginBasedSlippage(
+    function calcOriginBasedPenalty(
         address expectedOrigin,
         uint256 originBasedSlippage
     ) internal view returns(uint256) {

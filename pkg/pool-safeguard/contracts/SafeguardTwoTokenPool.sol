@@ -196,9 +196,10 @@ contract SafeguardTwoTokenPool is
         _beforeSwapJoinExit();
 
         bool isTokenInToken0 = request.tokenIn == _token0;
+        IVault.SwapKind swapKind = request.kind;
 
         bytes memory swapData = _swapSignatureSafeguard(
-            request.kind,
+            swapKind,
             isTokenInToken0,
             request.from,
             request.to,
@@ -216,8 +217,7 @@ contract SafeguardTwoTokenPool is
             uint256 maxSwapAmount
         ) = _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
 
-        if(request.kind == IVault.SwapKind.GIVEN_IN) {
-            return _onSwapGivenIn(
+        return (swapKind == IVault.SwapKind.GIVEN_IN? _onSwapGivenIn : _onSwapGivenOut)(
                 isTokenInToken0,
                 balanceTokenIn,
                 balanceTokenOut,
@@ -227,19 +227,6 @@ contract SafeguardTwoTokenPool is
                 scalingFactorTokenIn,
                 scalingFactorTokenOut
             );
-        }
-
-        return _onSwapGivenOut(
-            isTokenInToken0,
-            balanceTokenIn,
-            balanceTokenOut,
-            request.amount,
-            quoteAmountInPerOut,
-            maxSwapAmount,
-            scalingFactorTokenIn,
-            scalingFactorTokenOut
-        );
-
     }
 
     /// @dev amountInPerOut = baseAmountInPerOut * (1 + slippagePenalty)
@@ -262,7 +249,7 @@ contract SafeguardTwoTokenPool is
         
         penalty = penalty.add(_getTimeBasedPenalty(timeBasedParams));
 
-        penalty = penalty.add(SafeguardMath.calcOriginBasedSlippage(expectedOrigin, originBasedSlippage));
+        penalty = penalty.add(SafeguardMath.calcOriginBasedPenalty(expectedOrigin, originBasedSlippage));
 
         (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = priceBasedParams.unpackPairedUints();
 
@@ -295,7 +282,7 @@ contract SafeguardTwoTokenPool is
 
     function _getTimeBasedPenalty(bytes32 timeBasedParams) internal view returns(uint256) {
         (uint256 startTime, uint256 timeBasedSlippage) = timeBasedParams.unpackPairedUints();
-        return SafeguardMath.calcTimeSlippagePenalty(block.timestamp, startTime, timeBasedSlippage);
+        return SafeguardMath.calcTimeBasedPenalty(block.timestamp, startTime, timeBasedSlippage);
     }
 
     function _onSwapGivenIn(
