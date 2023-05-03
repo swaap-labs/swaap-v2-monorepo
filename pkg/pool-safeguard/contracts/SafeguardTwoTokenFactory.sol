@@ -47,7 +47,6 @@ contract SafeguardTwoTokenFactory is BasePoolFactory {
         string memory name,
         string memory symbol,
         IERC20[] memory tokens,
-        address owner,
         ISafeguardPool.InitialOracleParams[] calldata oracleParams,
         ISafeguardPool.InitialSafeguardParams calldata safeguardParameters,
         bool setPegStates
@@ -62,7 +61,7 @@ contract SafeguardTwoTokenFactory is BasePoolFactory {
             new address[](tokens.length), // Don't allow asset managers
             pauseWindowDuration,
             bufferPeriodDuration,
-            owner,
+            0xBA1BA1ba1BA1bA1bA1Ba1BA1ba1BA1bA1ba1ba1B, // only delegate ownership
             oracleParams,
             safeguardParameters
         );
