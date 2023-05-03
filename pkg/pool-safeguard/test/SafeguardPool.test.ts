@@ -72,8 +72,8 @@ describe('SafeguardPool', function () {
       })
     ];
 
-    maxPerfDev = fp(0.9);
-    maxTargetDev = fp(0.8);
+    maxPerfDev = fp(0.95);
+    maxTargetDev = fp(0.85);
     maxPriceDev = fp(0.97);
     perfUpdateInterval = 1 * DAY;
     yearlyFees = 0;

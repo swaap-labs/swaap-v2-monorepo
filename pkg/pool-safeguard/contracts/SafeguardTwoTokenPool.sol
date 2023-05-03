@@ -41,13 +41,14 @@ contract SafeguardTwoTokenPool is
     uint256 private constant _INITIAL_BPT = 100 ether;
 
     // Pool parameters constants
-    uint256 private constant _MAX_PERFORMANCE_DEVIATION = 85e16; // 15% max tolerance
-    uint256 private constant _MAX_TARGET_DEVIATION = 80e16; // 20% max tolerance
-    uint256 private constant _MAX_PRICE_DEVIATION = 90e16; // 10% max tolerance
-    uint256 private constant _MIN_PERFORMANCE_UPDATE_INTERVAL = 1 hours;
+    uint256 private constant _MAX_PERFORMANCE_DEVIATION = 95e16; // 5% max tolerance
+    uint256 private constant _MAX_TARGET_DEVIATION = 85e16; // 15% max tolerance
+    uint256 private constant _MAX_PRICE_DEVIATION = 97e16; // 3% max tolerance
+    uint256 private constant _MIN_PERFORMANCE_UPDATE_INTERVAL = 0.5 days;
+    uint256 private constant _MAX_PERFORMANCE_UPDATE_INTERVAL = 1.5 days;
 
     // NB Max yearly fee should fit in a 32 bits slot
-    uint256 private constant _MAX_YEARLY_FEES = 10e16; // corresponds to 10% fees
+    uint256 private constant _MAX_YEARLY_FEES = 5e16; // corresponds to 5% fees
 
     IERC20 internal immutable _token0;
     IERC20 internal immutable _token1;
@@ -733,6 +734,7 @@ contract SafeguardTwoTokenPool is
     function _setPerfUpdateInterval(uint256 perfUpdateInterval) internal {
 
         require(perfUpdateInterval >= _MIN_PERFORMANCE_UPDATE_INTERVAL, "error: performance update interval too low");
+        require(perfUpdateInterval <= _MAX_PERFORMANCE_UPDATE_INTERVAL, "error: performance update interval too high");
 
         _packedPoolParams = _packedPoolParams.insertUint(
             perfUpdateInterval,
