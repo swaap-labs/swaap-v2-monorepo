@@ -26,10 +26,8 @@ library ChainlinkUtils {
         (
             , int256 latestPrice, , uint256 latestTimestamp,
         ) = AggregatorV3Interface(oracle).latestRoundData();
-        // we assume that block.timestamp >= latestTimestamp, else => revert
-
+        // we assume that block.timestamp >= latestTimestamp
         require(latestTimestamp >= block.timestamp - _ORACLE_TIMEOUT, "error: exceeds timeout");
-        
         require(latestPrice > 0, "error: non positive price");
         return uint256(latestPrice);
     }
