@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat';
 import '@balancer-labs/v2-common/setupTests'
-import { fp } from '@balancer-labs/v2-helpers/src/numbers';
+import { fp, fpDiv } from '@balancer-labs/v2-helpers/src/numbers';
 import { Contract } from 'ethers';
 import { deploy } from '@balancer-labs/v2-helpers/src/contract';
 import { 
@@ -66,32 +66,36 @@ describe('SafeguardMath', () => {
       const elapsedTimeNumber = Math.round(365 * DAY)
       const yearlyRateNumber = calcYearlyRate(rawRateNumber)
       const currentSupplyNumber = 99
-      const actual = await lib.calcAccumulatedManagementFees(
+      const actualMintedSupply = await lib.calcAccumulatedManagementFees(
         elapsedTimeNumber,
         fp(yearlyRateNumber),
         fp(currentSupplyNumber)
       )
-      expect(actual, "rate should be zero").to.be.zero
+      expect(actualMintedSupply, "rate should be zero").to.be.zero
     });
 
     it ('1-year fee', async () => {
       const rawRateNumber = 3 / 100
       const elapsedTimeNumber = Math.round(365 * DAY)
       const yearlyRateNumber = calcYearlyRate(rawRateNumber)
-      const currentSupplyNumber = 99
-      const expected = fp(
+      const initialSupply = 99
+      const expectedMintedSupply = fp(
         calcAccumulatedManagementFees(
           elapsedTimeNumber,
           yearlyRateNumber,
-          currentSupplyNumber
+          initialSupply
         )
       )
-      const actual = await lib.calcAccumulatedManagementFees(
+      const actualMintedSupply = await lib.calcAccumulatedManagementFees(
         elapsedTimeNumber,
         fp(yearlyRateNumber),
-        fp(currentSupplyNumber)
+        fp(initialSupply)
       )
-      expectRelativeErrorBN(actual, expected, tolerance)
+      expectRelativeErrorBN(actualMintedSupply, expectedMintedSupply, tolerance)
+      
+      const actualPoolOwnership = fpDiv(fp(initialSupply), fp(initialSupply).add(actualMintedSupply));
+      const actualFees = fp(1).sub(actualPoolOwnership);
+      expectRelativeErrorBN(actualFees, fp(rawRateNumber), tolerance);
     });
 
     it ('n-year rate', async () => {
@@ -99,14 +103,16 @@ describe('SafeguardMath', () => {
       const nYears = 50
       const elapsedTimeNumber = Math.round(nYears * 365 * DAY)
       const yearlyRateNumber = calcYearlyRate(rawRateNumber)
-      const currentSupplyNumber = 99
-      const expected = fp(currentSupplyNumber / (currentSupplyNumber / ((1 - rawRateNumber) ** nYears)))
-      const actual = await lib.calcAccumulatedManagementFees(
+      const initialSupply = 99
+      const expectedPoolOwnership = fp((1 - rawRateNumber) ** nYears);
+      const actualMintedSupply = await lib.calcAccumulatedManagementFees(
         elapsedTimeNumber,
         fp(yearlyRateNumber),
-        fp(currentSupplyNumber)
+        fp(initialSupply)
       )
-      expectRelativeErrorBN(fp(currentSupplyNumber).mul(fp(1)).div(actual.add(fp(currentSupplyNumber))), expected, tolerance)
+      const actualPoolOwnership = fpDiv(fp(initialSupply), actualMintedSupply.add(fp(initialSupply)));
+      console.log(actualPoolOwnership);
+      expectRelativeErrorBN(actualPoolOwnership, expectedPoolOwnership, tolerance)
     });
 
 
