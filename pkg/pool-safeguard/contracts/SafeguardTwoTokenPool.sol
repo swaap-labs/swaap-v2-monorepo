@@ -106,7 +106,7 @@ contract SafeguardTwoTokenPool is
     uint256 private constant _MAX_TARGET_DEV_BIT_LENGTH = 64;
 
     // used to determine if the quote's price is too low compared to the oracle's price
-    uint256 private constant _MAX_PRICE_DEV_BIT_OFFSET = 96;
+    uint256 private constant _MAX_PRICE_DEV_BIT_OFFSET = 64;
     uint256 private constant _MAX_PRICE_DEV_BIT_LENGTH = 64;
 
     // used to determine if a performance update is needed before a swap / one-asset-join / one-asset-exit
