@@ -1,10 +1,10 @@
 import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers';
 
-import { decimal } from '../../numbers';
 import Decimal from 'decimal.js';
 
 import OraclesDeployer from './OraclesDeployer';
 import { OracleDeployment } from './types';
+import { scaleUp, bn } from '../../numbers';
 
 export default class Oracle {
   description: string;
@@ -35,10 +35,10 @@ export default class Oracle {
     return this.decimals;
   }
 
-  async setPrice(price: BigNumber): Promise<ContractTransaction> {
-    
-    return this.instance.setPrice(price);
-
+  async setPrice(price: Decimal | number): Promise<ContractTransaction> {
+    const scaledPrice = scaleUp(bn(price), bn(10).pow(bn(this.decimals)));
+    this.price = price;
+    return this.instance.setPrice(scaledPrice);
   }
 
 }

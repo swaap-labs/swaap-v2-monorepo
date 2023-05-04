@@ -5,14 +5,6 @@ import { BigNumberish } from '../../numbers';
 
 import { NAry, Account } from '../types/types';
 
-export type RawOracleDeployment =
-  | string
-  | {
-      description?: string;
-      price?: Decimal;
-      decimals?: number;
-    };
-
 export type OracleDeployment = {
   description: string;
   price: Decimal | number;
