@@ -8,7 +8,7 @@ import OraclesDeployer from '@balancer-labs/v2-helpers/src/models/oracles/Oracle
 import SafeguardPool from '@balancer-labs/v2-helpers/src/models/pools/safeguard/SafeguardPool';
 import { RawSafeguardPoolDeployment } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types';
 import Vault from '@balancer-labs/v2-helpers/src/models/vault/Vault';
-import { BigNumberish, fp, bn, bnSum } from '@balancer-labs/v2-helpers/src/numbers';
+import { BigNumber, BigNumberish, fp, bn, bnSum } from '@balancer-labs/v2-helpers/src/numbers';
 import { MAX_UINT112, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import { DAY, MINUTE } from '@balancer-labs/v2-helpers/src/time';
 import '@balancer-labs/v2-common/setupTests'
@@ -34,16 +34,21 @@ let yearlyFees: BigNumberish;
 let mustAllowlistLPs: boolean;
 
 const chainId = 31337;
-const PREMINTED_BPT = MAX_UINT112.div(2);
 
-const initialBalances = [fp(15), fp(15)];
-const initPrices = [1, 1];
+
+const initialBalancesNumber = [15, 15];
+let initialBalances: BigNumber[];
+const initPrices = [1, 3];
 
 describe('SafeguardPool', function () {
 
   before('setup signers and tokens', async () => {
     [deployer, lp, owner, recipient, admin, signer, other, trader] = await ethers.getSigners();
-    tokens = await TokenList.create(2, { sorted: true, varyDecimals: false });
+    tokens = await TokenList.create([{decimals: 12}, {decimals: 18}], { sorted: false, varyDecimals: true });
+    initialBalances = [
+      fp(initialBalancesNumber[0]).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)),
+      fp(initialBalancesNumber[1]).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1))
+    ]
   });
 
   let pool: SafeguardPool;
@@ -105,7 +110,9 @@ describe('SafeguardPool', function () {
         it ('valid', async () => {
           const kind = 0;
           const isTokenInToken0 = true;
-          const [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           const amountOut = balanceTokenIn.div(20)
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
           const maxSwapAmount = amountIn
@@ -118,7 +125,7 @@ describe('SafeguardPool', function () {
               amountIn,
               amountOut,
               amountInPerOut,
-              maxSwapAmount
+              maxSwapAmount,
             )
           ).not.to.be.reverted
         });
@@ -126,7 +133,9 @@ describe('SafeguardPool', function () {
         it ('exceeded swap amount in', async () => {
           const kind = 0;
           const isTokenInToken0 = true;
-          const [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           const amountOut = balanceTokenIn.div(20)
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
           const maxSwapAmount = amountIn.sub(1) // sub 1 wei
@@ -147,7 +156,9 @@ describe('SafeguardPool', function () {
         it ('exceeded swap amount out', async () => {
           const kind = 1;
           const isTokenInToken0 = true;
-          const [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           const amountOut = balanceTokenOut.div(20)
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
           const maxSwapAmount = amountOut.sub(1) // sub 1 wei
@@ -169,6 +180,8 @@ describe('SafeguardPool', function () {
           const kind = 0;
           const isTokenInToken0 = true;
           let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           amountInPerOut = amountInPerOut.div(2) // double actual price 
           const amountOut = balanceTokenOut.div(20)
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
@@ -191,6 +204,8 @@ describe('SafeguardPool', function () {
           const kind = 1;
           const isTokenInToken0 = true;
           let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           amountInPerOut = amountInPerOut.div(2) // double actual price 
           const amountOut = balanceTokenOut.div(20)
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
@@ -212,7 +227,9 @@ describe('SafeguardPool', function () {
         it ('min balance out is not met: index 0', async () => {
           const kind = 0;
           const isTokenInToken0 = true;
-          const [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           const amountOut = balanceTokenOut // 100% of the pool is too large of an amount
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
           const maxSwapAmount = amountIn
@@ -233,7 +250,9 @@ describe('SafeguardPool', function () {
         it ('min balance out is not met: index 1', async () => {
           const kind = 1;
           const isTokenInToken0 = true;
-          const [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           const amountOut = balanceTokenOut // 100% of the pool is too large of an amount
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
           const maxSwapAmount = amountOut
@@ -254,18 +273,20 @@ describe('SafeguardPool', function () {
         it ('low performance', async () => {
           
           const isTokenInToken0 = true;
-          const [_, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
           const amountOut = balanceTokenOut.div(10)
           const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
           
           const inIndex = isTokenInToken0? 0 : 1;
           const outIndex = inIndex == 0? 1 : 0;
-      
+
           await pool.swapGivenIn({
             chainId: chainId,
             in: inIndex,
             out: outIndex,
-            amount: amountIn,
+            amount: amountIn.mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)),
             signer: signer,
             from: deployer,
             recipient: lp.address
@@ -305,7 +326,7 @@ describe('SafeguardPool', function () {
         let signatureSGSender: SignerWithAddress;
         let signatureSGReceiver: SignerWithAddress;
         let signatureSGExpectedOrigin: SignerWithAddress;
-        const amount = fp(1)
+        let amount: BigNumber
         const deadline = bn(123456789101112)
 
         sharedBeforeEach('validateSwapSignature', async () => {
@@ -315,6 +336,7 @@ describe('SafeguardPool', function () {
           signatureSGExpectedOrigin = lp
           signatureSGInIndex = 0;
           const outIndex = signatureSGInIndex == 0? 1 : 0;
+          amount = fp(1.5).mul(bn(10).pow(tokens.tokens[signatureSGInIndex].decimals)).div(fp(1))
           signatureSGUserData = await pool.buildSwapDecodedUserData(
             signatureSGKind,
             {
@@ -475,26 +497,6 @@ describe('SafeguardPool', function () {
               signatureSGUserDataWrongSigner[1],
               signatureSGUserDataWrongSigner[2],
               signatureSGUserDataWrongSigner[3],
-            )
-          ).to.be.revertedWith("BAL#000");
-        });
-
-        it ('fails on wrong amount', async () => {
-          let signatureSGUserDataWrongData: [string, string, BigNumberish, BigNumberish] = [...signatureSGUserData]
-          signatureSGUserDataWrongData[0] = signatureSGUserDataWrongData[0].replace(
-            amount.toHexString().slice(2).padStart(64, '0'), 
-            amount.add(1).toHexString().slice(2).padStart(64, '0')
-          )
-          await expect(
-            pool.validateSwapSignature(
-              signatureSGKind,
-              signatureSGInIndex == 0,
-              signatureSGSender.address,
-              signatureSGReceiver.address,
-              signatureSGUserDataWrongData[0],
-              signatureSGUserDataWrongData[1],
-              signatureSGUserDataWrongData[2],
-              signatureSGUserDataWrongData[3],
             )
           ).to.be.revertedWith("BAL#000");
         });

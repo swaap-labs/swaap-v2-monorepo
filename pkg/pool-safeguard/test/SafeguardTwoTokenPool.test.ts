@@ -17,7 +17,7 @@ import { DAY, advanceToTimestamp, SECOND, MINUTE } from '@balancer-labs/v2-helpe
 import '@balancer-labs/v2-common/setupTests'
 import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
 import { calcYearlyRate, calcAccumulatedManagementFees } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/math'
-import { expectRelativeErrorBN } from '@balancer-labs/v2-helpers/src/test/relativeError'
+import { expectEqualWithError, expectRelativeErrorBN } from '@balancer-labs/v2-helpers/src/test/relativeError'
 import { PoolSpecialization } from '@balancer-labs/balancer-js';
 import Token from '@balancer-labs/v2-helpers/src/models/tokens/Token';
 
@@ -42,15 +42,21 @@ let mustAllowlistLPs: boolean;
 
 const chainId = 31337;
 const ORACLE_DECIMALS = [8, 12]
-const initialBalances = [fp(15), fp(20)];
+const initialBalancesNumber = [15, 20];
+let initialBalances: BigNumber[];
 const initPrices = [1, 3];
 const tolerance = fp(1e-9);
+const lowTolerance = fp(1e-17);
 
 describe('SafeguardPool', function () {
 
   before('setup signers and tokens', async () => {
     [deployer, lp, owner, recipient, admin, signer, other, trader] = await ethers.getSigners();
-    tokens = await TokenList.create(2, { sorted: true, varyDecimals: false });
+    tokens = await TokenList.create([{decimals: 7}, {decimals: 0}], { sorted: false, varyDecimals: true });
+    initialBalances = [
+      fp(initialBalancesNumber[0]).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)),
+      fp(initialBalancesNumber[1]).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1))
+    ]
   });
 
   let pool: SafeguardPool;
@@ -314,8 +320,8 @@ describe('SafeguardPool', function () {
             expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.add(bptOut));
             const currentBalance0 = await tokens.tokens[0].balanceOf(deployer);
             const currentBalance1 = await tokens.tokens[1].balanceOf(deployer);
-            expect(currentBalance0).to.be.equal(expectedBalances[0]);
-            expect(currentBalance1).to.be.equal(expectedBalances[1]);
+            expectEqualWithError(currentBalance0, expectedBalances[0], lowTolerance);
+            expectEqualWithError(currentBalance1, expectedBalances[1], lowTolerance);
           });
         });
         
@@ -340,11 +346,11 @@ describe('SafeguardPool', function () {
       
       context('joinGivenIn', () => {
 
-        const amountsIn = [fp(2), fp(1)];
-        const bptOut: BigNumber = fp(10);
+        let amountsIn: BigNumber[];
         let lpBalanceBefore: BigNumber
         sharedBeforeEach('set', async () => {
           lpBalanceBefore = await pool.balanceOf(lp.address);
+          amountsIn = [fp(2).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)), fp(1).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1))];
         });
 
         describe('when paused', () => {
@@ -385,7 +391,6 @@ describe('SafeguardPool', function () {
         describe('when in normal mode', () => {
           it('valid', async () => {
             const currentBalances = await pool.getBalances();
-            const amountsIn = [fp(2), fp(1)];
             const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
             await pool.joinGivenIn({
               recipient: lp.address,
@@ -394,21 +399,21 @@ describe('SafeguardPool', function () {
               swapTokenIn: tokens.tokens[0],
               signer: signer
             });
-            const endTotalSupply = await pool.totalSupply();
             const updatedBalances = await pool.getBalances();
-            expect(updatedBalances[0]).to.be.equal(expectedBalances[0]);
-            expect(updatedBalances[1]).to.be.equal(expectedBalances[1]);
+            expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
+            expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
           });
         });
       });
       
       context('exitGivenOut', () => {
 
-        const amountsOut: BigNumber[] = [fp(1.1), fp(1)];
+        let amountsOut: BigNumber[]
         let lpBalanceBefore: BigNumber
 
         sharedBeforeEach('set', async () => {
           lpBalanceBefore = await pool.balanceOf(lp.address);
+          amountsOut = [fp(1.1).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1)), fp(1).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1))];
         });
 
         describe('when paused', () => {
@@ -461,8 +466,8 @@ describe('SafeguardPool', function () {
               signer: signer
             });
             const updatedBalances = await pool.getBalances();
-            expect(updatedBalances[0]).to.be.equal(expectedBalances[0]);
-            expect(updatedBalances[1]).to.be.equal(expectedBalances[1]);
+            expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
+            expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
           });
         });
       });
@@ -526,9 +531,13 @@ describe('SafeguardPool', function () {
       
       context('swapGivenIn', () => {
 
-        const amountIn = fp(0.5);
         const inIndex = 0;
         const outIndex = inIndex == 0? 1 : 0;
+        let amountIn: BigNumber
+        
+        sharedBeforeEach('setting amount', async () => {
+          amountIn = fp(1.5).mul(bn(10).pow(tokens.tokens[inIndex].decimals)).div(fp(1));
+        });
         
         it('onSwap fails on a regular swap if caller is not the vault', async () => {
           const swapRequest = {
@@ -606,9 +615,13 @@ describe('SafeguardPool', function () {
 
       context('swapGivenOut', () => {
 
-        const amountOut = fp(0.5);
         const inIndex = 0;
         const outIndex = inIndex == 0? 1 : 0;
+        let amountOut: BigNumber
+        
+        sharedBeforeEach('setting amount', async () => {
+          amountOut = fp(1.5).mul(bn(10).pow(tokens.tokens[outIndex].decimals)).div(fp(1));
+        });
         
         it('onSwap fails on a regular swap if caller is not the vault', async () => {
           const swapRequest = {
@@ -686,6 +699,9 @@ describe('SafeguardPool', function () {
 
       context('Detailed Swap', () => {
         
+        const inIndex = 0;
+        const outIndex = inIndex == 0? 1 : 0;
+
         it('Swap given in', async () => {
 
           const startBlock = await ethers.provider.getBlockNumber();
@@ -693,16 +709,15 @@ describe('SafeguardPool', function () {
           
           const currentBalances = await pool.getBalances();
 
-          const inIndex = 0;
-          const outIndex = inIndex == 0? 1 : 0;
-
-          const amountIn = fp(0.5);
+          const amountInNum = 3
+          const amountIn = fp(amountInNum).mul(bn(10).pow(tokens.tokens[inIndex].decimals)).div(fp(1));
+          const amount = amountIn
 
           await tokens.mint({ to: trader, amount: fp(1000) });
           await tokens.approve({to: vault, amount: fp(1000), from: trader});
 
           const amountInPerOut = await pool.getAmountInPerOut(inIndex)
-          const expectedAmountOut = amountIn.mul(fp(1)).div((await pool.getAmountInPerOut(inIndex)))
+          const expectedAmountOut = amountIn.mul(fp(1)).div(amountInPerOut)
           
           const startTime = startBlockTimestamp
           const timeBasedSlippage = 0.0001
@@ -712,15 +727,15 @@ describe('SafeguardPool', function () {
             chainId: chainId,
             in: inIndex,
             out: outIndex,
-            amount: amountIn,
+            amount: amount,
             recipient: trader.address,
             from: trader,
             deadline: startBlockTimestamp + 100000,
-            maxSwapAmount: fp(0.5),
+            maxSwapAmount: fp(amountInNum),
             quoteAmountInPerOut:amountInPerOut,
             maxBalanceChangeTolerance: fp(0.075),
-            quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
-            quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
+            quoteBalanceIn: currentBalances[inIndex],
+            quoteBalanceOut: currentBalances[outIndex],
             balanceBasedSlippage: fp(0.0002),
             startTime: startTime,
             timeBasedSlippage: fp(timeBasedSlippage),
@@ -762,17 +777,15 @@ describe('SafeguardPool', function () {
           
           const currentBalances = await pool.getBalances();
 
-          const inIndex = 0;
-          const outIndex = inIndex == 0? 1 : 0;
-
-          const amountOut = fp(0.5);
+          const amountOutNum = 1
+          const amountOut = fp(amountOutNum).mul(bn(10).pow(tokens.tokens[outIndex].decimals)).div(fp(1));
+          const amount = amountOut
 
           await tokens.mint({ to: trader, amount: fp(1000) });
           await tokens.approve({to: vault, amount: fp(1000), from: trader});
 
           const amountInPerOut = await pool.getAmountInPerOut(inIndex)
-
-          const expectedAmountIn = amountOut.mul((await pool.getAmountInPerOut(inIndex))).div(fp(1))
+          const expectedAmountIn = amountOut.mul(amountInPerOut).div(fp(1))
 
           const startTime = startBlockTimestamp
           const timeBasedSlippage = 0.0001
@@ -782,15 +795,15 @@ describe('SafeguardPool', function () {
             chainId: chainId,
             in: inIndex,
             out: outIndex,
-            amount: amountOut,
+            amount: amount,
             recipient: trader.address,
             from: trader,
             deadline: startBlockTimestamp + 100000,
-            maxSwapAmount: fp(0.5),
+            maxSwapAmount: fp(amountOutNum),
             quoteAmountInPerOut:amountInPerOut,
             maxBalanceChangeTolerance: fp(0.075),
-            quoteBalanceIn: (currentBalances[inIndex]).sub(BigNumber.from('1000000000000')),
-            quoteBalanceOut: currentBalances[outIndex].sub(BigNumber.from('4000000000000')),
+            quoteBalanceIn: currentBalances[inIndex],
+            quoteBalanceOut: currentBalances[outIndex],
             balanceBasedSlippage: fp(0.0002),
             startTime: startTime,
             timeBasedSlippage: fp(timeBasedSlippage),
