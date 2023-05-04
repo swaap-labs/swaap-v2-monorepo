@@ -42,7 +42,7 @@ let mustAllowlistLPs: boolean;
 
 const chainId = 31337;
 const ORACLE_DECIMALS = [8, 12]
-const initialBalances = [fp(15), fp(15)];
+const initialBalances = [fp(15), fp(20)];
 const initPrices = [1, 3];
 const tolerance = fp(1e-9);
 
