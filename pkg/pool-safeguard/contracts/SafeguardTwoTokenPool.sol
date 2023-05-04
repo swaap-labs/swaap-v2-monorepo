@@ -1077,9 +1077,9 @@ contract SafeguardTwoTokenPool is
 
         uint256 relativePriceDifference = (priceMax - priceMin).divDown(priceMin);
 
-        if(!isTokenPegged && relativePriceDifference >= _REPEG_PRICE_BOUND) {
+        if(!isTokenPegged && relativePriceDifference <= _REPEG_PRICE_BOUND) {
             return true; // token should gain back peg 
-        } else if (isTokenPegged && relativePriceDifference <= _UNPEG_PRICE_BOUND) {
+        } else if (isTokenPegged && relativePriceDifference >= _UNPEG_PRICE_BOUND) {
             return false; // token should be unpegged
         }
 
