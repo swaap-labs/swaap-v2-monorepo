@@ -52,6 +52,14 @@ export type InitialOracleParams = {
   isFlexibleOracle: boolean;
 }
 
+export type OracleParams = {
+  oracle: string;
+  isStable: boolean;
+  isFlexibleOracle: boolean;
+  isPegged: boolean;
+  priceScalingFactor: BigNumber;
+}
+
 export type InitialSafeguardParams = {
   signer: SignerWithAddress;
   maxPerfDev?: BigNumberish;

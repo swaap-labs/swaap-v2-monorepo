@@ -1077,7 +1077,7 @@ contract SafeguardTwoTokenPool is
         (uint256 priceMin, uint256 priceMax) = currentPrice < FixedPoint.ONE?
             (currentPrice, FixedPoint.ONE) : (FixedPoint.ONE, currentPrice);
 
-        uint256 relativePriceDifference = (priceMax - priceMin).divDown(priceMin);
+        uint256 relativePriceDifference = (priceMax - priceMin);
 
         if(!isTokenPegged && relativePriceDifference <= _REPEG_PRICE_BOUND) {
             return true; // token should gain back peg 

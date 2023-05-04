@@ -4,7 +4,7 @@ import Decimal from 'decimal.js';
 
 import OraclesDeployer from './OraclesDeployer';
 import { OracleDeployment } from './types';
-import { scaleUp, bn } from '../../numbers';
+import { scaleUp, bn, fp, FP_ONE } from '../../numbers';
 
 export default class Oracle {
   description: string;
@@ -35,10 +35,13 @@ export default class Oracle {
     return this.decimals;
   }
 
-  async setPrice(price: Decimal | number): Promise<ContractTransaction> {
-    const scaledPrice = scaleUp(bn(price), bn(10).pow(bn(this.decimals)));
-    this.price = price;
-    return this.instance.setPrice(scaledPrice);
+  scalePrice(price: Decimal | number): BigNumber {
+    return fp(price).mul(bn(10).pow(bn(this.decimals))).div(FP_ONE)
   }
 
+  async setPrice(price: BigNumber): Promise<ContractTransaction> {
+    this.price = price.toNumber()
+    return this.instance.setPrice(price);
+  }
+  
 }

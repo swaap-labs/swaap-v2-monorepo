@@ -194,7 +194,7 @@ export default {
     if (!params.owner) params.owner = ZERO_ADDRESS;
     if (!tokens) tokens = new TokenList();
     if (!oracles) oracles = Array(tokens.length).fill(ZERO_ADDRESS);
-    if (!stableTokens) stableTokens = Array(tokens.length).fill(false);
+    if (!stableTokens) stableTokens = Array(tokens.length).fill(true);
     if (!flexibleOracles) flexibleOracles = Array(tokens.length).fill(false);
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
     if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;

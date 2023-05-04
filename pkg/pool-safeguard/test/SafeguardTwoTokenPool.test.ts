@@ -41,12 +41,10 @@ let yearlyFees: BigNumberish;
 let mustAllowlistLPs: boolean;
 
 const chainId = 31337;
-const PREMINTED_BPT = MAX_UINT112.div(2);
-
+const ORACLE_DECIMALS = [8, 12]
 const initialBalances = [fp(15), fp(15)];
-const initPrices = [1, 1];
+const initPrices = [1, 3];
 const tolerance = fp(1e-9);
-const highTolerance = fp(1e-7);
 
 describe('SafeguardPool', function () {
 
@@ -63,17 +61,16 @@ describe('SafeguardPool', function () {
     await tokens.mint({ to: deployer, amount: fp(1000) });
     await tokens.approve({to: vault, amount: fp(1000), from: deployer});
 
-
     oracles = [
       await OraclesDeployer.deployOracle({
         description: "low",
         price: initPrices[0],
-        decimals: 8
+        decimals: ORACLE_DECIMALS[0]
       }),
       await OraclesDeployer.deployOracle({
         description: "high",
         price: initPrices[1],
-        decimals: 8
+        decimals: ORACLE_DECIMALS[1]
       })
     ];
 
@@ -705,10 +702,7 @@ describe('SafeguardPool', function () {
           await tokens.approve({to: vault, amount: fp(1000), from: trader});
 
           const amountInPerOut = await pool.getAmountInPerOut(inIndex)
-
-          expect(amountInPerOut).to.be.eq("1000000000000000000")
-
-          const expectedAmountOut = amountIn
+          const expectedAmountOut = amountIn.mul(fp(1)).div((await pool.getAmountInPerOut(inIndex)))
           
           const startTime = startBlockTimestamp
           const timeBasedSlippage = 0.0001
@@ -778,9 +772,7 @@ describe('SafeguardPool', function () {
 
           const amountInPerOut = await pool.getAmountInPerOut(inIndex)
 
-          expect(amountInPerOut).to.be.eq("1000000000000000000")
-
-          const expectedAmountIn = amountOut
+          const expectedAmountIn = amountOut.mul((await pool.getAmountInPerOut(inIndex))).div(fp(1))
 
           const startTime = startBlockTimestamp
           const timeBasedSlippage = 0.0001
@@ -838,61 +830,130 @@ describe('SafeguardPool', function () {
 
     describe('Protocol Fees', () => {
 
-      context('Management Fees', () => {
+      for (let i=1; i < 11; i++) { 
+        const window = (i * 1.5) * 365 * DAY
+        it (`Management Fees: ${window}s`, async () => {
+          
+          const yearlyFees = 3 / 100
 
-        for (let i=1; i < 11; i++) { 
-          it ('Management Fees', async () => {
-            
-            const yearlyFees = 3 / 100
+          const bptIn = fp(1);
 
-            const bptIn = fp(1);
+          const action = await actionId(pool.instance, 'setManagementFees');
+          await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+          await pool.setManagementFees(deployer, fp(yearlyFees))
+          let block = await ethers.provider.getBlockNumber();
+          const managementFeesInitTimestmap = (await ethers.provider.getBlock(block)).timestamp;
 
-            const action = await actionId(pool.instance, 'setManagementFees');
-            await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
-            await pool.setManagementFees(deployer, fp(yearlyFees))
-            let block = await ethers.provider.getBlockNumber();
-            const managementFeesInitTimestmap = (await ethers.provider.getBlock(block)).timestamp;
+          const collector = (await pool.vault.getFeesCollector()).address
 
-            const collector = (await pool.vault.getFeesCollector()).address
+          const totalSupply = await pool.totalSupply();
 
-            const totalSupply = await pool.totalSupply();
-
-            await advanceToTimestamp((await ethers.provider.getBlock(block)).timestamp + (i * 1.5) * 365 * DAY);
-            const exitResultBis = await pool.multiExitGivenIn({
-              bptIn: bptIn,
-              from: lp,
-              recipient: lp
-            });
-
-            block = await ethers.provider.getBlockNumber();
-            const currentTimestamp = (await ethers.provider.getBlock(block)).timestamp;
-
-            const expected = fp(
-              calcAccumulatedManagementFees(
-                (currentTimestamp - managementFeesInitTimestmap) * SECOND,
-                calcYearlyRate(yearlyFees),
-                totalSupply.div(fp(1)).toNumber()
-              )
-            )
-            expect(exitResultBis.receipt.events != undefined, "empty events")
-
-            const firstEvent = exitResultBis.receipt.events![0]
-            try {
-              expect(firstEvent.topics[0]).to.be.eq("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef") // Transfer(address,address,uint256)
-              expect(firstEvent.topics[1]).to.be.eq("0x0000000000000000000000000000000000000000000000000000000000000000") // from
-              expect("0x"+firstEvent.topics[2].slice(26)).to.be.eq(collector.toLowerCase()) // to
-              expectRelativeErrorBN(BigNumber.from(firstEvent.data), expected, tolerance)
-            } catch(e) {
-              throw e;
-            }
-
+          await advanceToTimestamp((await ethers.provider.getBlock(block)).timestamp + window);
+          const exitResultBis = await pool.multiExitGivenIn({
+            bptIn: bptIn,
+            from: lp,
+            recipient: lp
           });
-        };
 
+          block = await ethers.provider.getBlockNumber();
+          const currentTimestamp = (await ethers.provider.getBlock(block)).timestamp;
+
+          const expected = fp(
+            calcAccumulatedManagementFees(
+              (currentTimestamp - managementFeesInitTimestmap) * SECOND,
+              calcYearlyRate(yearlyFees),
+              totalSupply.div(fp(1)).toNumber()
+            )
+          )
+          expect(exitResultBis.receipt.events != undefined, "empty events")
+
+          const firstEvent = exitResultBis.receipt.events![0]
+          try {
+            expect(firstEvent.topics[0]).to.be.eq("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef") // Transfer(address,address,uint256)
+            expect(firstEvent.topics[1]).to.be.eq("0x0000000000000000000000000000000000000000000000000000000000000000") // from
+            expect("0x"+firstEvent.topics[2].slice(26)).to.be.eq(collector.toLowerCase()) // to
+            expectRelativeErrorBN(BigNumber.from(firstEvent.data), expected, tolerance)
+          } catch(e) {
+            throw e;
+          }
+
+        });
+      };
+    });
+
+    describe('Setters / Getters', () => {
+
+      context('Oracle', () => {
+
+        describe('setFlexibleOracleStates', () => {
+
+          [true, false].forEach(isFlexibleOracle0 => {
+            [true, false].forEach(isFlexibleOracle1 => {
+                it (`isFlexibleOracle0=${isFlexibleOracle0}, isFlexibleOracle1=${isFlexibleOracle1}`, async () => {
+                  const action = await actionId(pool.instance, 'setFlexibleOracleStates');
+                  await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+                  await pool.setFlexibleOracleStates(
+                    deployer,
+                    isFlexibleOracle0,
+                    isFlexibleOracle1
+                  );
+                  const params = await pool.getOracleParams();
+                  expect(params[0].isFlexibleOracle).to.be.eq(isFlexibleOracle0)
+                  expect(params[1].isFlexibleOracle).to.be.eq(isFlexibleOracle1)
+                  if (!isFlexibleOracle0) {
+                    expect(params[0].isPegged).to.be.false
+                  }
+                  if (!isFlexibleOracle1) {
+                    expect(params[1].isPegged).to.be.false
+                  }
+              });
+            });
+          });
+
+        });
+        
+        describe('isPegged', () => {
+
+          let initialPeggedState0: boolean
+          let initialPeggedState1: boolean
+          sharedBeforeEach('sets flexible to true', async () => {
+            const action = await actionId(pool.instance, 'setFlexibleOracleStates');
+            await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+            await pool.setFlexibleOracleStates(
+              deployer,
+              true,
+              true
+            );
+            const params = await pool.getOracleParams();
+            initialPeggedState0 = params[0].isPegged
+            initialPeggedState1 = params[1].isPegged
+          });
+
+          [0, 1, 2].forEach(pegged0 => {
+            [0, 1, 2].forEach(pegged1 => {
+              it (`checking isPegged values`, async () => {
+                await oracles[0].setPrice(
+                  oracles[0].scalePrice(pegged0==0? 1: (pegged0==1? 1 * 2 : 1 * 1.03))
+                )
+                await oracles[1].setPrice(
+                  oracles[1].scalePrice(pegged1==0? 1: (pegged1==1? 1 * 2 : 1 * 1.03))
+                )
+                const action = await actionId(pool.instance, 'evaluateStablesPegStates');
+                await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+                await pool.evaluateStablesPegStates(deployer);
+                const params = await pool.getOracleParams();
+                expect(params[0].isPegged).to.be.eq(pegged0==0? true: (pegged0==1? false: initialPeggedState0))
+                expect(params[1].isPegged).to.be.eq(pegged1==0? true: (pegged1==1? false: initialPeggedState1))
+              });
+            });
+          });
+
+        });
+      
       });
 
     });
-  
+
   });
 
 });

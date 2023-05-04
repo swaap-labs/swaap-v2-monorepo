@@ -4,14 +4,14 @@ import { deploy } from '../../contract';
 
 import Oracle from './Oracle';
 import { OracleDeployment } from './types';
-import { scaleUp, bn } from '../../numbers';
+import { bn, fp, FP_ONE } from '../../numbers';
 
 class OraclesDeployer {
 
   async deployOracle(params: OracleDeployment): Promise<Oracle> {
     const sender = (await ethers.getSigners())[0];
 
-    const scaledPrice = scaleUp(bn(params.price), bn(10).pow(bn(params.decimals)));
+    const scaledPrice = fp(params.price).mul(bn(10).pow(bn(params.decimals))).div(FP_ONE);
 
     let instance = await deploy('v2-pool-safeguard/TestOracle', {
       from: sender,

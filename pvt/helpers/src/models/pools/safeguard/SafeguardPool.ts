@@ -27,6 +27,7 @@ import {
   JoinQueryResult,
   PoolQueryResult,
   CircuitBreakerState,
+  OracleParams,
 } from './types';
 import { signSwapData } from '@balancer-labs/balancer-js/src/pool-safeguard/SafeguardPoolSigner';
 import Oracle from "../../oracles/Oracle";
@@ -601,6 +602,20 @@ export default class SafeguardPool extends BasePool {
   async setManagementFees(from: SignerWithAddress, yearlyFees: BigNumberish) {
     const pool = this.instance.connect(from);
     return pool.setManagementFees(yearlyFees);
+  }
+
+  async setFlexibleOracleStates(from: SignerWithAddress, isFlexibleOracle0: boolean, isFlexibleOracle1: boolean) {
+    const pool = this.instance.connect(from);
+    return pool.setFlexibleOracleStates(isFlexibleOracle0, isFlexibleOracle1);
+  }
+
+  async evaluateStablesPegStates(from: SignerWithAddress) {
+    const pool = this.instance.connect(from);
+    return pool.evaluateStablesPegStates();
+  }
+
+  async getOracleParams(): Promise<OracleParams[]> {
+    return this.instance.getOracleParams();
   }
 
   async addAllowedAddress(from: SignerWithAddress, member: Account): Promise<ContractTransaction> {
