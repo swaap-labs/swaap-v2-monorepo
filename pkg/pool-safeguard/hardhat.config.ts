@@ -2,12 +2,11 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import * as dotenv from "dotenv";
 dotenv.config({ path: __dirname+'/.env' });
-
 // Import the hardhat-gas-reporter plugin at the top of the file
 import 'hardhat-gas-reporter';
 
 module.exports = {
-  // ... rest of your configuration
+
   solidity: {
     compilers: [
       {
@@ -23,10 +22,21 @@ module.exports = {
   },
 
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     polygon: {
       url: `${process.env.POLYGON_RPC_URL}`,
       accounts: [`${process.env.PRIVATE_KEY}`]
     },
+  },
+
+  warnings: {
+    // Ignore code-size in test files: mocks may make contracts not deployable on real networks, but we don't care about
+    // that.
+    'contracts/test/*': {
+      'code-size': 'off',
+    }
   },
 
   // Add the gas reporter configuration
