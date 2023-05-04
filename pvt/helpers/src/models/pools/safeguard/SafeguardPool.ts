@@ -1,3 +1,4 @@
+import { ethers } from 'hardhat';
 import { BigNumber, Contract, ContractFunction, ContractReceipt, ContractTransaction } from 'ethers';
 import { BigNumberish, bn, fp, fpMul } from '../../../numbers';
 import { MAX_INT256, MAX_UINT112, MAX_UINT256, ZERO_ADDRESS } from '../../../constants';
@@ -393,7 +394,7 @@ export default class SafeguardPool extends BasePool {
         params.chainId!,
         this.address,
         sender.address,
-        params.deadline?? Math.floor(Date.now() / 1000) + 100,
+        params.deadline?? (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp + 100,
         userData,
         params.signer!
       );
@@ -464,7 +465,7 @@ export default class SafeguardPool extends BasePool {
         chainId,
         this.address,
         TypesConverter.toAddress(sender),
-        params.allowlistDeadline?? Math.floor(Date.now() / 1000) + 100,
+        params.allowlistDeadline?? (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp + 100,
         userData,
         signer
       );
@@ -491,7 +492,7 @@ export default class SafeguardPool extends BasePool {
         params.chainId!,
         this.address,
         sender.address,
-        params.deadline?? Math.floor(Date.now() / 1000) + 100,
+        params.deadline?? (await ethers.provider.getBlock(await ethers.provider.getBlockNumber())).timestamp + 100,
         userData,
         params.signer!
       );
