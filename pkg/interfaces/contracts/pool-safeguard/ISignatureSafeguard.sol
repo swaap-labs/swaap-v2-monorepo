@@ -17,6 +17,9 @@ pragma experimental ABIEncoderV2;
 
 interface ISignatureSafeguard {
 
+    event SwapSignatureValidated(bytes32 digest, uint256 quoteIndex);
+    event AllowlistJoinSignatureValidated(bytes32 digest);
+
     /// @dev returns quote signer's address
     function signer() external returns(address); 
 

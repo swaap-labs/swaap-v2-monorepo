@@ -23,9 +23,6 @@ import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguar
 abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;
 
-    event SwapSignatureValidation(bytes32 digest);
-    event AllowlistJoinSignatureValidation(bytes32 digest);
-
     bytes32 public constant SWAP_STRUCT_TYPEHASH =
         keccak256(
             "SwapStruct(uint8 kind,bool isTokenInToken0,address sender,address recipient,bytes swapData,uint256 quoteIndex,uint256 deadline)"
@@ -34,7 +31,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
     bytes32 public constant ALLOWLIST_STRUCT_TYPEHASH = keccak256("AllowlistStruct(address sender,uint256 deadline)");
 
     // NB Do not assign a high value (e.g. max(uint256)) or else it will overflow when adding it to the block.timestamp
-    uint256 public constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
+    uint256 private constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
 
     mapping(uint256 => uint256) internal _usedQuoteBitMap;
 
@@ -110,7 +107,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
             0 // TODO add proper error code
         );
 
-        emit SwapSignatureValidation(digest);
+        emit SwapSignatureValidated(digest, quoteIndex);
     }
 
     function _ensureValidBitmapSignature(
@@ -162,7 +159,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
             699 // TODO add proper error code
         );
 
-        emit AllowlistJoinSignatureValidation(digest);
+        emit AllowlistJoinSignatureValidated(digest);
 
         return joinData;
     }
