@@ -83,10 +83,12 @@ contract SafeguardTwoTokenPool is
     // yearly management fees
     uint64 private _yearlyFees;
 
+    // solhint-disable max-line-length
     // [ isPegged0 | isPegged1 | flexibleOracle0 | flexibleOracle1 | max performance dev | max hodl dev | max price dev | perf update interval | last perf update ]
     // [   1 bit   |   1 bit   |      1 bit      |      1 bit      |       60 bits       |    64 bits   |    64 bits    |        32 bits       |      32 bits     ]
     // [ MSB                                                                                                                                                  LSB ]
     bytes32 private _packedPoolParams;
+    // solhint-enable max-line-length
 
     // used to determine if stable coin is holding the peg
     uint256 private constant _TOKEN_0_PEGGED_BIT_OFFSET = 255;

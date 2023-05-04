@@ -23,21 +23,24 @@ import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguar
 abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;
 
+    // solhint-disable max-line-length
     bytes32 public constant SWAP_STRUCT_TYPEHASH =
         keccak256(
             "SwapStruct(uint8 kind,bool isTokenInToken0,address sender,address recipient,bytes swapData,uint256 quoteIndex,uint256 deadline)"
         );
+    // solhint-enable max-line-length
 
     bytes32 public constant ALLOWLIST_STRUCT_TYPEHASH = keccak256("AllowlistStruct(address sender,uint256 deadline)");
 
     // NB Do not assign a high value (e.g. max(uint256)) or else it will overflow when adding it to the block.timestamp
-    uint256 private constant MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
+    uint256 private constant _MAX_REMAINING_SIGNATURE_VALIDITY = 5 minutes;
 
     mapping(uint256 => uint256) internal _usedQuoteBitMap;
 
     /**
-     * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
-     * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+     * @dev The inheriting pool contract must have one and immutable poolId and must
+     * interact with one and immutable vault's address. Otherwise, it is unsafe to rely solely
+     * on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
      */
     function _swapSignatureSafeguard(
         IVault.SwapKind kind,
@@ -55,8 +58,9 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
     }
 
     /**
-     * @dev The inheriting pool contract must have one and immutable poolId and must interact with one and immutable vault's address.
-     * Otherwise, it is unsafe to rely solely on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
+     * @dev The inheriting pool contract must have one and immutable poolId and must
+     * interact with one and immutable vault's address. Otherwise, it is unsafe to rely solely
+     * on the pool's address as a domain seperator assuming that a quote is based on the pool's state.
      */
     function _joinExitSwapSignatureSafeguard(
         address sender,
@@ -95,7 +99,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
         // two tokens the tokenOut must be specified to ensure the correctness of the trade.
         bytes32 structHash = keccak256(
             abi.encode(
-                SWAP_STRUCT_TYPEHASH, kind, isTokenInToken0, sender, recipient, keccak256(swapData), quoteIndex, deadline
+                SWAP_STRUCT_TYPEHASH, kind, isTokenInToken0, sender, recipient,keccak256(swapData), quoteIndex, deadline
             )
         );
 
@@ -180,7 +184,7 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
         // solhint-disable-next-line not-rely-on-time
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
         // Ensures that a signature is not valid forever //TODO add correct error code
-        _require(deadline <= block.timestamp + MAX_REMAINING_SIGNATURE_VALIDITY, Errors.EXPIRED_SIGNATURE);
+        _require(deadline <= block.timestamp + _MAX_REMAINING_SIGNATURE_VALIDITY, Errors.EXPIRED_SIGNATURE);
 
         return digest;
     }
