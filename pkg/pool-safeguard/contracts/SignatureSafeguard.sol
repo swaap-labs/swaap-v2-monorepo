@@ -19,6 +19,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidato
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguard.sol";
+import "@swaap-labs/v2-errors/contracts/Errors.sol";
 
 abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;
@@ -107,8 +108,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
             structHash,
             signature,
             quoteIndex,
-            deadline,
-            0 // TODO add proper error code
+            deadline
         );
 
         emit SwapSignatureValidated(digest, quoteIndex);
@@ -118,11 +118,10 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         bytes32 structHash,
         bytes memory signature,
         uint256 quoteIndex,
-        uint256 deadline,
-        uint256 errorCode
+        uint256 deadline
     ) internal returns (bytes32) {
         bytes32 digest = _hashTypedDataV4(structHash);
-        _require(_isValidSignature(signer(), digest, signature), errorCode);
+        _srequire(_isValidSignature(signer(), digest, signature), SwaapV2Errors.BITMAP_SIGNATURE_NOT_VALID);
 
         // We could check for the deadline & quote index before validating the signature, but this leads to saner
         // error processing (as we only care about expired deadlines & quote if the signature is correct) and only
@@ -131,7 +130,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         // solhint-disable-next-line not-rely-on-time
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
 
-        require(!_isQuoteUsed(quoteIndex), "error: quote already used");
+        _srequire(!_isQuoteUsed(quoteIndex), SwaapV2Errors.QUOTE_ALREADY_USED);
         _registerUsedQuote(quoteIndex);
 
         return digest;
@@ -159,8 +158,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         bytes32 digest = _ensureValidReplayableSignature(
             structHash,
             signature,
-            deadline,
-            699 // TODO add proper error code
+            deadline
         );
 
         emit AllowlistJoinSignatureValidated(digest);
@@ -171,11 +169,10 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
     function _ensureValidReplayableSignature(
         bytes32 structHash,
         bytes memory signature,
-        uint256 deadline,
-        uint256 errorCode
+        uint256 deadline
     ) internal view returns (bytes32) {
         bytes32 digest = _hashTypedDataV4(structHash);
-        _require(_isValidSignature(signer(), digest, signature), errorCode);
+        _srequire(_isValidSignature(signer(), digest, signature), SwaapV2Errors.REPLAYABLE_SIGNATURE_NOT_VALID);
 
         // We could check for the deadline before validating the signature, but this leads to saner error processing (as
         // we only care about expired deadlines if the signature is correct) and only affects the gas cost of the revert
@@ -183,7 +180,6 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         // The deadline is timestamp-based: it should not be relied upon for sub-minute accuracy.
         // solhint-disable-next-line not-rely-on-time
         _require(deadline >= block.timestamp, Errors.EXPIRED_SIGNATURE);
-        // Ensures that a signature is not valid forever //TODO add correct error code
         _require(deadline <= block.timestamp + _MAX_REMAINING_SIGNATURE_VALIDITY, Errors.EXPIRED_SIGNATURE);
 
         return digest;

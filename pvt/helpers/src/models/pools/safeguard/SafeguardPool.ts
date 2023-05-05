@@ -699,21 +699,6 @@ export default class SafeguardPool extends BasePool {
     );
   };
 
-  async ensureValidReplayableSignature(
-    structHash: string,
-    signature: string,
-    deadline: BigNumber,
-    errorCode: number
-
-  ) {
-    await this.instance.ensureValidReplayableSignature(
-      structHash,
-      signature,
-      deadline,
-      errorCode
-    )
-  }
-
   async buildSwapUserData(params: SwapSafeguardPool): Promise<MinimalSwap> {
     return await this._buildSwapParams(SwapKind.GivenIn, params);
   }

@@ -5,6 +5,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: __dirname+'/.env' });
 // Import the hardhat-gas-reporter plugin at the top of the file
 import 'hardhat-gas-reporter';
+import 'hardhat-contract-sizer';
 
 module.exports = {
 

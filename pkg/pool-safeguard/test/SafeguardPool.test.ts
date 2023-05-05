@@ -433,7 +433,7 @@ describe('SafeguardPool', function () {
               amountsIn: amountsIn,
               swapTokenIn: tokens.tokens[1],
               signer: signer
-            })).to.be.revertedWith("error: wrong tokenIn in excess");
+            })).to.be.revertedWith("SWAAP#21");
           });
           
           it('valid', async () => {
@@ -509,7 +509,7 @@ describe('SafeguardPool', function () {
               amountsOut: amountsOut,
               swapTokenIn: tokens.tokens[0],
               signer: signer
-            })).to.be.revertedWith("error: wrong tokenOut in excess");
+            })).to.be.revertedWith("SWAAP#22");
           });
 
           it('valid', async () => {
@@ -1171,7 +1171,7 @@ describe('SafeguardPool', function () {
 
         context('update performance', () => {
           it('cannot updatePerformance when last update is close', async () => {
-            await expect(pool.instance.updatePerformance()).to.be.revertedWith("error: too soon");
+            await expect(pool.instance.updatePerformance()).to.be.revertedWith("SWAAP#16");
           });
 
           it('update performance after 10% of balances', async () => {          
@@ -1248,7 +1248,7 @@ describe('SafeguardPool', function () {
             quoteAmountInPerOut: 1,
             from: deployer,
             signer: signer
-          })).to.be.revertedWith("error: non positive price");
+          })).to.be.revertedWith("SWAAP#24");
         })
 
         describe('setFlexibleOracleStates', () => {

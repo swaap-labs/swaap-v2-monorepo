@@ -150,7 +150,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: exceeded swap amount in")
+          ).to.be.revertedWith("SWAAP#00")
         });
 
         it ('exceeded swap amount out', async () => {
@@ -173,7 +173,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: exceeded swap amount out")
+          ).to.be.revertedWith("SWAAP#01")
         });
 
         it ('unfair price: index 0', async () => {
@@ -197,7 +197,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: unfair price")
+          ).to.be.revertedWith("SWAAP#02")
         });
 
         it ('unfair price: index 1', async () => {
@@ -221,7 +221,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: unfair price")
+          ).to.be.revertedWith("SWAAP#02")
         });
 
         it ('min balance out is not met: index 0', async () => {
@@ -244,7 +244,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: min balance out is not met")
+          ).to.be.revertedWith("SWAAP#04")
         });
 
         it ('min balance out is not met: index 1', async () => {
@@ -267,7 +267,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: min balance out is not met")
+          ).to.be.revertedWith("SWAAP#04")
         });
 
         it ('low performance', async () => {
@@ -312,7 +312,7 @@ describe('SafeguardPool', function () {
               newAmountInPerOut,
               maxSwapAmount
             )
-          ).to.be.revertedWith("error: low performance")
+          ).to.be.revertedWith("SWAAP#03")
         });
 
       });
@@ -397,7 +397,7 @@ describe('SafeguardPool', function () {
               signatureSGUserData[2],
               signatureSGUserData[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('fails on wrong inIs0', async () => {
@@ -412,7 +412,7 @@ describe('SafeguardPool', function () {
               signatureSGUserData[2],
               signatureSGUserData[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('fails on wrong signatureSGSender', async () => {
@@ -427,7 +427,7 @@ describe('SafeguardPool', function () {
               signatureSGUserData[2],
               signatureSGUserData[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('fails on wrong recipient', async () => {
@@ -442,7 +442,7 @@ describe('SafeguardPool', function () {
               signatureSGUserData[2],
               signatureSGUserData[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('fails on wrong quoteIndex', async () => {
@@ -457,7 +457,7 @@ describe('SafeguardPool', function () {
               bnSum([signatureSGUserData[2], 1]),
               signatureSGUserData[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
       
         it ('fails on wrong deadline', async () => {
@@ -472,7 +472,7 @@ describe('SafeguardPool', function () {
               signatureSGUserData[2],
               bnSum([signatureSGUserData[3], 1]),
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('fails on replay', async () => {
@@ -483,7 +483,7 @@ describe('SafeguardPool', function () {
           expect(isQuoteUsed).to.be.true
           await expect(
             validSignature()
-          ).to.be.revertedWith("error: quote already used")
+          ).to.be.revertedWith("SWAAP#18")
         });
 
         it ('fails on wrong signer', async () => {
@@ -498,7 +498,7 @@ describe('SafeguardPool', function () {
               signatureSGUserDataWrongSigner[2],
               signatureSGUserDataWrongSigner[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('fails on expected origin', async () => {
@@ -518,7 +518,7 @@ describe('SafeguardPool', function () {
               signatureSGUserDataWrongData[2],
               signatureSGUserDataWrongData[3],
             )
-          ).to.be.revertedWith("BAL#000");
+          ).to.be.revertedWith("SWAAP#17");
         });
 
         it ('valid ', async () => {
@@ -641,7 +641,7 @@ describe('SafeguardPool', function () {
               sender,
               userData
             )
-          ).to.be.revertedWith("BAL#699")
+          ).to.be.revertedWith("SWAAP#19")
         });
 
         it('fails on wrong sender', async () => {
@@ -658,7 +658,7 @@ describe('SafeguardPool', function () {
               trader.address,
               userData
             )
-          ).to.be.revertedWith("BAL#699")
+          ).to.be.revertedWith("SWAAP#19")
         });
 
       });

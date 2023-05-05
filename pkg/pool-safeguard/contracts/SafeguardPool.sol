@@ -25,6 +25,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.
 import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
+import "@swaap-labs/v2-errors/contracts/Errors.sol";
 
 contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     
@@ -356,9 +357,9 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     ) internal {
 
         if(kind == IVault.SwapKind.GIVEN_IN) {
-            require(amountIn <= maxSwapAmount, "error: exceeded swap amount in");
+            _srequire(amountIn <= maxSwapAmount, SwaapV2Errors.EXCEEDED_SWAP_AMOUNT_IN);
         } else {
-            require(amountOut <= maxSwapAmount, "error: exceeded swap amount out");
+            _srequire(amountOut <= maxSwapAmount, SwaapV2Errors.EXCEEDED_SWAP_AMOUNT_OUT);
         }
 
         bytes32 packedPoolParams = _packedPoolParams;
@@ -392,7 +393,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 onChainAmountInPerOut,
         bytes32 packedPoolParams
     ) internal pure {
-        require(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDev(packedPoolParams), "error: unfair price");
+        _srequire(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDev(packedPoolParams), SwaapV2Errors.UNFAIR_PRICE);
     }
 
     function _performanceSafeguard(
@@ -433,9 +434,9 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         (uint256 performance, uint256 targetDev) 
             = _getPerfAndTargetDev(isTokenInToken0, newBalanceIn, newBalanceOut, onChainAmountInPerOut, totalSupply);
         
-        require(performance >= _getMaxPerfDev(packedPoolParams), "error: low performance");
+        _srequire(performance >= _getMaxPerfDev(packedPoolParams), SwaapV2Errors.LOW_PERFORMANCE);
         
-        require(targetDev >= _getMaxTargetDev(packedPoolParams), "error: min balance out is not met");
+        _srequire(targetDev >= _getMaxTargetDev(packedPoolParams), SwaapV2Errors.MIN_BALANCE_OUT_NOT_MET);
     }
 
     function _onInitializePool(
@@ -564,7 +565,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 rOpt = SafeguardMath.calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
         
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);        
-        require(bptAmountOut >= minBptAmountOut, "error: not enough bpt out");
+        _srequire(bptAmountOut >= minBptAmountOut, SwaapV2Errors.NOT_ENOUGH_PT_OUT);
 
         return (bptAmountOut, joinAmounts);
 
@@ -671,7 +672,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
                 
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);
         
-        require(bptAmountOut <= maxBptAmountIn, "error: exceeded burned bpt");
+        _srequire(bptAmountOut <= maxBptAmountIn, SwaapV2Errors.EXCEEDED_BURNED_PT);
 
         return (bptAmountOut, exitAmounts);
 
@@ -726,7 +727,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     }
 
     function _setSigner(address signer) internal {
-        require(signer != address(0), "error: signer cannot be a null address");
+        _srequire(signer != address(0), SwaapV2Errors.SIGNER_CANNOT_BE_NULL_ADDRESS);
         _signer = signer;
         emit SignerChanged(signer);
     }
@@ -738,8 +739,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
     function _setPerfUpdateInterval(uint256 perfUpdateInterval) internal {
 
-        require(perfUpdateInterval >= _MIN_PERFORMANCE_UPDATE_INTERVAL, "error: performance update interval too low");
-        require(perfUpdateInterval <= _MAX_PERFORMANCE_UPDATE_INTERVAL, "error: performance update interval too high");
+        _srequire(perfUpdateInterval >= _MIN_PERFORMANCE_UPDATE_INTERVAL, SwaapV2Errors.PERFORMANCE_UPDATE_INTERVAL_TOO_LOW);
+        _srequire(perfUpdateInterval <= _MAX_PERFORMANCE_UPDATE_INTERVAL, SwaapV2Errors.PERFORMANCE_UPDATE_INTERVAL_TOO_HIGH);
 
         _packedPoolParams = _packedPoolParams.insertUint(
             perfUpdateInterval,
@@ -758,8 +759,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     /// @dev for gas optimization purposes we store (1 - max tolerance)
     function _setMaxPerfDev(uint256 maxPerfDev) internal {
         
-        require(maxPerfDev <= FixedPoint.ONE, "error: tolerance too low");
-        require(maxPerfDev >= _MAX_PERFORMANCE_DEVIATION, "error: tolerance too large");
+        _srequire(maxPerfDev <= FixedPoint.ONE, SwaapV2Errors.MAX_PERFORMANCE_DEV_TOO_LOW);
+        _srequire(maxPerfDev >= _MAX_PERFORMANCE_DEVIATION, SwaapV2Errors.MAX_PERFORMANCE_DEV_TOO_HIGH);
         
         _packedPoolParams = _packedPoolParams.insertUint(
             maxPerfDev,
@@ -777,8 +778,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     /// @dev for gas optimization purposes we store (1 - max tolerance)
     function _setMaxTargetDev(uint256 maxTargetDev) internal {
 
-        require(maxTargetDev <= FixedPoint.ONE, "error: tolerance too low");
-        require(maxTargetDev >= _MAX_TARGET_DEVIATION, "error: tolerance too large");
+        _srequire(maxTargetDev <= FixedPoint.ONE, SwaapV2Errors.MAX_TARGET_DEV_TOO_LOW);
+        _srequire(maxTargetDev >= _MAX_TARGET_DEVIATION, SwaapV2Errors.MAX_TARGET_DEV_TOO_LARGE);
         
         _packedPoolParams = _packedPoolParams.insertUint(
             maxTargetDev,
@@ -796,8 +797,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     /// @dev for gas optimization purposes we store (1 - max tolerance)
     function _setMaxPriceDev(uint256 maxPriceDev) internal {
 
-        require(maxPriceDev <= FixedPoint.ONE, "error: tolerance too low");
-        require(maxPriceDev >= _MAX_PRICE_DEVIATION, "error: tolerance too large");
+        _srequire(maxPriceDev <= FixedPoint.ONE, SwaapV2Errors.MAX_PRICE_DEV_TOO_LOW);
+        _srequire(maxPriceDev >= _MAX_PRICE_DEVIATION, SwaapV2Errors.MAX_PRICE_DEV_TOO_LARGE);
 
         _packedPoolParams = _packedPoolParams.insertUint(
             maxPriceDev,
@@ -814,7 +815,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParams);
         
-        require(block.timestamp > lastPerfUpdate + perfUpdateInterval, "error: too soon");
+        _srequire(block.timestamp > lastPerfUpdate + perfUpdateInterval, SwaapV2Errors.PERFORMANCE_UPDATE_TOO_S0ON);
 
         (, uint256[] memory balances, ) = getVault().getPoolTokens(getPoolId());
 
@@ -1174,7 +1175,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     }
 
     function _setYearlyRate(uint256 yearlyFees) private {
-        require(yearlyFees <= _MAX_YEARLY_FEES, "error: fees too high");
+        _srequire(yearlyFees <= _MAX_YEARLY_FEES, SwaapV2Errors.FEES_TOO_HIGH);
         _yearlyFees = uint64(yearlyFees);
         _yearlyRate = uint32(SafeguardMath.calcYearlyRate(yearlyFees));
         emit ManagementFeesUpdated(yearlyFees);

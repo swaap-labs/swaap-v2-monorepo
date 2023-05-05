@@ -243,7 +243,7 @@ describe('SafeguardMath', () => {
           quoteBalanceOut,
           balanceBasedSlippage
         )
-      ).to.be.reverted
+      ).to.be.revertedWith("SWAAP#20")
     });
 
   });

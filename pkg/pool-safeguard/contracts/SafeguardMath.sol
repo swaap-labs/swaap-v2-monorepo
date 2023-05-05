@@ -19,6 +19,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/LogExpMath.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeCast.sol";
+import "@swaap-labs/v2-errors/contracts/Errors.sol";
 
 library SafeguardMath {
 
@@ -62,7 +63,7 @@ library SafeguardMath {
 
         uint256 maxDeviation = Math.max(balanceDevIn, balanceDevOut);
 
-        require(maxDeviation <= balanceChangeTolerance, "error: quote balance no longer valid");
+        _srequire(maxDeviation <= balanceChangeTolerance, SwaapV2Errors.QUOTE_BALANCE_NO_LONGER_VALID);
     
         return balanceBasedSlippage.mulUp(maxDeviation);
     }
@@ -105,7 +106,7 @@ library SafeguardMath {
 
         uint256 foo = excessTokenAmountIn.mulDown(limitTokenBalance);
         uint256 bar = limitTokenAmountIn.mulDown(excessTokenBalance);
-        require(foo >= bar, "error: wrong tokenIn in excess");
+        _srequire(foo >= bar, SwaapV2Errors.WRONG_TOKEN_IN_IN_EXCESS);
         uint256 num = foo - bar;
 
         uint256 denom = limitTokenBalance.add(limitTokenAmountIn);
@@ -152,7 +153,7 @@ library SafeguardMath {
 
         uint256 foo = excessTokenAmountOut.mulDown(limitTokenBalance);
         uint256 bar = limitTokenAmountOut.mulDown(excessTokenBalance);
-        require(foo >= bar, "error: wrong tokenOut in excess");
+        _srequire(foo >= bar, SwaapV2Errors.WRONG_TOKEN_OUT_IN_EXCESS);
         uint256 num = foo - bar;
 
         uint256 denom = limitTokenBalance.sub(limitTokenAmountOut);
@@ -204,8 +205,8 @@ library SafeguardMath {
         uint256 currentSupply
      ) internal pure returns(uint256) {
         uint256 expInput = yearlyRate * elapsedTime;
-        uint256 expResult = uint256(LogExpMath.exp(expInput.toInt256())); // TODO check if necessary toInt256()
-        return (currentSupply.mulDown(expResult.sub(FixedPoint.ONE))); // TODO .sub() may be removable
+        uint256 expResult = uint256(LogExpMath.exp(expInput.toInt256()));
+        return (currentSupply.mulDown(expResult.sub(FixedPoint.ONE)));
     }
 
 }

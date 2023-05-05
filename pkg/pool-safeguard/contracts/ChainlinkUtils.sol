@@ -17,6 +17,7 @@ pragma experimental ABIEncoderV2;
 import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
+import "@swaap-labs/v2-errors/contracts/Errors.sol";
 
 library ChainlinkUtils {
 
@@ -27,8 +28,8 @@ library ChainlinkUtils {
             , int256 latestPrice, , uint256 latestTimestamp,
         ) = AggregatorV3Interface(oracle).latestRoundData();
         // we assume that block.timestamp >= latestTimestamp
-        require(latestTimestamp >= block.timestamp - _ORACLE_TIMEOUT, "error: exceeds timeout");
-        require(latestPrice > 0, "error: non positive price");
+        _srequire(latestTimestamp >= block.timestamp - _ORACLE_TIMEOUT, SwaapV2Errors.EXCEEDS_TIMEOUT);
+        _srequire(latestPrice > 0, SwaapV2Errors.NON_POSITIVE_PRICE);
         return uint256(latestPrice);
     }
 

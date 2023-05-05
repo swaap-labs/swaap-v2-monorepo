@@ -16,6 +16,9 @@
     "contracts/**/*",
     "!contracts/test/*"
   ],
+  "dependencies": {
+    "@swaap-labs/v2-errors": "workspace:*"
+  },
   "devDependencies": {
     "@balancer-labs/balancer-js": "2.0.0",
     "@balancer-labs/v2-common": "workspace:*",
@@ -27,10 +30,12 @@
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@nomiclabs/hardhat-etherscan": "^3.0.0",
     "@swaap-labs/swaap-core-v1": "^1.0.0",
+    "@swaap-labs/v2-errors": "workspace:*",
     "@typechain/hardhat": "^6.1.5",
     "@types/mocha": "^10",
     "eth-gas-reporter": "^0.2.25",
     "hardhat": "^2.12.7",
+    "hardhat-contract-sizer": "^2.8.0",
     "hardhat-gas-reporter": "^1.0.9",
     "mocha": "^10.2.0",
     "solc": "^0.8.19",
