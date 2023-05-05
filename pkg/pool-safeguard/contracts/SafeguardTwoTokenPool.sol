@@ -1164,8 +1164,7 @@ contract SafeguardTwoTokenPool is
 
     }
     
-
-    function setManagementFees(uint256 yearlyFees) external authenticate whenNotPaused {
+    function setManagementFees(uint256 yearlyFees) external override authenticate whenNotPaused {
         _setManagementFees(yearlyFees);
     }
 

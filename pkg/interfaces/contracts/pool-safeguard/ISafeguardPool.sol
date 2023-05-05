@@ -93,13 +93,16 @@ interface ISafeguardPool is IBasePool, ISignatureSafeguard {
     /// @dev sets the maximum quote price deviation from the oracles
     function setMaxPriceDev(uint256 maxPriceDev) external;
 
+    /// @dev sets yearly management fees
+    function setManagementFees(uint256 yearlyFees) external;
+
     /// @dev updates the performance and the hodl balances (should be permissionless)
     function updatePerformance() external;
 
     /// @dev unpegs or repegs oracles based on the latest prices (should be permissionless)
     function evaluateStablesPegStates() external;
 
-    /// @dev claims accumulated management fees
+    /// @dev claims accumulated management fees (can be permissionless)
     function claimManagementFees() external;
 
     /*
