@@ -15,7 +15,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import OraclesDeployer from '@balancer-labs/v2-helpers/src/models/oracles/OraclesDeployer';
 import '@balancer-labs/v2-common/setupTests'
 
-describe('SafeguardTwoTokenFactory', function () {
+describe('SafeguardFactory', function () {
   let tokens: TokenList;
   let oracles: Oracle[];
   let factory: Contract;
@@ -37,7 +37,7 @@ describe('SafeguardTwoTokenFactory', function () {
   sharedBeforeEach('deploy factory & tokens', async () => {
     vault = await Vault.create();
 
-    factory = await deploy('SafeguardTwoTokenFactory', {
+    factory = await deploy('SafeguardFactory', {
       args: [vault.address, vault.getFeesProvider().address, BASE_PAUSE_WINDOW_DURATION, BASE_BUFFER_PERIOD_DURATION],
     });
     createTime = await currentTimestamp();
@@ -96,7 +96,7 @@ describe('SafeguardTwoTokenFactory', function () {
     ).wait();
 
     const event = expectEvent.inReceipt(receipt, 'PoolCreated');
-    return deployedAt('SafeguardTwoTokenPool', event.args.pool);
+    return deployedAt('SafeguardPool', event.args.pool);
   }
 
   describe('constructor arguments', () => {

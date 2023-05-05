@@ -17,7 +17,7 @@ pragma experimental ABIEncoderV2;
 
 import "./ChainlinkUtils.sol";
 import "./SafeguardMath.sol";
-import "./SignatureTwoTokenSafeguard.sol";
+import "./SignatureSafeguard.sol";
 import "@balancer-labs/v2-pool-utils/contracts/BasePool.sol";
 import "@balancer-labs/v2-interfaces/contracts/vault/IMinimalSwapInfoPool.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidator.sol";
@@ -26,8 +26,7 @@ import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
 
-contract SafeguardTwoTokenPool is 
-    ISafeguardPool, SignatureTwoTokenSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
+contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     
     using FixedPoint for uint256;
     using WordCodec for bytes32;
@@ -1089,7 +1088,7 @@ contract SafeguardTwoTokenPool is
     }
 
     /// @inheritdoc ISignatureSafeguard
-    function signer() public view override(ISignatureSafeguard, SignatureTwoTokenSafeguard) returns(address){
+    function signer() public view override(ISignatureSafeguard, SignatureSafeguard) returns(address){
         return _signer;
     }
 

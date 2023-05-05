@@ -58,7 +58,7 @@ export default {
 
     let result: Promise<Contract>;
 
-    result = deploy('v2-pool-safeguard/TestSafeguardTwoTokenPool', {
+    result = deploy('v2-pool-safeguard/TestSafeguardPool', {
           args: [
             vault.address,
             NAME,

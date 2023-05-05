@@ -19,10 +19,10 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 
 import "@balancer-labs/v2-pool-utils/contracts/factories/BasePoolFactory.sol";
 
-import "./SafeguardTwoTokenPool.sol";
+import "./SafeguardPool.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
 
-contract SafeguardTwoTokenFactory is BasePoolFactory {
+contract SafeguardFactory is BasePoolFactory {
     constructor(
         IVault vault,
         IProtocolFeePercentagesProvider protocolFeeProvider,
@@ -34,7 +34,7 @@ contract SafeguardTwoTokenFactory is BasePoolFactory {
             protocolFeeProvider,
             initialPauseWindowDuration,
             bufferPeriodDuration,
-            type(SafeguardTwoTokenPool).creationCode
+            type(SafeguardPool).creationCode
         )
     {
         // solhint-disable-previous-line no-empty-blocks

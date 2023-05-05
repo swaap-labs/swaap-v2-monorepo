@@ -20,7 +20,7 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguard.sol";
 
-abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatureSafeguard {
+abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;
 
     // solhint-disable max-line-length

@@ -15,10 +15,10 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "../SafeguardTwoTokenPool.sol";
+import "../SafeguardPool.sol";
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 
-contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
+contract TestSafeguardPool is SafeguardPool {
 
     constructor(
         IVault vault,
@@ -31,7 +31,7 @@ contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
         address owner,
         InitialOracleParams[] memory oracleParams,
         InitialSafeguardParams memory safeguardParameters
-    ) SafeguardTwoTokenPool(
+    ) SafeguardPool(
         vault,
         name,
         symbol,
@@ -54,7 +54,7 @@ contract TestSafeguardTwoTokenPool is SafeguardTwoTokenPool {
         uint256 quoteAmountInPerOut,
         uint256 maxSwapAmount
     ) external {  
-        return SafeguardTwoTokenPool._validateSwap(
+        return SafeguardPool._validateSwap(
             kind,
             isTokenInToken0,
             balanceTokenIn,
