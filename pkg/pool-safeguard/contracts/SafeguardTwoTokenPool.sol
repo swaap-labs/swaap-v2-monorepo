@@ -682,6 +682,7 @@ contract SafeguardTwoTokenPool is
     * Setters
     */
 
+    /// @inheritdoc ISafeguardPool
     function setFlexibleOracleStates(
         bool isFlexibleOracle0,
         bool isFlexibleOracle1
@@ -710,6 +711,7 @@ contract SafeguardTwoTokenPool is
         emit FlexibleOracleStatesUpdated(_isFlexibleOracle0(packedPoolParams), _isFlexibleOracle1(packedPoolParams));
     }
 
+    /// @inheritdoc ISafeguardPool
     function setMustAllowlistLPs(bool mustAllowlistLPs) external override authenticate whenNotPaused {
         _setMustAllowlistLPs(mustAllowlistLPs);
     }
@@ -719,6 +721,7 @@ contract SafeguardTwoTokenPool is
         emit MustAllowlistLPsSet(mustAllowlistLPs);
     }
 
+    /// @inheritdoc ISafeguardPool
     function setSigner(address signer) external override authenticate whenNotPaused {
         _setSigner(signer);
     }
@@ -729,6 +732,7 @@ contract SafeguardTwoTokenPool is
         emit SignerChanged(signer);
     }
 
+    /// @inheritdoc ISafeguardPool
     function setPerfUpdateInterval(uint256 perfUpdateInterval) external override authenticate whenNotPaused {
         _setPerfUpdateInterval(perfUpdateInterval);
     }
@@ -747,9 +751,7 @@ contract SafeguardTwoTokenPool is
         emit PerfUpdateIntervalChanged(perfUpdateInterval);
     }    
     
-    /**
-    * @param maxPerfDev the maximum performance deviation tolerance
-    */
+    /// @inheritdoc ISafeguardPool
     function setMaxPerfDev(uint256 maxPerfDev) external override authenticate whenNotPaused {
         _setMaxPerfDev(maxPerfDev);
     }
@@ -768,9 +770,7 @@ contract SafeguardTwoTokenPool is
         emit MaxPerfDevChanged(maxPerfDev);
     }
 
-    /**
-    * @param maxTargetDev the maximum deviation tolerance from target reserve (hodl benchmark)
-    */
+    /// @inheritdoc ISafeguardPool
     function setMaxTargetDev(uint256 maxTargetDev) external override authenticate whenNotPaused {
         _setMaxTargetDev(maxTargetDev);
     }
@@ -789,9 +789,7 @@ contract SafeguardTwoTokenPool is
         emit MaxTargetDevChanged(maxTargetDev);
     }
 
-    /**
-    * @param maxPriceDev the maximum price deviation tolerance
-    */
+    /// @inheritdoc ISafeguardPool
     function setMaxPriceDev(uint256 maxPriceDev) external override authenticate whenNotPaused {
         _setMaxPriceDev(maxPriceDev);
     }
@@ -810,6 +808,7 @@ contract SafeguardTwoTokenPool is
         emit MaxPriceDevChanged(maxPriceDev);
     }
 
+    /// @inheritdoc ISafeguardPool
     function updatePerformance() external override nonReentrant whenNotPaused {
 
         bytes32 packedPoolParams = _packedPoolParams;
@@ -827,7 +826,6 @@ contract SafeguardTwoTokenPool is
         _updatePerformance(balances[0], balances[1], amount0Per1, totalSupply()); 
     }
 
-    // TODO we may add a (off-chain) reference price to prevent the update of the performance with a faulty oracle price
     function _updatePerformance(
         uint256 balance0,
         uint256 balance1,
@@ -874,6 +872,7 @@ contract SafeguardTwoTokenPool is
         );
     }
 
+    /// @inheritdoc ISafeguardPool
     function evaluateStablesPegStates() external override nonReentrant whenNotPaused {
         bytes32 packedPoolParams = _packedPoolParams;
         
@@ -895,6 +894,7 @@ contract SafeguardTwoTokenPool is
     * Getters
     */
 
+    /// @inheritdoc ISafeguardPool
     function getPoolPerformance() external view override returns(uint256 performance){
         (, uint256[] memory balances, ) = getVault().getPoolTokens(getPoolId());
 
@@ -936,15 +936,12 @@ contract SafeguardTwoTokenPool is
         return packedPoolParams.decodeBool(_TOKEN_1_PEGGED_BIT_OFFSET);
     }
 
+    /// @inheritdoc ISafeguardPool
     function isAllowlistEnabled() public view override returns(bool) {
         return _mustAllowlistLPs;
     }
 
-    /**
-    * @dev returns the hodl balances based on current performance of the pool
-    * @return hodlBalancePerPT0 the target hodl balance of token 0
-    * @return hodlBalancePerPT1 the target hodl balance of token 1
-    */
+    /// @inheritdoc ISafeguardPool
     function getHodlBalancesPerPT() public view override returns(uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) {
         
         bytes32 hodlBalancesPerPT = _hodlBalancesPerPT;
@@ -961,6 +958,7 @@ contract SafeguardTwoTokenPool is
     
     }
 
+    /// @inheritdoc ISafeguardPool
     function getOnChainAmountInPerOut(address tokenIn) external view override returns(uint256) {
         return _getOnChainAmountInPerOut(_packedPoolParams, IERC20(tokenIn) == _token0);
     }
@@ -994,7 +992,7 @@ contract SafeguardTwoTokenPool is
         return  _upscale(ChainlinkUtils.getLatestPrice(oracle), priceScaleFactor);
     }
 
-    /// @notice returns the pool parameters
+    /// @inheritdoc ISafeguardPool
     function getPoolParameters() public view override
     returns (
         uint256 maxPerfDev,
@@ -1044,6 +1042,7 @@ contract SafeguardTwoTokenPool is
         perfUpdateInterval = packedPoolParams.decodeUint(_PERF_UPDATE_INTERVAL_BIT_OFFSET, _PERF_TIME_BIT_LENGTH);
     }
 
+    /// @inheritdoc ISafeguardPool
     function getOracleParams() public view override returns(OracleParams[] memory) {
         OracleParams[] memory oracleParams = new OracleParams[](2);
         bytes32 packedPoolParams = _packedPoolParams;
@@ -1089,6 +1088,7 @@ contract SafeguardTwoTokenPool is
         return isTokenPegged;
     }
 
+    /// @inheritdoc ISignatureSafeguard
     function signer() public view override(ISignatureSafeguard, SignatureTwoTokenSafeguard) returns(address){
         return _signer;
     }
@@ -1130,9 +1130,7 @@ contract SafeguardTwoTokenPool is
         _claimManagementFees();
     }
 
-    /**
-    * @dev Claims management fees if necessary
-    */
+    /// @inheritdoc ISafeguardPool
     function claimManagementFees() external override whenNotPaused {
         _claimManagementFees();
     }
@@ -1163,7 +1161,8 @@ contract SafeguardTwoTokenPool is
         }
 
     }
-    
+
+    /// @inheritdoc ISafeguardPool
     function setManagementFees(uint256 yearlyFees) external override authenticate whenNotPaused {
         _setManagementFees(yearlyFees);
     }
@@ -1182,6 +1181,7 @@ contract SafeguardTwoTokenPool is
         emit ManagementFeesUpdated(yearlyFees);
     }
 
+    /// @inheritdoc ISafeguardPool
     function getManagementFeesParams() public view override returns(uint256, uint256, uint256) {
         return (_yearlyFees, _yearlyRate, _previousClaimTime);
     }

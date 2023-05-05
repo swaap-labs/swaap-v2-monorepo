@@ -189,9 +189,11 @@ abstract contract SignatureTwoTokenSafeguard is EOASignaturesValidator, ISignatu
         return digest;
     }
 
-    function getQuoteBitmap(uint256 wordIndex) external view override returns(uint){
+    /// @inheritdoc ISignatureSafeguard
+    function getQuoteBitmapWord(uint256 wordIndex) external view override returns(uint){
         return _usedQuoteBitMap[wordIndex];
     }
 
+    /// @inheritdoc ISignatureSafeguard
     function signer() public view override virtual returns (address);
 }
