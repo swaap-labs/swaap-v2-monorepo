@@ -55,7 +55,7 @@ describe('SafeguardPool', function () {
     tokens = await TokenList.create([{decimals: 7}, {decimals: 0}], { sorted: false, varyDecimals: true });
     initialBalances = [
       fp(initialBalancesNumber[0]).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)),
-      fp(initialBalancesNumber[1]).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1))
+      fp(initialBalancesNumber[1]).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1))
     ]
   });
 
@@ -261,7 +261,6 @@ describe('SafeguardPool', function () {
           for(let i = 0; i < currentBalances.length; i++){
             expect(currentBalances[i]).to.be.equal(initialBalances[i]);
           }
-          await tokens.tokens[0].mint(other, fp(1));
         });
         
       });
@@ -350,7 +349,7 @@ describe('SafeguardPool', function () {
         let lpBalanceBefore: BigNumber
         sharedBeforeEach('set', async () => {
           lpBalanceBefore = await pool.balanceOf(lp.address);
-          amountsIn = [fp(2).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)), fp(1).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1))];
+          amountsIn = [fp(2).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)), fp(0.001).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1))];
         });
 
         describe('when paused', () => {
@@ -413,7 +412,7 @@ describe('SafeguardPool', function () {
 
         sharedBeforeEach('set', async () => {
           lpBalanceBefore = await pool.balanceOf(lp.address);
-          amountsOut = [fp(1.1).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1)), fp(1).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1))];
+          amountsOut = [fp(1.1).mul(bn(10).pow(tokens.tokens[0].decimals)).div(fp(1)), fp(0.001).mul(bn(10).pow(tokens.tokens[1].decimals)).div(fp(1))];
         });
 
         describe('when paused', () => {
