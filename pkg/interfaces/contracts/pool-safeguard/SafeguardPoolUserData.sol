@@ -22,7 +22,7 @@ library SafeguardPoolUserData {
     enum JoinKind { INIT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT, EXACT_TOKENS_IN_FOR_BPT_OUT }
     enum ExitKind { EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT }
 
-    uint256 private constant _MASK_128_BITS = 0x000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF;
+    uint256 private constant _MASK_128_BITS = 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     uint256 private constant _OFFSET_128_BITS = 128;
 
     function joinKind(bytes memory self) internal pure returns (JoinKind) {
