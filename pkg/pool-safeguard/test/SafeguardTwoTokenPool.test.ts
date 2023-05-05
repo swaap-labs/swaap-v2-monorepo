@@ -69,12 +69,12 @@ describe('SafeguardPool', function () {
 
     oracles = [
       await OraclesDeployer.deployOracle({
-        description: "low",
+        description: "low price",
         price: initPrices[0],
         decimals: ORACLE_DECIMALS[0]
       }),
       await OraclesDeployer.deployOracle({
-        description: "high",
+        description: "high price",
         price: initPrices[1],
         decimals: ORACLE_DECIMALS[1]
       })
@@ -145,7 +145,38 @@ describe('SafeguardPool', function () {
       it('starts with 0 SPT', async () => {
         expect(await pool.totalSupply()).to.be.zero;
       });
+      
+      it('sets pool parameters correctly', async () => {
+        const poolParams = await pool.instance.getPoolParameters();
+        expect(poolParams.maxPerfDev, "Wrong maxPerfDev").to.be.eq(maxPerfDev);
+        expect(poolParams.maxTargetDev, "Wrong maxTargetDev").to.be.eq(maxTargetDev);
+        expect(poolParams.maxPriceDev, "Wrong maxPriceDev").to.be.eq(maxPriceDev);
+        expect(poolParams.perfUpdateInterval, "Wrong perfUpdateInterval").to.be.eq(perfUpdateInterval);
+      });
 
+      it('sets mustAllowList correctly', async () => {
+        expect(await pool.instance.isAllowlistEnabled()).to.be.eq(mustAllowlistLPs);
+      });
+
+      it('sets management fees correctly', async () => {
+        const [yearlyFees, yearlyRate, previousClaimTime] = await pool.instance.getManagementFeesParams(); 
+        expect(yearlyFees).to.be.zero;
+        expect(yearlyRate).to.be.zero;
+        const lastBlock = await ethers.provider.getBlockNumber();
+        const lastBlockTimestamp = (await ethers.provider.getBlock(lastBlock)).timestamp;
+        expect(previousClaimTime).be.equal(lastBlockTimestamp);
+      });
+
+      it('sets the oracles parameters correctly', async () => {
+        const oracleParams = await pool.instance.getOracleParams();
+        oracleParams.forEach((oracleParam: any, index: number) => {
+          expect(oracleParam.oracle).to.eq(oracles[index].address);
+          expect(oracleParam.isStable).to.eq(true);
+          expect(oracleParam.isFlexibleOracle).to.eq(false);
+          expect(oracleParam.isPegged).to.eq(false);
+          expect(oracleParam.priceScalingFactor).to.eq(fp(10 ** (18 - oracles[index].decimals)));
+        });
+      });
     });
   });
 
@@ -212,6 +243,20 @@ describe('SafeguardPool', function () {
         await pool.init({ initialBalances, recipient: lp });
       });
 
+      it('initial balances are correct', async () => {        
+        const currentBalances = await pool.getBalances();
+        for(let i = 0; i < currentBalances.length; i++){
+          expect(currentBalances[i]).to.be.equal(initialBalances[i]);
+        }
+      });
+      
+      it('initial hodl balances are correct', async () => {        
+        const hodlBalancesPerPT: BigNumberish[] = await pool.instance.getHodlBalancesPerPT();
+        for(let i = 0; i < initialBalances.length; i++){
+          expect(hodlBalancesPerPT[i]).to.be.equal(initialBalances[i].mul(bn(10).pow(18-tokens.tokens[i].decimals)).div(bn(100)));
+        }
+      });
+
       it('reverts', async () => {
         await expect(pool.init({ initialBalances, recipient: lp })).to.be.revertedWith('BAL#310');
       });
@@ -256,13 +301,6 @@ describe('SafeguardPool', function () {
           await expect(pool.join({ data: wrongUserData })).to.be.reverted;
         });
 
-        it('Initial balances are correct', async () => {        
-          const currentBalances = await pool.getBalances();
-          for(let i = 0; i < currentBalances.length; i++){
-            expect(currentBalances[i]).to.be.equal(initialBalances[i]);
-          }
-        });
-        
       });
 
       context('joinAllGivenOut', () => {
@@ -388,6 +426,16 @@ describe('SafeguardPool', function () {
         });
 
         describe('when in normal mode', () => {
+          it('reverts: wrong excess token', async () => {
+            expect(pool.joinGivenIn({
+              recipient: lp.address,
+              chainId: chainId,
+              amountsIn: amountsIn,
+              swapTokenIn: tokens.tokens[1],
+              signer: signer
+            })).to.be.revertedWith("error: wrong excess token");
+          });
+          
           it('valid', async () => {
             const currentBalances = await pool.getBalances();
             const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
@@ -453,6 +501,17 @@ describe('SafeguardPool', function () {
         });
 
         describe('when in normal mode', () => {
+          it('reverts: wrong excess token', async () => {
+            expect(pool.exitGivenOut({
+              from: lp,
+              recipient: lp.address,
+              chainId: chainId,
+              amountsOut: amountsOut,
+              swapTokenIn: tokens.tokens[0],
+              signer: signer
+            })).to.be.revertedWith("error: wrong excess token");
+          });
+
           it('valid', async () => {
             const currentBalances = await pool.getBalances();
             const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.sub(amountsOut[index]));
@@ -894,6 +953,69 @@ describe('SafeguardPool', function () {
     });
 
     describe('Setters / Getters', () => {
+
+      context('Unauthorized caller', () => {
+        it('Fail to call setFlexibleOracleStates', async () => {
+          expect(pool.instance.setFlexibleOracleStates(true, true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setMustAllowlistLPs', async () => {
+          expect(pool.instance.setMustAllowlistLPs(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setSigner', async () => {
+          expect(pool.instance.setSigner(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setPerfUpdateInterval', async () => {
+          expect(pool.instance.setPerfUpdateInterval(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setMaxPerfDev', async () => {
+          expect(pool.instance.setMaxPerfDev(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setMaxPriceDev', async () => {
+          expect(pool.instance.setMaxPriceDev(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setMaxTargetDev', async () => {
+          expect(pool.instance.setMaxTargetDev(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+        it('Fail to call setManagementFees', async () => {
+          expect(pool.instance.setManagementFees(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+        });
+      })
+
+      context('when paused', async() => {
+        before('setup signers and tokens', async () => {
+          await pool.pause();
+        });
+        it('Fail to call setFlexibleOracleStates', async () => {
+          expect(pool.instance.setFlexibleOracleStates(true, true)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setMustAllowlistLPs', async () => {
+          expect(pool.instance.setMustAllowlistLPs(true)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setSigner', async () => {
+          expect(pool.instance.setSigner(deployer.address)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setPerfUpdateInterval', async () => {
+          expect(pool.instance.setPerfUpdateInterval(1)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setMaxPerfDev', async () => {
+          expect(pool.instance.setMaxPerfDev(1)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setMaxPriceDev', async () => {
+          expect(pool.instance.setMaxPriceDev(1)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setMaxTargetDev', async () => {
+          expect(pool.instance.setMaxTargetDev(1)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call setManagementFees', async () => {
+          expect(pool.instance.setManagementFees(1)).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call claimManagementFees', async () => {
+          expect(pool.instance.claimManagementFees()).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call updatePerformance', async () => {
+          expect(pool.instance.updatePerformance()).to.be.revertedWith("BAL#402");
+        });
+      });
 
       context('Oracle', () => {
 
