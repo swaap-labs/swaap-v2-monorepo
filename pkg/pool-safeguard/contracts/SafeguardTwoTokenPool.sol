@@ -873,7 +873,7 @@ contract SafeguardTwoTokenPool is
         );
     }
 
-    function evaluateStablesPegStates() external override whenNotPaused {
+    function evaluateStablesPegStates() external override nonReentrant whenNotPaused {
         bytes32 packedPoolParams = _packedPoolParams;
         
         if(_isStable0 && _isFlexibleOracle0(packedPoolParams)) {
@@ -1126,13 +1126,18 @@ contract SafeguardTwoTokenPool is
     */
 
     function _beforeJoinExit() private {
-        claimManagementFees();
+        _claimManagementFees();
     }
 
     /**
     * @dev Claims management fees if necessary
     */
-    function claimManagementFees() public override {
+    function claimManagementFees() external override whenNotPaused {
+        _claimManagementFees();
+    }
+
+    function _claimManagementFees() internal {
+
         uint256 currentTime = block.timestamp;
         uint256 elapsedTime = currentTime.sub(uint256(_previousClaimTime));
         
@@ -1160,13 +1165,13 @@ contract SafeguardTwoTokenPool is
         }
     }
 
-    function setManagementFees(uint256 yearlyFees) external authenticate {
+    function setManagementFees(uint256 yearlyFees) external authenticate whenNotPaused {
         _setManagementFees(yearlyFees);
     }
 
     function _setManagementFees(uint256 yearlyFees) private {               
         // claim previous manag
-        claimManagementFees();
+        _claimManagementFees();
         
         _setYearlyRate(yearlyFees);
     }
