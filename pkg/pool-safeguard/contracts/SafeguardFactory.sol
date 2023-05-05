@@ -20,7 +20,7 @@ import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v2-pool-utils/contracts/factories/BasePoolFactory.sol";
 
 import "./SafeguardPool.sol";
-import "@balancer-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
+import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
 
 contract SafeguardFactory is BasePoolFactory {
     constructor(

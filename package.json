@@ -1,26 +1,19 @@
 {
-  "name": "@balancer-labs/v2-monorepo",
+  "name": "@swaap-labs/v2-monorepo",
   "private": true,
-  "description": "Balancer v2 Monorepo",
+  "description": "Swaap v2 Monorepo",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/balancer-labs/balancer-v2-monorepo#readme",
-  "repository": "git@github.com:balancer-labs/balancer-v2-monorepo.git",
+  "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo#readme",
+  "repository": "git@github.com:swaap-labs/swaap-v2-monorepo.git",
   "bugs": {
-    "url": "https://github.com/balancer-labs/balancer-v2-monorepo/issues"
+    "url": "https://github.com/swaap-labs/swaap-v2-monorepo/issues"
   },
   "engines": {
     "node": ">=14.18.0 <15"
   },
   "contributors": [
-    "Daniel Fernandez <daniel@balancer.finance>",
-    "Facu Spagnuolo <facu@balancer.finance>",
-    "Fernando Martinelli <fernando@balancer.finance>",
-    "Greg Taschuk <greg@balancer.finance>",
-    "Jeffrey Bennett <jeff@balancer.finance>",
-    "John Grant <john@balancer.finance>",
-    "Mike McDonald <mike@balancer.finance>",
-    "Nicolás Venturo <nico@balancer.finance>",
-    "Tom French <tom@balancer.finance>"
+    "Christian El Dahdah <christian@swaap.finance>",
+    "David Bouba <d@swaap.finance>"
   ],
   "scripts": {
     "build": "yarn workspaces foreach --parallel --verbose  run build",
@@ -29,6 +22,8 @@
   },
   "workspaces": [
     "pkg/*",
-    "pvt/*"
-  ]
+    "pvt/*",
+    "dep/*"
+  ],
+  "packageManager": "yarn@3.5.1"
 }

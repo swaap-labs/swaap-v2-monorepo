@@ -13,6 +13,21 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.7.0;
-pragma experimental ABIEncoderV2;
 
-import "@balancer-labs/v2-vault/contracts/Vault.sol";
+import "../openzeppelin/ERC20Burnable.sol";
+import "../openzeppelin/ERC20Permit.sol";
+import "../openzeppelin/ERC20.sol";
+
+contract TestToken is ERC20, ERC20Burnable {
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint8 decimals
+    ) ERC20(name, symbol) {
+        _setupDecimals(decimals);
+    }
+
+    function mint(address recipient, uint256 amount) external {
+        _mint(recipient, amount);
+    }
+}

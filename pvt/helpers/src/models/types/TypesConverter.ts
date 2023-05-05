@@ -8,14 +8,6 @@ import { ZERO_ADDRESS } from '../../constants';
 import TokenList from '../tokens/TokenList';
 import { Account } from './types';
 import { ProtocolFee, RawVaultDeployment, VaultDeployment } from '../vault/types';
-import { RawLinearPoolDeployment, LinearPoolDeployment } from '../pools/linear/types';
-import { RawStablePoolDeployment, StablePoolDeployment } from '../pools/stable/types';
-import {
-  RawWeightedPoolDeployment,
-  WeightedPoolDeployment,
-  WeightedPoolType,
-  BasePoolRights,
-} from '../pools/weighted/types';
 import {
   RawTokenApproval,
   RawTokenMint,
@@ -31,7 +23,6 @@ import {
   InitialOracleParams,
   InitialSafeguardParams
 } from '../pools/safeguard/types';
-import { getSigner } from '../../../../../pkg/deployments/src';
 
 export function computeDecimalsFromIndex(i: number): number {
   // Produces repeating series (0..18)
@@ -50,7 +41,7 @@ export default {
     return { mocked, admin, pauseWindowDuration, bufferPeriodDuration, maxYieldValue, maxAUMValue };
   },
 
-  toRawVaultDeployment(params: RawWeightedPoolDeployment): RawVaultDeployment {
+  toRawVaultDeployment(params: RawSafeguardPoolDeployment): RawVaultDeployment {
     let { admin, pauseWindowDuration, bufferPeriodDuration } = params;
     if (!admin) admin = params.from;
     if (!pauseWindowDuration) pauseWindowDuration = 0;
@@ -58,120 +49,6 @@ export default {
 
     const mocked = params.fromFactory !== undefined ? !params.fromFactory : true;
     return { mocked, admin, pauseWindowDuration, bufferPeriodDuration };
-  },
-
-  toWeightedPoolDeployment(params: RawWeightedPoolDeployment): WeightedPoolDeployment {
-    let {
-      tokens,
-      weights,
-      rateProviders,
-      assetManagers,
-      swapFeePercentage,
-      pauseWindowDuration,
-      bufferPeriodDuration,
-      swapEnabledOnStart,
-      mustAllowlistLPs,
-      managementAumFeePercentage,
-      aumProtocolFeesCollector,
-      poolType,
-      aumFeeId,
-      factoryVersion,
-      poolVersion,
-    } = params;
-    if (!params.owner) params.owner = ZERO_ADDRESS;
-    if (!tokens) tokens = new TokenList();
-    if (!weights) weights = Array(tokens.length).fill(fp(1));
-    weights = toNormalizedWeights(weights.map(bn));
-    if (!swapFeePercentage) swapFeePercentage = bn(1e16);
-    if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
-    if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
-    if (!rateProviders) rateProviders = Array(tokens.length).fill(ZERO_ADDRESS);
-    if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
-    if (!poolType) poolType = WeightedPoolType.WEIGHTED_POOL;
-    if (!aumProtocolFeesCollector) aumProtocolFeesCollector = ZERO_ADDRESS;
-    if (undefined == aumFeeId) aumFeeId = ProtocolFee.AUM;
-    if (undefined == swapEnabledOnStart) swapEnabledOnStart = true;
-    if (undefined == mustAllowlistLPs) mustAllowlistLPs = false;
-    if (undefined == managementAumFeePercentage) managementAumFeePercentage = FP_ZERO;
-    if (undefined == factoryVersion) factoryVersion = 'default factory version';
-    if (undefined == poolVersion) poolVersion = 'default pool version';
-    return {
-      tokens,
-      weights,
-      rateProviders: this.toAddresses(rateProviders),
-      assetManagers,
-      swapFeePercentage,
-      pauseWindowDuration,
-      bufferPeriodDuration,
-      swapEnabledOnStart,
-      mustAllowlistLPs,
-      managementAumFeePercentage,
-      aumProtocolFeesCollector,
-      owner: this.toAddress(params.owner),
-      from: params.from,
-      poolType,
-      aumFeeId,
-      factoryVersion,
-      poolVersion,
-    };
-  },
-
-  toLinearPoolDeployment(params: RawLinearPoolDeployment): LinearPoolDeployment {
-    let { upperTarget, assetManagers, swapFeePercentage, pauseWindowDuration, bufferPeriodDuration } = params;
-
-    if (!upperTarget) upperTarget = bn(0);
-    if (!swapFeePercentage) swapFeePercentage = bn(1e12);
-    if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
-    if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
-    if (!assetManagers) assetManagers = [ZERO_ADDRESS, ZERO_ADDRESS];
-
-    return {
-      mainToken: params.mainToken,
-      wrappedToken: params.wrappedToken,
-      upperTarget,
-      assetManagers,
-      swapFeePercentage,
-      pauseWindowDuration,
-      bufferPeriodDuration,
-      owner: params.owner,
-    };
-  },
-
-  toStablePoolDeployment(params: RawStablePoolDeployment): StablePoolDeployment {
-    let {
-      tokens,
-      rateProviders,
-      tokenRateCacheDurations,
-      exemptFromYieldProtocolFeeFlags,
-      amplificationParameter,
-      swapFeePercentage,
-      pauseWindowDuration,
-      bufferPeriodDuration,
-      version,
-    } = params;
-
-    if (!tokens) tokens = new TokenList();
-    if (!rateProviders) rateProviders = Array(tokens.length).fill(ZERO_ADDRESS);
-    if (!tokenRateCacheDurations) tokenRateCacheDurations = Array(tokens.length).fill(DAY);
-    if (!amplificationParameter) amplificationParameter = bn(200);
-    if (!swapFeePercentage) swapFeePercentage = bn(1e12);
-    if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
-    if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
-    if (!exemptFromYieldProtocolFeeFlags) exemptFromYieldProtocolFeeFlags = Array(tokens.length).fill(false);
-    if (!version) version = 'test';
-
-    return {
-      tokens,
-      rateProviders,
-      tokenRateCacheDurations,
-      exemptFromYieldProtocolFeeFlags,
-      amplificationParameter,
-      swapFeePercentage,
-      pauseWindowDuration,
-      bufferPeriodDuration,
-      owner: params.owner,
-      version,
-    };
   },
 
   toSafeguardPoolDeployment(params: RawSafeguardPoolDeployment): SafeguardPoolDeployment {

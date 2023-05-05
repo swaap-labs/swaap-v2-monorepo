@@ -1,16 +1,16 @@
 {
-  "name": "@balancer-labs/v2-interfaces",
+  "name": "@swaap-labs/v2-interfaces",
   "version": "0.3.0",
   "description": "V2 Interfaces",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/balancer-labs/balancer-v2-monorepo/tree/master/pkg/interfaces#readme",
+  "homepage": "https://github.com/swaap-labs/swaap-monorepo-v2/tree/master/pkg/interfaces#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/balancer-labs/balancer-v2-monorepo.git",
+    "url": "https://github.com/swaap-labs/swaap-monorepo-v2.git",
     "directory": "pkg/interfaces"
   },
   "bugs": {
-    "url": "https://github.com/balancer-labs/balancer-v2-monorepo/issues"
+    "url": "https://github.com/swaap-labs/swaap-monorepo-v2/issues"
   },
   "files": [
     "contracts/**/*"
@@ -24,6 +24,9 @@
     "lint:typescript": "eslint . --ext .ts --ignore-path ../../.eslintignore  --max-warnings 0"
   },
   "devDependencies": {
+    "@balancer-labs/v2-common": "workspace:*",
+    "@balancer-labs/v2-interfaces": "0.4.0",
+    "@chainlink/contracts": "0.6.1",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@types/chai": "^4.3.3",
@@ -39,7 +42,8 @@
     "eslint-plugin-prettier": "^4.2.1",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.7.2",
-    "hardhat": "^2.12.5",
+    "hardhat": "^2.14.0",
+    "hardhat-contract-sizer": "^2.8.0",
     "hardhat-ignore-warnings": "^0.2.4",
     "lodash.frompairs": "^4.0.1",
     "lodash.pick": "^4.4.0",

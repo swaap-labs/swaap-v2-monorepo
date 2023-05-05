@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+
 import * as dotenv from "dotenv";
 dotenv.config({ path: __dirname+'/.env' });
 // Import the hardhat-gas-reporter plugin at the top of the file
@@ -25,10 +26,10 @@ module.exports = {
     hardhat: {
       allowUnlimitedContractSize: true,
     },
-    polygon: {
-      url: `${process.env.POLYGON_RPC_URL}`,
-      accounts: [`${process.env.PRIVATE_KEY}`]
-    },
+    // polygon: {
+    //   url: `${process.env.POLYGON_RPC_URL}`,
+    //   accounts: [`${process.env.PRIVATE_KEY}`]
+    // },
   },
 
   warnings: {

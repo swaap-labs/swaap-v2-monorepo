@@ -1,14 +1,31 @@
 {
-  "name": "@balancer-labs/v2-pool-safeguard",
+  "name": "@swaap-labs/v2-pool-safeguard",
+  "version": "0.0.5",
+  "description": "Swaap v2 Safeguard pool",
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/pool-safeguard#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swaap-labs/swaap-v2-monorepo.git",
+    "directory": "pkg/pool-safeguard"
+  },
+  "bugs": {
+    "url": "https://github.com/swaap-labs/swaap-v2-monorepo/issues"
+  },
+  "files": [
+    "contracts/**/*",
+    "!contracts/test/*"
+  ],
   "devDependencies": {
-    "@balancer-labs/balancer-js": "workspace:*",
+    "@balancer-labs/balancer-js": "2.0.0",
     "@balancer-labs/v2-common": "workspace:*",
     "@balancer-labs/v2-helpers": "workspace:*",
-    "@balancer-labs/v2-interfaces": "workspace:*",
-    "@balancer-labs/v2-pool-utils": "workspace:*",
-    "@balancer-labs/v2-solidity-utils": "workspace:*",
+    "@balancer-labs/v2-interfaces": "0.4.0",
+    "@balancer-labs/v2-pool-utils": "3.0.0",
+    "@balancer-labs/v2-solidity-utils": "3.0.0",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
+    "@nomiclabs/hardhat-etherscan": "^3.0.0",
     "@swaap-labs/swaap-core-v1": "^1.0.0",
     "@typechain/hardhat": "^6.1.5",
     "@types/mocha": "^10",

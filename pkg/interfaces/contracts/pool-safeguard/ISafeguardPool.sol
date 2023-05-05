@@ -15,9 +15,9 @@
 pragma solidity >=0.7.0 <0.9.0;
 pragma experimental ABIEncoderV2;
 
-import "../solidity-utils/openzeppelin/IERC20.sol";
+import "@balancer-labs/v2-interfaces/contracts/solidity-utils/openzeppelin/IERC20.sol";
 import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
-import "../vault/IBasePool.sol";
+import "@balancer-labs/v2-interfaces/contracts/vault/IBasePool.sol";
 import "./ISignatureSafeguard.sol";
 
 interface ISafeguardPool is IBasePool, ISignatureSafeguard {

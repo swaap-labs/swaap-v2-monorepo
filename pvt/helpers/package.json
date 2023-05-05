@@ -9,8 +9,10 @@
     "lint:typescript": "eslint . --ext .ts --ignore-path ../../.eslintignore  --max-warnings 0"
   },
   "dependencies": {
+    "@balancer-labs/balancer-js": "*",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
+    "@swaap-labs/swaap-js": "worlspace:*",
     "@types/lodash": "^4.14.186",
     "@types/node": "^14.14.31",
     "decimal.js": "^10.4.2",

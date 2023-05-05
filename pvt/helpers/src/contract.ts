@@ -43,12 +43,12 @@ export async function deployedAt(contract: string, address: string): Promise<Con
   return ethers.getContractAt(artifact.abi, address);
 }
 
-export function getArtifact(contract: string): Artifact {
+export function getArtifact(contract: string, org: string = "@swaap-labs"): Artifact {
   let artifactsPath: string;
   if (!contract.includes('/')) {
     artifactsPath = path.resolve('./artifacts');
   } else {
-    const packageName = `@balancer-labs/${contract.split('/')[0]}`;
+    const packageName = `${org}/${contract.split('/')[0]}`;
     const packagePath = path.dirname(require.resolve(`${packageName}/package.json`));
     artifactsPath = `${packagePath}/artifacts`;
   }
