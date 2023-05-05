@@ -173,7 +173,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.reverted.revertedWith("error: exceeded swap amount out")
+          ).to.be.revertedWith("error: exceeded swap amount out")
         });
 
         it ('unfair price: index 0', async () => {
@@ -244,7 +244,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.reverted.revertedWith("error: min balance out is not met")
+          ).to.be.revertedWith("error: min balance out is not met")
         });
 
         it ('min balance out is not met: index 1', async () => {
@@ -267,7 +267,7 @@ describe('SafeguardPool', function () {
               amountInPerOut,
               maxSwapAmount
             )
-          ).to.be.reverted.revertedWith("error: min balance out is not met")
+          ).to.be.revertedWith("error: min balance out is not met")
         });
 
         it ('low performance', async () => {
@@ -312,7 +312,7 @@ describe('SafeguardPool', function () {
               newAmountInPerOut,
               maxSwapAmount
             )
-          ).to.be.reverted.revertedWith("error: low performance")
+          ).to.be.revertedWith("error: low performance")
         });
 
       });
@@ -528,7 +528,7 @@ describe('SafeguardPool', function () {
         });
 
         async function validSignature() {
-          await pool.validateSwapSignature(
+          return await pool.validateSwapSignature(
             signatureSGKind,
             signatureSGInIndex == 0,
             signatureSGSender.address,
@@ -539,6 +539,40 @@ describe('SafeguardPool', function () {
             signatureSGUserData[3],
           )
         }
+
+        it ('correctly sets quoteIndex', async () => {
+          let initQuoteIndex = bn(pool.newQuoteIndex());
+          let newQuoteIndex = initQuoteIndex;
+          for(let i=0; i <= 10; i++) {
+
+            let oldWord = await pool.instance.getQuoteBitmapWord(newQuoteIndex.div(256));
+  
+            await pool.swapGivenIn({
+              chainId: chainId,
+              in: 0,
+              out: 1,
+              amount: 1,
+              signer: signer,
+              from: deployer,
+              recipient: lp.address,
+              quoteIndex: newQuoteIndex
+            });
+
+            let newWord = await pool.instance.getQuoteBitmapWord(newQuoteIndex.div(256));
+            await compareQuoteIndexWord(newQuoteIndex, oldWord, newWord);
+            newQuoteIndex = initQuoteIndex.add(bn(2**i));
+          }
+          
+          async function compareQuoteIndexWord(
+            newQuoteIndex:BigNumber,
+            oldWord: BigNumber,
+            newWord: BigNumber
+          ) {
+            let onBit = newQuoteIndex.mod(256);
+            expect(newWord).to.be.eq(oldWord.or(bn(1).shl(onBit.toNumber())));
+          }
+
+        });
       
       });
 
@@ -552,7 +586,7 @@ describe('SafeguardPool', function () {
           const deadline = bn(blockTimestamp + 1 * MINUTE)
           const sender = deployer.address
           const joinData = "0x0123"
-          const userData = await pool.getALlowListUserData(chainId, sender, deadline, signer, joinData);
+          const userData = await pool.getAllowListUserData(chainId, sender, deadline, signer, joinData);
           const actualJoinData = await pool.isLPAllowed(
             sender,
             userData
@@ -567,7 +601,7 @@ describe('SafeguardPool', function () {
           const deadline = MAX_UINT112
           const sender = deployer.address
           const joinData = "0x0123"
-          const userData = await pool.getALlowListUserData(chainId, sender, deadline, signer, joinData);
+          const userData = await pool.getAllowListUserData(chainId, sender, deadline, signer, joinData);
           await expect(
             pool.isLPAllowed(
               sender,
@@ -584,7 +618,7 @@ describe('SafeguardPool', function () {
           const deadline = bn(blockTimestamp - 3600)
           const sender = deployer.address
           const joinData = "0x0123"
-          const userData = await pool.getALlowListUserData(chainId, sender, deadline, signer, joinData);
+          const userData = await pool.getAllowListUserData(chainId, sender, deadline, signer, joinData);
           await expect(
             pool.isLPAllowed(
               sender,
@@ -601,7 +635,7 @@ describe('SafeguardPool', function () {
           const deadline = bn(blockTimestamp + 1 * MINUTE)
           const sender = deployer.address
           const joinData = "0x0123"
-          const userData = await pool.getALlowListUserData(chainId, sender, deadline, trader, joinData);
+          const userData = await pool.getAllowListUserData(chainId, sender, deadline, trader, joinData);
           await expect(
             pool.isLPAllowed(
               sender,
@@ -618,7 +652,7 @@ describe('SafeguardPool', function () {
           const deadline = bn(blockTimestamp + 1 * MINUTE)
           const sender = deployer.address
           const joinData = "0x0123"
-          const userData = await pool.getALlowListUserData(chainId, sender, deadline, signer, joinData);
+          const userData = await pool.getAllowListUserData(chainId, sender, deadline, signer, joinData);
           await expect(
             pool.isLPAllowed(
               trader.address,

@@ -42,6 +42,7 @@ import BasePool from '../base/BasePool';
 import { currentTimestamp } from '../../../time';
 import { fromBNish, toBNish } from './helpers';
 import { start } from 'repl';
+import { max } from 'lodash';
 
 const MAX_IN_RATIO = fp(0.3);
 const MAX_OUT_RATIO = fp(0.3);
@@ -295,7 +296,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
-    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
+    const quoteIndex = params.quoteIndex?? this.newQuoteIndex();
 
     const data = await SafeguardPoolEncoder.swap(
       params.chainId,
@@ -352,7 +353,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
-    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
+    const quoteIndex = params.quoteIndex?? this.newQuoteIndex();
 
     let swapData: string = SafeguardPoolEncoder.encodeSwapData(
       expectedOrigin,
@@ -432,7 +433,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
-    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
+    const quoteIndex = params.quoteIndex?? this.newQuoteIndex();
     const signer = params.signer;
 
     let userData = await SafeguardPoolEncoder.joinExitSwap(
@@ -532,7 +533,7 @@ export default class SafeguardPool extends BasePool {
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
     const originBasedSlippage = params.originBasedSlippage?? 0;
-    const quoteIndex = params.quoteIndex?? this._newQuoteIndex();
+    const quoteIndex = params.quoteIndex?? this.newQuoteIndex();
     const signer = params.signer;
 
     return {
@@ -567,7 +568,7 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
-  private _newQuoteIndex(): BigNumberish {
+  public newQuoteIndex(): BigNumberish {
     const currentIndex = this.quoteIndex;
     this.quoteIndex = this.quoteIndex.add(1);
     return currentIndex;
@@ -618,16 +619,6 @@ export default class SafeguardPool extends BasePool {
     return this.instance.getOracleParams();
   }
 
-  async addAllowedAddress(from: SignerWithAddress, member: Account): Promise<ContractTransaction> {
-    const pool = this.instance.connect(from);
-    return pool.addAllowedAddress(TypesConverter.toAddress(member));
-  }
-
-  async removeAllowedAddress(from: SignerWithAddress, member: Account): Promise<ContractTransaction> {
-    const pool = this.instance.connect(from);
-    return pool.removeAllowedAddress(TypesConverter.toAddress(member));
-  }
-
   async getMustAllowlistLPs(): Promise<boolean> {
     return this.instance.getMustAllowlistLPs();
   }
@@ -635,27 +626,6 @@ export default class SafeguardPool extends BasePool {
   async setMustAllowlistLPs(from: SignerWithAddress, mustAllowlistLPs: boolean): Promise<ContractTransaction> {
     const pool = this.instance.connect(from);
     return pool.setMustAllowlistLPs(mustAllowlistLPs);
-  }
-
-  async isAllowedAddress(member: string): Promise<boolean> {
-    return this.instance.isAllowedAddress(member);
-  }
-
-  async setCircuitBreakers(
-    from: SignerWithAddress,
-    tokens: Token[] | string[],
-    bptPrices: BigNumber[],
-    lowerBounds: BigNumber[],
-    upperBounds: BigNumber[]
-  ): Promise<ContractTransaction> {
-    const tokensArg = tokens.map((t) => TypesConverter.toAddress(t));
-    const pool = this.instance.connect(from);
-
-    return await pool.setCircuitBreakers(tokensArg, bptPrices, lowerBounds, upperBounds);
-  }
-
-  async getCircuitBreakerState(token: Token | string): Promise<CircuitBreakerState> {
-    return await this.instance.getCircuitBreakerState(TypesConverter.toAddress(token));
   }
 
   async validateSwap(
@@ -715,8 +685,8 @@ export default class SafeguardPool extends BasePool {
     signature: string,
     quoteIndex: BigNumberish,
     deadline: BigNumberish,
-  ) {
-    await this.instance.validateSwapSignature(
+  ): Promise<any> {
+    return await this.instance.validateSwapSignature(
       kind,
       isTokenInToken0,
       sender,
@@ -755,7 +725,7 @@ export default class SafeguardPool extends BasePool {
     return await this.instance.callStatic.isLPAllowed(sender, userData);
   }
 
-  async getALlowListUserData(
+  async getAllowListUserData(
     chainId: number, 
     sender: string, 
     deadline: BigNumber, 

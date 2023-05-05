@@ -9,11 +9,11 @@ import OraclesDeployer from '@balancer-labs/v2-helpers/src/models/oracles/Oracle
 import SafeguardPool from '@balancer-labs/v2-helpers/src/models/pools/safeguard/SafeguardPool';
 import { RawSafeguardPoolDeployment } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types';
 import Vault from '@balancer-labs/v2-helpers/src/models/vault/Vault';
-import { BigNumberish, fp, bn, bnSum } from '@balancer-labs/v2-helpers/src/numbers';
+import { BigNumberish, fp, bn, fromFp } from '@balancer-labs/v2-helpers/src/numbers';
 import { actionId } from '@balancer-labs/v2-helpers/src/models/misc/actions';
-import { MAX_UINT112, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
+import { MAX_UINT112, MAX_UINT256, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
-import { DAY, advanceToTimestamp, SECOND, MINUTE } from '@balancer-labs/v2-helpers/src/time';
+import { DAY, advanceToTimestamp, SECOND, advanceTime } from '@balancer-labs/v2-helpers/src/time';
 import '@balancer-labs/v2-common/setupTests'
 import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
 import { calcYearlyRate, calcAccumulatedManagementFees } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/math'
@@ -427,13 +427,13 @@ describe('SafeguardPool', function () {
 
         describe('when in normal mode', () => {
           it('reverts: wrong excess token', async () => {
-            expect(pool.joinGivenIn({
+            await expect(pool.joinGivenIn({
               recipient: lp.address,
               chainId: chainId,
               amountsIn: amountsIn,
               swapTokenIn: tokens.tokens[1],
               signer: signer
-            })).to.be.revertedWith("error: wrong excess token");
+            })).to.be.revertedWith("error: wrong tokenIn in excess");
           });
           
           it('valid', async () => {
@@ -502,14 +502,14 @@ describe('SafeguardPool', function () {
 
         describe('when in normal mode', () => {
           it('reverts: wrong excess token', async () => {
-            expect(pool.exitGivenOut({
+            await expect(pool.exitGivenOut({
               from: lp,
               recipient: lp.address,
               chainId: chainId,
               amountsOut: amountsOut,
               swapTokenIn: tokens.tokens[0],
               signer: signer
-            })).to.be.revertedWith("error: wrong excess token");
+            })).to.be.revertedWith("error: wrong tokenOut in excess");
           });
 
           it('valid', async () => {
@@ -956,68 +956,300 @@ describe('SafeguardPool', function () {
 
       context('Unauthorized caller', () => {
         it('Fail to call setFlexibleOracleStates', async () => {
-          expect(pool.instance.setFlexibleOracleStates(true, true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setFlexibleOracleStates(true, true)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setMustAllowlistLPs', async () => {
-          expect(pool.instance.setMustAllowlistLPs(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setMustAllowlistLPs(true)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setSigner', async () => {
-          expect(pool.instance.setSigner(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setSigner(trader.address)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setPerfUpdateInterval', async () => {
-          expect(pool.instance.setPerfUpdateInterval(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setPerfUpdateInterval(1)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setMaxPerfDev', async () => {
-          expect(pool.instance.setMaxPerfDev(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setMaxPerfDev(1)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setMaxPriceDev', async () => {
-          expect(pool.instance.setMaxPriceDev(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setMaxPriceDev(1)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setMaxTargetDev', async () => {
-          expect(pool.instance.setMaxTargetDev(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setMaxTargetDev(1)).to.be.revertedWith("BAL#401");
         });
         it('Fail to call setManagementFees', async () => {
-          expect(pool.instance.setManagementFees(true)).to.be.revertedWith("SENDER_NOT_ALLOWED");
+          await expect(pool.instance.setManagementFees(1)).to.be.revertedWith("BAL#401");
         });
       })
 
       context('when paused', async() => {
-        before('setup signers and tokens', async () => {
-          await pool.pause();
+        let actionsId: any;
+
+        before('Get action Ids', async () => {
+          const actions = ["setFlexibleOracleStates", "setMustAllowlistLPs","setSigner","setPerfUpdateInterval",
+          "setMaxPerfDev", "setMaxPriceDev", "setMaxTargetDev", "setManagementFees"];
+          actionsId = await Promise.all(actions.map(async(action) => await actionId(pool.instance, action)));
         });
+ 
+        beforeEach('Grant permissions and update all pool parameters', async () => {
+          await pool.pause();
+          await pool.vault.authorizer.connect(deployer).grantPermissions(actionsId, deployer.address, actionsId.map(() => pool.address));
+        });
+
         it('Fail to call setFlexibleOracleStates', async () => {
-          expect(pool.instance.setFlexibleOracleStates(true, true)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setFlexibleOracleStates(true, true)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setMustAllowlistLPs', async () => {
-          expect(pool.instance.setMustAllowlistLPs(true)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setMustAllowlistLPs(true)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setSigner', async () => {
-          expect(pool.instance.setSigner(deployer.address)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setSigner(deployer.address)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setPerfUpdateInterval', async () => {
-          expect(pool.instance.setPerfUpdateInterval(1)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setPerfUpdateInterval(1)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setMaxPerfDev', async () => {
-          expect(pool.instance.setMaxPerfDev(1)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setMaxPerfDev(1)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setMaxPriceDev', async () => {
-          expect(pool.instance.setMaxPriceDev(1)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setMaxPriceDev(1)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setMaxTargetDev', async () => {
-          expect(pool.instance.setMaxTargetDev(1)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setMaxTargetDev(1)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call setManagementFees', async () => {
-          expect(pool.instance.setManagementFees(1)).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.setManagementFees(1)).to.be.revertedWith("BAL#402");
         });
         it('Fail to call claimManagementFees', async () => {
-          expect(pool.instance.claimManagementFees()).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.claimManagementFees()).to.be.revertedWith("BAL#402");
         });
         it('Fail to call updatePerformance', async () => {
-          expect(pool.instance.updatePerformance()).to.be.revertedWith("BAL#402");
+          await expect(pool.instance.updatePerformance()).to.be.revertedWith("BAL#402");
+        });
+        it('Fail to call evaluateStablesPegStates', async () => {
+          await expect(pool.instance.evaluateStablesPegStates()).to.be.revertedWith("BAL#402");
         });
       });
 
+      context('Correctly set values wihtout affecting others params', () => {
+
+        let expSigner: any, expMaxPerfDev: any, expMaxTargetDev: any, expMaxPriceDev: any,
+          expLastPerfUpdate: any, expPerfUpdateInterval: any, expYearlyFees: any, expYearlyRate: any,
+          expPreviousClaimTime: any;
+        
+        let actSigner: any, actMaxPerfDev: any, actMaxTargetDev: any, actMaxPriceDev: any,
+          actLastPerfUpdate: any, actPerfUpdateInterval: any, actYearlyFees: any, actYearlyRate: any,
+          actPreviousClaimTime: any;
+        
+        type OracleParams = {
+          oracle: string,
+          isStable: boolean,
+          isFlexibleOracle: boolean,
+          isPegged: boolean,
+          priceScalingFactor: BigNumberish
+        }
+
+        let expOracleParams : Array<OracleParams>;
+        let actOracleParams : Array<OracleParams>;
+
+        let expMustAllowlistLPs: boolean, actMustAllowlistLPs: boolean;
+        
+        let expHodlBalancesPerPt: Array<BigNumber>,  actHodlBalancesPerPt: Array<BigNumber>; 
+
+        const deepCopyArray = <T>(arr: Array<T>): Array<T> => {
+          return JSON.parse(JSON.stringify(arr));
+        };
+        
+        async function updateAllParameters() {
+          // update expected values
+          actMustAllowlistLPs = await pool.instance.isAllowlistEnabled();
+          [actMaxPerfDev, actMaxTargetDev, actMaxPriceDev, actLastPerfUpdate, actPerfUpdateInterval] = await pool.instance.getPoolParameters();
+          [actYearlyFees, actYearlyRate, actPreviousClaimTime] = await pool.instance.getManagementFeesParams();
+          actOracleParams = await pool.instance.getOracleParams();
+          actSigner = await pool.instance.callStatic.signer();
+          actHodlBalancesPerPt = await pool.instance.getHodlBalancesPerPT();
+        }
+
+        async function resetExpectParameters() {
+          await updateAllParameters();
+          // setup actual values
+          expect(actMaxTargetDev).to.be.equal(fp(0.85));
+          expMustAllowlistLPs = actMustAllowlistLPs;
+          expSigner = actSigner;
+          expMaxPerfDev = actMaxPerfDev;
+          expMaxTargetDev = actMaxTargetDev;
+          expMaxPriceDev = actMaxPriceDev;
+          expLastPerfUpdate = actLastPerfUpdate;
+          expPerfUpdateInterval = actPerfUpdateInterval;
+          expYearlyFees = actYearlyFees;
+          expYearlyRate = actYearlyRate;
+          expPreviousClaimTime = actPreviousClaimTime;
+          expOracleParams = deepCopyArray(actOracleParams);
+          expHodlBalancesPerPt = actHodlBalancesPerPt;
+        }
+
+        async function compareParameters() {          
+          expect(actMustAllowlistLPs).to.be.equal(expMustAllowlistLPs);
+          expect(actMaxPerfDev).to.be.equal(expMaxPerfDev);
+          expect(actMaxTargetDev).to.be.equal(expMaxTargetDev);
+          expect(actMaxPriceDev).to.be.equal(expMaxPriceDev);
+          expect(actLastPerfUpdate).to.be.equal(expLastPerfUpdate);
+          expect(actPerfUpdateInterval).to.be.equal(expPerfUpdateInterval);
+          expect(actYearlyFees).to.be.equal(expYearlyFees);
+          expectEqualWithError(actYearlyRate, expYearlyRate, tolerance);
+          expect(actPreviousClaimTime).to.be.equal(expPreviousClaimTime);
+          expect(JSON.stringify(actOracleParams)).to.be.equal(JSON.stringify(expOracleParams));
+        }
+
+        let actionsId: any;
+
+        before('Get action Ids', async () => {
+          const actions = ["setFlexibleOracleStates", "setMustAllowlistLPs","setSigner","setPerfUpdateInterval",
+          "setMaxPerfDev", "setMaxPriceDev", "setMaxTargetDev", "setManagementFees"];
+          actionsId = await Promise.all(actions.map(async(action) => await actionId(pool.instance, action)));
+          
+        });
+ 
+        beforeEach('Grant permissions and update all pool parameters', async () => {
+          await pool.vault.authorizer.connect(deployer).grantPermissions(actionsId, deployer.address, actionsId.map(() => pool.address));
+          await resetExpectParameters();
+        });
+
+        afterEach('Compare actual parameters to expected ones', async () => {
+          await updateAllParameters();
+          await compareParameters();
+        });
+
+        it('valid setFlexibleOracleStates', async () => {
+          // only change one state
+          expOracleParams[0].isFlexibleOracle = actOracleParams[0].isFlexibleOracle;
+          expOracleParams[1].isFlexibleOracle = !actOracleParams[1].isFlexibleOracle;
+          await pool.instance.setFlexibleOracleStates(actOracleParams[0].isFlexibleOracle, actOracleParams[1].isFlexibleOracle);
+        });
+
+        it('valid setMustAllowlistLPs', async () => {
+          expMustAllowlistLPs = !actMustAllowlistLPs;
+          await pool.instance.setMustAllowlistLPs(expMustAllowlistLPs);;
+        });
+
+        it('valid setSigner', async () => {
+          expSigner = other.address;
+          await pool.instance.setSigner(expSigner);
+        });
+
+        it('valid setPerfUpdateInterval', async () => {
+          expPerfUpdateInterval = 1.5 * DAY;
+          await pool.instance.setPerfUpdateInterval(expPerfUpdateInterval);
+        });
+
+        it('valid setMaxPerfDev', async () => {
+          expMaxPerfDev = fp(1);
+          await pool.instance.setMaxPerfDev(expMaxPerfDev);
+        });
+
+        it('valid setMaxTargetDev', async () => {
+          expMaxTargetDev = fp(1);
+          await pool.instance.setMaxTargetDev(expMaxTargetDev);
+        });
+
+        it('valid setMaxPriceDev', async () => {
+          expMaxPriceDev = fp(1);
+          await pool.instance.setMaxPriceDev(expMaxPriceDev);
+        });
+
+        it('valid setManagementFees', async () => {
+          const fees = 0.025;
+          expYearlyFees = fp(fees);
+          expYearlyRate = fp(calcYearlyRate(fees)); // 
+          let tx = await pool.setManagementFees(deployer, expYearlyFees);
+          expPreviousClaimTime = (await ethers.provider.getBlock(tx.blockNumber)).timestamp;
+        });
+
+        it('valid claimManagementFees', async () => {
+          const tx = await pool.instance.claimManagementFees();
+          expPreviousClaimTime = (await ethers.provider.getBlock(tx.blockNumber)).timestamp;
+        });
+
+        context('update performance', () => {
+          it('cannot updatePerformance when last update is close', async () => {
+            await expect(pool.instance.updatePerformance()).to.be.revertedWith("error: too soon");
+          });
+
+          it('update performance after 10% of balances', async () => {          
+            const expectedPoolPerf = fp(1.1);
+            let beforeBalances = await pool.getBalances();
+            
+            // add 10 % of balance with fake swaps
+            await pool.swapGivenIn({
+              chainId: chainId,
+              in : 0,
+              out: 1,
+              amount: beforeBalances[0].div(10),
+              quoteAmountInPerOut: MAX_UINT112,
+              from: deployer,
+              signer: signer
+            });
+
+            await pool.swapGivenIn({
+              chainId: chainId,
+              in : 1,
+              out: 0,
+              amount: beforeBalances[1].div(10),
+              quoteAmountInPerOut: MAX_UINT112,
+              from: deployer,
+              signer: signer 
+            });
+
+            await advanceTime(2 * DAY);
+            const actualPoolPerf = await pool.instance.getPoolPerformance();
+            expectEqualWithError(actualPoolPerf, expectedPoolPerf, lowTolerance);
+            const tx = await pool.instance.updatePerformance();
+            expHodlBalancesPerPt = actHodlBalancesPerPt.map((balance) => balance.mul(actualPoolPerf).div(fp(1)));            
+            expLastPerfUpdate = (await ethers.provider.getBlock(tx.blockNumber)).timestamp;
+          });
+
+          it('update performance after 10% of TVL', async () => {          
+            const expectedPoolPerf = fp(1.1);
+            let beforeBalances = await pool.getBalances();
+            
+            // add 10 % of amount0 with fake swap
+            await pool.swapGivenIn({
+              chainId: chainId,
+              in : 0,
+              out: 1,
+              amount: beforeBalances[0].div(10),
+              quoteAmountInPerOut: MAX_UINT112,
+              from: deployer,
+              signer: signer
+            });
+
+            // set price of token 1 to almost 0
+            await oracles[1].setPrice(bn(1));
+
+            await advanceTime(2 * DAY);
+            const actualPoolPerf = await pool.instance.getPoolPerformance();
+            expectEqualWithError(actualPoolPerf, expectedPoolPerf, lowTolerance);
+            const tx = await pool.instance.updatePerformance();
+            expHodlBalancesPerPt = actHodlBalancesPerPt.map((balance) => balance.mul(actualPoolPerf).div(fp(1)));            
+            expLastPerfUpdate = (await ethers.provider.getBlock(tx.blockNumber)).timestamp;
+          });
+  
+        });
+      });
+         
       context('Oracle', () => {
+
+        it('Revert if oracle price is zero', async() => {
+          await oracles[1].setPrice(bn(0));
+          await expect(pool.swapGivenIn({
+            chainId: chainId,
+            in : 0,
+            out: 1,
+            amount: fp(1),
+            quoteAmountInPerOut: 1,
+            from: deployer,
+            signer: signer
+          })).to.be.revertedWith("error: non positive price");
+        })
 
         describe('setFlexibleOracleStates', () => {
 

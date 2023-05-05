@@ -13,6 +13,7 @@ import TokenList from '@balancer-labs/v2-helpers/src/models/tokens/TokenList';
 import Oracle from '@balancer-labs/v2-helpers/src/models/oracles/Oracle';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import OraclesDeployer from '@balancer-labs/v2-helpers/src/models/oracles/OraclesDeployer';
+import '@balancer-labs/v2-common/setupTests'
 
 describe('SafeguardTwoTokenFactory', function () {
   let tokens: TokenList;

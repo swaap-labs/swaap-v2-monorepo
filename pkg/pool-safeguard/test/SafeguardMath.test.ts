@@ -16,6 +16,7 @@ import { expect } from 'chai';
 import { DAY } from '@balancer-labs/v2-helpers/src/time';
 import { expectRelativeErrorBN } from '@balancer-labs/v2-helpers/src/test/relativeError';
 import { ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
+import '@balancer-labs/v2-common/setupTests'
 
 describe('SafeguardMath', () => {
   let lib: Contract;
