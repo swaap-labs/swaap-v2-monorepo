@@ -1,6 +1,6 @@
 {
   "name": "@swaap-labs/v2-liquidity-mining",
-  "version": "1.0.0",
+  "version": "0.0.5",
   "description": "Swaap V2 Liquidity Mining system",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/dep/liquidity-mining#readme",

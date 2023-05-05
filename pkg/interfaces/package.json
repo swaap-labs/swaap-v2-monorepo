@@ -1,6 +1,6 @@
 {
   "name": "@swaap-labs/v2-interfaces",
-  "version": "0.3.0",
+  "version": "0.0.5",
   "description": "V2 Interfaces",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/swaap-labs/swaap-monorepo-v2/tree/master/pkg/interfaces#readme",
@@ -43,7 +43,6 @@
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.7.2",
     "hardhat": "^2.14.0",
-    "hardhat-contract-sizer": "^2.8.0",
     "hardhat-ignore-warnings": "^0.2.4",
     "lodash.frompairs": "^4.0.1",
     "lodash.pick": "^4.4.0",

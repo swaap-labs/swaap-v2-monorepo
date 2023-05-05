@@ -1,6 +1,6 @@
 {
   "name": "@swaap-labs/v2-standalone-utils",
-  "version": "2.0.0",
+  "version": "0.0.5",
   "description": "Swaap v2 Standalone Utilities",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/dep/standalone-utils#readme",

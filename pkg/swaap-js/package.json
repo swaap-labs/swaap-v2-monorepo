@@ -1,6 +1,6 @@
 {
   "name": "@swaap-labs/swaap-js",
-  "version": "2.0.0",
+  "version": "0.0.5",
   "description": "JavaScript utilities for interacting with the Swaap Protocol V2",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/swaap-js#readme",
