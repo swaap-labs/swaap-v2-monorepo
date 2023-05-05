@@ -184,6 +184,7 @@ contract SafeguardTwoTokenPool is
         _setMaxTargetDev(safeguardParameters.maxTargetDev);
         _setMaxPriceDev(safeguardParameters.maxPriceDev);
         _setPerfUpdateInterval(safeguardParameters.perfUpdateInterval);
+        _previousClaimTime = uint32(block.timestamp); // _previousClaimTime is not updated in _setYearlyRate
         _setYearlyRate(safeguardParameters.yearlyFees);
         _setMustAllowlistLPs(safeguardParameters.mustAllowlistLPs);
 
