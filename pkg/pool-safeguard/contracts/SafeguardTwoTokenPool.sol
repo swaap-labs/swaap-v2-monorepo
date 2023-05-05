@@ -1144,26 +1144,25 @@ contract SafeguardTwoTokenPool is
         if(elapsedTime > 0) {
             // update last claim time
             _previousClaimTime = uint32(currentTime);
-
+            uint256 protocolFees;
             uint256 yearlyRate = uint256(_yearlyRate);
-            
+            uint256 previousTotalSupply = totalSupply();
+
             if(yearlyRate > 0) {
                 // returns bpt that needs to be minted
-                uint256 protocolFees = SafeguardMath.calcAccumulatedManagementFees(
+                protocolFees = SafeguardMath.calcAccumulatedManagementFees(
                     elapsedTime,
                     yearlyRate,
-                    totalSupply()
+                    previousTotalSupply
                 );
-
-                _payProtocolFees(protocolFees);
-
-                emit ManagementFeesClaimed(protocolFees, yearlyRate, currentTime);
-            } else {
-                emit ManagementFeesClaimed(0, yearlyRate, currentTime);
             }
 
+            _payProtocolFees(protocolFees);
+            emit ManagementFeesClaimed(protocolFees, previousTotalSupply, yearlyRate, currentTime);
         }
+
     }
+    
 
     function setManagementFees(uint256 yearlyFees) external authenticate whenNotPaused {
         _setManagementFees(yearlyFees);
