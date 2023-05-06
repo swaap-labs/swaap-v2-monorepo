@@ -3,14 +3,14 @@
   "version": "0.0.5",
   "description": "V2 Interfaces",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/swaap-labs/swaap-monorepo-v2/tree/master/pkg/interfaces#readme",
+  "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/interfaces#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/swaap-labs/swaap-monorepo-v2.git",
+    "url": "https://github.com/swaap-labs/swaap-v2-monorepo.git",
     "directory": "pkg/interfaces"
   },
   "bugs": {
-    "url": "https://github.com/swaap-labs/swaap-monorepo-v2/issues"
+    "url": "https://github.com/swaap-labs/swaap-v2-monorepo/issues"
   },
   "files": [
     "contracts/**/*"
