@@ -1,11 +1,11 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
-
-import * as dotenv from "dotenv";
-dotenv.config({ path: __dirname+'/.env' });
 // Import the hardhat-gas-reporter plugin at the top of the file
 import 'hardhat-gas-reporter';
 import 'hardhat-contract-sizer';
+import "@nomicfoundation/hardhat-toolbox";
+import 'hardhat-ignore-warnings';
+
+import * as dotenv from "dotenv";
+dotenv.config({ path: __dirname+'/.env' });
 
 module.exports = {
 
@@ -16,7 +16,7 @@ module.exports = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1,
+            runs: 11000,
           }
         }
       },
@@ -29,7 +29,8 @@ module.exports = {
     },
     // polygon: {
     //   url: `${process.env.POLYGON_RPC_URL}`,
-    //   accounts: [`${process.env.PRIVATE_KEY}`]
+    //   accounts: [`${process.env.PRIVATE_KEY}`],
+    //   blockConfirmations: 6,
     // },
   },
 
@@ -38,6 +39,12 @@ module.exports = {
     // that.
     'contracts/test/*': {
       'code-size': 'off',
+    },
+    // Turn off function sha
+    '*': {
+      // Turns off variable is shadowed in inline assembly instruction
+      'code-size': 'warn',
+      'shadowing-opcode': 'off',
     }
   },
 
@@ -45,22 +52,10 @@ module.exports = {
   gasReporter: {
     currency: 'USD', // or any other currency you'd like to use
     gasPrice: 100, // price in Gwei
-    // outputFile: 'gas-report.txt', // output report to a file (optional)
     enabled: true,
     showMethodSig: false,
     onlyCalledMethods: true,
     src: "../"
   },
 
-  // Include mocha options in the hardhat configuration
-//   mocha: {
-//     extension: ['ts'],
-//     reporter: 'hardhat-gas-reporter',
-//     require: [
-//       'hardhat-gas-reporter',
-//       'hardhat/register',
-//       '@balancer-labs/v2-common/setupTests',
-//     ],
-//     recursive: true,
-//   },
 };
