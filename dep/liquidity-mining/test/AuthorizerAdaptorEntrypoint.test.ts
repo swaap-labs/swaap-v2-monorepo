@@ -105,7 +105,7 @@ describe('AuthorizerAdaptorEntrypoint', () => {
 
       it('rejects direct calls from the adaptor', async () => {
         // The authorizer will reject calls that are not initiated in the adaptor adaptorEntrypoint.
-        await expect(adaptor.connect(grantee).performAction(target, calldata)).to.be.revertedWith('SENDER_NOT_ALLOWED');
+        await expect(adaptor.connect(grantee).performAction(target, calldata)).to.be.revertedWith('BAL#401');
       });
 
       it('emits an event describing the performed action', async () => {
@@ -146,7 +146,7 @@ describe('AuthorizerAdaptorEntrypoint', () => {
 
       it('reverts', async () => {
         await expect(adaptorEntrypoint.connect(grantee).performAction(target, calldata)).to.be.revertedWith(
-          'SENDER_NOT_ALLOWED'
+          'BAL#401'
         );
       });
     });
@@ -154,7 +154,7 @@ describe('AuthorizerAdaptorEntrypoint', () => {
     context('when caller is not authorized', () => {
       it('reverts', async () => {
         await expect(adaptorEntrypoint.connect(other).performAction(target, calldata)).to.be.revertedWith(
-          'SENDER_NOT_ALLOWED'
+          'BAL#401'
         );
       });
     });
@@ -162,7 +162,7 @@ describe('AuthorizerAdaptorEntrypoint', () => {
     context('when calldata is invalid', () => {
       it('reverts', async () => {
         await expect(adaptorEntrypoint.connect(other).performAction(target, '0x')).to.be.revertedWith(
-          'INSUFFICIENT_DATA'
+          'BAL#105'
         );
       });
     });

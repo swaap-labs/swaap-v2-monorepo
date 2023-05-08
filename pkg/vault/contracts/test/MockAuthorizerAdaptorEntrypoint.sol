@@ -14,19 +14,15 @@
 
 pragma solidity ^0.7.0;
 
-import "../openzeppelin/ERC20Burnable.sol";
-import "../openzeppelin/ERC20.sol";
+import "@balancer-labs/v2-interfaces/contracts/liquidity-mining/IAuthorizerAdaptor.sol";
+import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 
-contract TestToken is ERC20, ERC20Burnable {
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint8 decimals
-    ) ERC20(name, symbol) {
-        _setupDecimals(decimals);
+contract MockAuthorizerAdaptorEntrypoint {
+    function getVault() external pure returns (IVault) {
+        return IVault(0);
     }
 
-    function mint(address recipient, uint256 amount) external {
-        _mint(recipient, amount);
+    function getAuthorizerAdaptor() external pure returns (IAuthorizerAdaptor) {
+        return IAuthorizerAdaptor(0);
     }
 }

@@ -14,19 +14,16 @@
 
 pragma solidity ^0.7.0;
 
-import "../openzeppelin/ERC20Burnable.sol";
 import "../openzeppelin/ERC20.sol";
 
-contract TestToken is ERC20, ERC20Burnable {
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint8 decimals
-    ) ERC20(name, symbol) {
-        _setupDecimals(decimals);
-    }
+contract ERC20Mock is ERC20 {
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address recipient, uint256 amount) external {
         _mint(recipient, amount);
+    }
+
+    function burn(address sender, uint256 amount) external {
+        _burn(sender, amount);
     }
 }
