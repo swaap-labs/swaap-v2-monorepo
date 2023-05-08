@@ -36,7 +36,8 @@ import {
 
 } from './math';
 
-import { SafeguardPoolExitKind, SafeguardPoolJoinKind, SwapKind, SafeguardPoolEncoder } from '@swaap-labs/swaap-js';
+import { SafeguardPoolExitKind, SafeguardPoolJoinKind, SafeguardPoolEncoder } from '@swaap-labs/swaap-js';
+import { SwapKind } from '@balancer-labs/balancer-js';
 import { Account } from '@balancer-labs/balancer-js';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import BasePool from '../base/BasePool';

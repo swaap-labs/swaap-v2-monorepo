@@ -1,6 +1,6 @@
 import { BigNumberish } from '@ethersproject/bignumber';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
-import { SafeguardPoolSwapKind, SafeguardPoolJoinKind, SafeguardPoolExitKind } from './kinds';
+import { SafeguardPoolSwapKind } from './kinds';
 
 const DOMAIN_NAME = 'Pool Safeguard';
 const DOMAIN_VERSION = '1';
