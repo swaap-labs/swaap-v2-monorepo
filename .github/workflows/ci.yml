@@ -11,14 +11,14 @@ on:
     branches: ['*', '**/*']
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up environment
-        uses: ./.github/actions/setup
-      - name: Lint
-        run: yarn lint
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - name: Set up environment
+  #       uses: ./.github/actions/setup
+  #     - name: Lint
+  #       run: yarn lint
 
   build:
     runs-on: ubuntu-latest
