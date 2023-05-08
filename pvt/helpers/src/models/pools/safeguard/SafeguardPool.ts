@@ -29,14 +29,14 @@ import {
   CircuitBreakerState,
   OracleParams,
 } from './types';
-import { signSwapData } from '@swaap-labs/swaap-js/src/pool-safeguard/SafeguardPoolSigner';
+import { signSwapData } from '@swaap-labs/v2-swaap-js/src/pool-safeguard/SafeguardPoolSigner';
 import Oracle from "../../oracles/Oracle";
 
 import {
 
 } from './math';
 
-import { SafeguardPoolExitKind, SafeguardPoolJoinKind, SafeguardPoolEncoder } from '@swaap-labs/swaap-js';
+import { SafeguardPoolExitKind, SafeguardPoolJoinKind, SafeguardPoolEncoder } from '@swaap-labs/v2-swaap-js';
 import { SwapKind } from '@balancer-labs/balancer-js';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import BasePool from '../base/BasePool';

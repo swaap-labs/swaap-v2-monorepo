@@ -187,7 +187,7 @@ __metadata:
     "@balancer-labs/balancer-js": "*"
     "@nomicfoundation/hardhat-network-helpers": ^1.0.6
     "@nomiclabs/hardhat-ethers": ^2.2.1
-    "@swaap-labs/swaap-js": "worlspace:*"
+    "@swaap-labs/v2-swaap-js": "worlspace:*"
     "@types/lodash": ^4.14.186
     "@types/node": ^14.14.31
     "@typescript-eslint/eslint-plugin": ^5.41.0
@@ -1943,41 +1943,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@swaap-labs/swaap-js@workspace:pkg/swaap-js, @swaap-labs/swaap-js@worlspace:*":
-  version: 0.0.0-use.local
-  resolution: "@swaap-labs/swaap-js@workspace:pkg/swaap-js"
-  dependencies:
-    "@balancer-labs/typechain": "*"
-    "@ethersproject/abi": ^5.7.0
-    "@ethersproject/abstract-signer": ^5.7.0
-    "@ethersproject/address": ^5.7.0
-    "@ethersproject/bignumber": ^5.7.0
-    "@ethersproject/bytes": ^5.7.0
-    "@ethersproject/constants": ^5.7.0
-    "@ethersproject/contracts": ^5.7.0
-    "@rollup/plugin-commonjs": ^23.0.2
-    "@rollup/plugin-node-resolve": ^15.0.1
-    "@rollup/plugin-typescript": ^9.0.2
-    "@typechain/ethers-v5": ^7.0.1
-    "@types/chai": ^4.3.3
-    "@types/mocha": ^10.0.0
-    "@types/node": ^14.14.31
-    "@typescript-eslint/eslint-plugin": ^5.41.0
-    "@typescript-eslint/parser": ^5.41.0
-    chai: ^4.3.6
-    eslint: ^8.26.0
-    eslint-plugin-prettier: ^4.2.1
-    mocha: ^10.1.0
-    prettier: ^2.7.1
-    rollup: ^3.2.3
-    rollup-plugin-dts: ^5.0.0
-    tiny-invariant: ^1.3.1
-    ts-node: ^10.9.1
-    typechain: ^5.1.1
-    typescript: ^4.0.2
-  languageName: unknown
-  linkType: soft
-
 "@swaap-labs/v2-errors@workspace:*, @swaap-labs/v2-errors@workspace:pkg/errors":
   version: 0.0.0-use.local
   resolution: "@swaap-labs/v2-errors@workspace:pkg/errors"
@@ -2088,6 +2053,41 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@swaap-labs/v2-swaap-js@workspace:pkg/swaap-js, @swaap-labs/v2-swaap-js@worlspace:*":
+  version: 0.0.0-use.local
+  resolution: "@swaap-labs/v2-swaap-js@workspace:pkg/swaap-js"
+  dependencies:
+    "@balancer-labs/typechain": "*"
+    "@ethersproject/abi": ^5.7.0
+    "@ethersproject/abstract-signer": ^5.7.0
+    "@ethersproject/address": ^5.7.0
+    "@ethersproject/bignumber": ^5.7.0
+    "@ethersproject/bytes": ^5.7.0
+    "@ethersproject/constants": ^5.7.0
+    "@ethersproject/contracts": ^5.7.0
+    "@rollup/plugin-commonjs": ^23.0.2
+    "@rollup/plugin-node-resolve": ^15.0.1
+    "@rollup/plugin-typescript": ^9.0.2
+    "@typechain/ethers-v5": ^7.0.1
+    "@types/chai": ^4.3.3
+    "@types/mocha": ^10.0.0
+    "@types/node": ^14.14.31
+    "@typescript-eslint/eslint-plugin": ^5.41.0
+    "@typescript-eslint/parser": ^5.41.0
+    chai: ^4.3.6
+    eslint: ^8.26.0
+    eslint-plugin-prettier: ^4.2.1
+    mocha: ^10.1.0
+    prettier: ^2.7.1
+    rollup: ^3.2.3
+    rollup-plugin-dts: ^5.0.0
+    tiny-invariant: ^1.3.1
+    ts-node: ^10.9.1
+    typechain: ^5.1.1
+    typescript: ^4.0.2
+  languageName: unknown
+  linkType: soft
+
 "@swaap-labs/v2-vault@workspace:pkg/vault":
   version: 0.0.0-use.local
   resolution: "@swaap-labs/v2-vault@workspace:pkg/vault"
@@ -2101,8 +2101,8 @@ __metadata:
     "@nomicfoundation/hardhat-network-helpers": ^1.0.6
     "@nomiclabs/hardhat-ethers": ^2.2.1
     "@nomiclabs/hardhat-waffle": ^2.0.3
-    "@swaap-labs/swaap-js": "worlspace:*"
     "@swaap-labs/v2-interfaces": "workspace:*"
+    "@swaap-labs/v2-swaap-js": "worlspace:*"
     "@types/chai": ^4.3.3
     "@types/lodash": ^4.14.186
     "@types/mocha": ^10.0.0

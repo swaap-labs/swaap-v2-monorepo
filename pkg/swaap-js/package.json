@@ -1,5 +1,5 @@
 {
-  "name": "@swaap-labs/swaap-js",
+  "name": "@swaap-labs/v2-swaap-js",
   "version": "0.0.5",
   "description": "JavaScript utilities for interacting with the Swaap Protocol V2",
   "license": "GPL-3.0-only",
