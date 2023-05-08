@@ -38,18 +38,12 @@ import {
 
 import { SafeguardPoolExitKind, SafeguardPoolJoinKind, SafeguardPoolEncoder } from '@swaap-labs/swaap-js';
 import { SwapKind } from '@balancer-labs/balancer-js';
-import { Account } from '@balancer-labs/balancer-js';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import BasePool from '../base/BasePool';
-import { currentTimestamp } from '../../../time';
-import { fromBNish, toBNish } from './helpers';
-import { start } from 'repl';
-import { max } from 'lodash';
+import { fromBNish } from './helpers';
 
 const MAX_IN_RATIO = fp(0.3);
 const MAX_OUT_RATIO = fp(0.3);
-const MAX_INVARIANT_RATIO = fp(3);
-const MIN_INVARIANT_RATIO = fp(0.7);
 
 export default class SafeguardPool extends BasePool {
   oracles: Oracle[];

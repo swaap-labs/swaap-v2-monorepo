@@ -1,4 +1,4 @@
-import { BigNumber, ContractReceipt, Signer } from 'ethers';
+import { BigNumber, ContractReceipt } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
 
 import { BigNumberish } from '../../../numbers';

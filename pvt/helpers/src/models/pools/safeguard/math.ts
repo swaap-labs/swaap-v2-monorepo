@@ -1,6 +1,6 @@
 import { Decimal } from 'decimal.js';
 import { BigNumberish, decimal, fp, fromFp } from '../../../numbers';
-import { fromBNish, toBNish } from './helpers';
+import { fromBNish } from './helpers';
 
 const dONE = new Decimal(1);
 

@@ -1,16 +1,12 @@
 import { Contract } from 'ethers';
 
-import * as expectEvent from '../../../test/expectEvent';
-import { deploy, deployedAt } from '../../../contract';
+import { deploy } from '../../../contract';
 
 import Vault from '../../vault/Vault';
 import SafeguardPool from './SafeguardPool';
 import VaultDeployer from '../../vault/VaultDeployer';
 import TypesConverter from '../../types/TypesConverter';
-import { ManagedPoolParams, RawSafeguardPoolDeployment, SafeguardPoolDeployment } from './types';
-import { ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
-import { ProtocolFee } from '../../vault/types';
-import { MONTH } from '../../../time';
+import { RawSafeguardPoolDeployment, SafeguardPoolDeployment } from './types';
 
 const NAME = 'Pool Safeguard';
 const SYMBOL = 'SPT';

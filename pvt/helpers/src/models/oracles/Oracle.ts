@@ -4,7 +4,7 @@ import Decimal from 'decimal.js';
 
 import OraclesDeployer from './OraclesDeployer';
 import { OracleDeployment } from './types';
-import { scaleUp, bn, fp, FP_ONE } from '../../numbers';
+import { bn, fp, FP_ONE } from '../../numbers';
 
 export default class Oracle {
   description: string;
