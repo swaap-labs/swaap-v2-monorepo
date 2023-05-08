@@ -68,11 +68,11 @@ export default {
   },
 
   async _deployAuthorizerAdaptor(vault: Contract, from?: SignerWithAddress): Promise<Contract> {
-    return deploy('v2-liquidity-mining/AuthorizerAdaptor', { args: [vault.address], from });
+    return deploy('balancer-v2-liquidity-mining/AuthorizerAdaptor', { args: [vault.address], from });
   },
 
   async _deployAuthorizerAdaptorEntrypoint(adaptor: Contract, from?: SignerWithAddress): Promise<Contract> {
-    return deploy('v2-liquidity-mining/AuthorizerAdaptorEntrypoint', { args: [adaptor.address], from });
+    return deploy('balancer-v2-liquidity-mining/AuthorizerAdaptorEntrypoint', { args: [adaptor.address], from });
   },
 
   async _deployProtocolFeeProvider(
@@ -80,7 +80,7 @@ export default {
     maxYieldValue: BigNumberish,
     maxAUMValue: BigNumberish
   ): Promise<Contract> {
-    return deploy('v2-standalone-utils/ProtocolFeePercentagesProvider', {
+    return deploy('balancer-v2-standalone-utils/ProtocolFeePercentagesProvider', {
       args: [vault.address, maxYieldValue, maxAUMValue],
     });
   },
