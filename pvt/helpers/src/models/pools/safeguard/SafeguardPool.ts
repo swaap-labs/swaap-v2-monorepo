@@ -29,7 +29,7 @@ import {
   CircuitBreakerState,
   OracleParams,
 } from './types';
-import { signSwapData } from '@swaap-labs/v2-swaap-js/src/pool-safeguard/SafeguardPoolSigner';
+import { signSwapData } from '@swaap-labs/v2-swaap-js/src/safeguard-pool/SafeguardPoolSigner';
 import Oracle from "../../oracles/Oracle";
 
 import {

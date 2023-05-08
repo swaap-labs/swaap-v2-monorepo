@@ -1,13 +1,13 @@
 {
-  "name": "@swaap-labs/v2-pool-safeguard",
+  "name": "@swaap-labs/v2-safeguard-pool",
   "version": "0.0.5",
   "description": "Swaap v2 Safeguard pool",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/pool-safeguard#readme",
+  "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/safeguard-pool#readme",
   "repository": {
     "type": "git",
     "url": "https://github.com/swaap-labs/swaap-v2-monorepo.git",
-    "directory": "pkg/pool-safeguard"
+    "directory": "pkg/safeguard-pool"
   },
   "bugs": {
     "url": "https://github.com/swaap-labs/swaap-v2-monorepo/issues"

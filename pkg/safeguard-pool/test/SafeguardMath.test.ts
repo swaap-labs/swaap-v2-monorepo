@@ -24,7 +24,7 @@ describe('SafeguardMath', () => {
   const tolerance = fp(1e-9);
 
   sharedBeforeEach('deploy lib', async () => {
-    lib = await deploy('v2-pool-safeguard/TestSafeguardMath', { args: [] });
+    lib = await deploy('v2-safeguard-pool/TestSafeguardMath', { args: [] });
   });
 
   describe('Management fees', () => {

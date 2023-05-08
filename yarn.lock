@@ -2026,9 +2026,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@swaap-labs/v2-pool-safeguard@workspace:pkg/pool-safeguard":
+"@swaap-labs/v2-safeguard-pool@workspace:pkg/safeguard-pool":
   version: 0.0.0-use.local
-  resolution: "@swaap-labs/v2-pool-safeguard@workspace:pkg/pool-safeguard"
+  resolution: "@swaap-labs/v2-safeguard-pool@workspace:pkg/safeguard-pool"
   dependencies:
     "@balancer-labs/balancer-js": 2.0.0
     "@balancer-labs/v2-common": "workspace:*"

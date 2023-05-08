@@ -13,7 +13,7 @@ class OraclesDeployer {
 
     const scaledPrice = fp(params.price).mul(bn(10).pow(bn(params.decimals))).div(FP_ONE);
 
-    let instance = await deploy('v2-pool-safeguard/TestOracle', {
+    let instance = await deploy('v2-safeguard-pool/TestOracle', {
       from: sender,
       args: [params.description, scaledPrice, params.decimals],
     });

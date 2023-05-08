@@ -1,1 +1,1 @@
-export * from './pool-safeguard';
+export * from './safeguard-pool';

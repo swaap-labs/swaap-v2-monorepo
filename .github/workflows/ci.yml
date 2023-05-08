@@ -93,7 +93,7 @@ jobs:
       - name: Test
         run: yarn workspace @swaap-labs/v2-vault test
   
-  test-pool-safeguard:
+  test-safeguard-pool:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -106,7 +106,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
-        run: yarn workspace @swaap-labs/v2-pool-safeguard test
+        run: yarn workspace @swaap-labs/v2-safeguard-pool test
 
   test-errors:
     runs-on: ubuntu-latest
