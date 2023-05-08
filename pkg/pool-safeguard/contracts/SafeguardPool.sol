@@ -25,7 +25,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ReentrancyGuard.
 import "@balancer-labs/v2-pool-utils/contracts/lib/BasePoolMath.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/ISafeguardPool.sol";
-import "@swaap-labs/v2-errors/contracts/Errors.sol";
+import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
     

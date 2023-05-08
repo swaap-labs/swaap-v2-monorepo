@@ -19,7 +19,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/LogExpMath.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/SafeCast.sol";
-import "@swaap-labs/v2-errors/contracts/Errors.sol";
+import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 library SafeguardMath {
 

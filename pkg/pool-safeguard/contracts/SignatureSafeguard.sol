@@ -19,7 +19,7 @@ import "@balancer-labs/v2-solidity-utils/contracts/helpers/EOASignaturesValidato
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/SafeguardPoolUserData.sol";
 import "@swaap-labs/v2-interfaces/contracts/pool-safeguard/ISignatureSafeguard.sol";
-import "@swaap-labs/v2-errors/contracts/Errors.sol";
+import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafeguard {
     using SafeguardPoolUserData for bytes;

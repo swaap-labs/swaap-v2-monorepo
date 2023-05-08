@@ -15,6 +15,7 @@
 pragma solidity ^0.7.0;
 
 library SwaapV2Errors {
+    // Safeguard Pool
     uint256 internal constant EXCEEDED_SWAP_AMOUNT_IN = 0;
     uint256 internal constant EXCEEDED_SWAP_AMOUNT_OUT = 1;
     uint256 internal constant UNFAIR_PRICE = 2;
@@ -58,7 +59,7 @@ function _srequire(bool condition, uint256 errorCode) pure {
 function _srevert(uint256 errorCode) pure {
     // We're going to dynamically create a revert uint256 based on the error code, with the following format:
     // 'SWAAP#{errorCode}'
-    // where the code is left-padded with zeroes to three digits (so they range from 00 to 99).
+    // where the code is left-padded with zeroes to two digits (so they range from 00 to 99).
     //
     // We don't have revert uint256s embedded in the contract to save bytecode size: it takes much less space to store a
     // number (8 to 16 bits) than the individual uint256 characters.
@@ -68,7 +69,7 @@ function _srevert(uint256 errorCode) pure {
     // safe place to rely on it without worrying about how its usage might affect e.g. memory contents.
     assembly {
         // First, we need to compute the ASCII representation of the error code. We assume that it is in the 0-99
-        // range, so we only need to convert three digits. To convert the digits to ASCII, we add 0x30, the value for
+        // range, so we only need to convert two digits. To convert the digits to ASCII, we add 0x30, the value for
         // the '0' character.
 
         let units := add(mod(errorCode, 10), 0x30)

@@ -17,7 +17,7 @@ pragma experimental ABIEncoderV2;
 import "@chainlink/contracts/src/v0.7/interfaces/AggregatorV3Interface.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
 import "@balancer-labs/v2-solidity-utils/contracts/math/Math.sol";
-import "@swaap-labs/v2-errors/contracts/Errors.sol";
+import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 library ChainlinkUtils {
 
