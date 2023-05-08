@@ -1811,6 +1811,123 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@swaap-labs/balancer-v2-liquidity-mining@workspace:dep/liquidity-mining":
+  version: 0.0.0-use.local
+  resolution: "@swaap-labs/balancer-v2-liquidity-mining@workspace:dep/liquidity-mining"
+  dependencies:
+    "@balancer-labs/v2-common": "workspace:*"
+    "@balancer-labs/v2-helpers": "workspace:*"
+    "@balancer-labs/v2-interfaces": 0.4.0
+    "@balancer-labs/v2-solidity-utils": 4.0.0
+    "@nomiclabs/hardhat-ethers": ^2.2.1
+    "@nomiclabs/hardhat-vyper": ^3.0.2
+    "@nomiclabs/hardhat-waffle": ^2.0.3
+    "@types/chai": ^4.3.3
+    "@types/lodash": ^4.14.186
+    "@types/mocha": ^10.0.0
+    "@types/node": ^14.14.31
+    "@typescript-eslint/eslint-plugin": ^5.41.0
+    "@typescript-eslint/parser": ^5.41.0
+    chai: ^4.3.6
+    decimal.js: ^10.4.2
+    eslint: ^8.26.0
+    eslint-plugin-mocha-no-only: ^1.1.1
+    eslint-plugin-prettier: ^4.2.1
+    ethereum-waffle: ^3.4.4
+    ethers: ^5.7.2
+    hardhat: ^2.12.5
+    hardhat-ignore-warnings: ^0.2.4
+    mocha: ^10.1.0
+    nodemon: ^2.0.20
+    prettier: ^2.7.1
+    prettier-plugin-solidity: v1.0.0-alpha.59
+    solhint: ^3.2.0
+    solhint-plugin-prettier: ^0.0.4
+    ts-node: ^10.9.1
+    typescript: ^4.0.2
+  languageName: unknown
+  linkType: soft
+
+"@swaap-labs/balancer-v2-solidity-utils@workspace:dep/solidity-utils":
+  version: 0.0.0-use.local
+  resolution: "@swaap-labs/balancer-v2-solidity-utils@workspace:dep/solidity-utils"
+  dependencies:
+    "@balancer-labs/balancer-js": 2.0.0
+    "@balancer-labs/v2-common": "workspace:*"
+    "@balancer-labs/v2-helpers": "workspace:*"
+    "@balancer-labs/v2-interfaces": 0.4.0
+    "@nomiclabs/hardhat-ethers": ^2.2.1
+    "@nomiclabs/hardhat-waffle": ^2.0.3
+    "@types/chai": ^4.3.3
+    "@types/lodash": ^4.14.186
+    "@types/mocha": ^10.0.0
+    "@types/node": ^14.14.31
+    "@typescript-eslint/eslint-plugin": ^5.41.0
+    "@typescript-eslint/parser": ^5.41.0
+    chai: ^4.3.6
+    decimal.js: ^10.4.2
+    eslint: ^8.26.0
+    eslint-plugin-mocha-no-only: ^1.1.1
+    eslint-plugin-prettier: ^4.2.1
+    ethereum-waffle: ^3.4.4
+    ethers: ^5.7.2
+    hardhat: ^2.12.5
+    hardhat-ignore-warnings: ^0.2.4
+    lodash.frompairs: ^4.0.1
+    lodash.pick: ^4.4.0
+    lodash.range: ^3.2.0
+    lodash.times: ^4.3.2
+    lodash.zip: ^4.2.0
+    mocha: ^10.1.0
+    nodemon: ^2.0.20
+    prettier: ^2.7.1
+    prettier-plugin-solidity: v1.0.0-alpha.59
+    solhint: ^3.2.0
+    solhint-plugin-prettier: ^0.0.4
+    ts-node: ^10.9.1
+    typescript: ^4.0.2
+  languageName: unknown
+  linkType: soft
+
+"@swaap-labs/balancer-v2-standalone-utils@workspace:dep/standalone-utils":
+  version: 0.0.0-use.local
+  resolution: "@swaap-labs/balancer-v2-standalone-utils@workspace:dep/standalone-utils"
+  dependencies:
+    "@balancer-labs/balancer-js": 2.0.0
+    "@balancer-labs/v2-common": "workspace:*"
+    "@balancer-labs/v2-helpers": "workspace:*"
+    "@balancer-labs/v2-interfaces": 0.4.0
+    "@balancer-labs/v2-pool-utils": 3.0.0
+    "@balancer-labs/v2-solidity-utils": 4.0.0
+    "@balancer-labs/v2-vault": 3.0.0
+    "@nomiclabs/hardhat-ethers": ^2.2.1
+    "@nomiclabs/hardhat-waffle": ^2.0.3
+    "@types/chai": ^4.3.3
+    "@types/lodash": ^4.14.186
+    "@types/mocha": ^10.0.0
+    "@types/node": ^14.14.31
+    "@typescript-eslint/eslint-plugin": ^5.41.0
+    "@typescript-eslint/parser": ^5.41.0
+    chai: ^4.3.6
+    eslint: ^8.26.0
+    eslint-plugin-mocha-no-only: ^1.1.1
+    eslint-plugin-prettier: ^4.2.1
+    ethereum-waffle: ^3.4.4
+    ethers: ^5.7.2
+    hardhat: ^2.12.5
+    hardhat-ignore-warnings: ^0.2.4
+    lodash: ^4.17.21
+    mocha: ^10.1.0
+    nodemon: ^2.0.20
+    prettier: ^2.7.1
+    prettier-plugin-solidity: v1.0.0-alpha.59
+    solhint: ^3.2.0
+    solhint-plugin-prettier: ^0.0.4
+    ts-node: ^10.9.1
+    typescript: ^4.0.2
+  languageName: unknown
+  linkType: soft
+
 "@swaap-labs/swaap-core-v1@npm:^1.0.0":
   version: 1.0.0
   resolution: "@swaap-labs/swaap-core-v1@npm:1.0.0"
@@ -1938,43 +2055,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@swaap-labs/v2-liquidity-mining@workspace:dep/liquidity-mining":
-  version: 0.0.0-use.local
-  resolution: "@swaap-labs/v2-liquidity-mining@workspace:dep/liquidity-mining"
-  dependencies:
-    "@balancer-labs/v2-common": "workspace:*"
-    "@balancer-labs/v2-helpers": "workspace:*"
-    "@balancer-labs/v2-interfaces": 0.4.0
-    "@balancer-labs/v2-solidity-utils": 4.0.0
-    "@nomiclabs/hardhat-ethers": ^2.2.1
-    "@nomiclabs/hardhat-vyper": ^3.0.2
-    "@nomiclabs/hardhat-waffle": ^2.0.3
-    "@types/chai": ^4.3.3
-    "@types/lodash": ^4.14.186
-    "@types/mocha": ^10.0.0
-    "@types/node": ^14.14.31
-    "@typescript-eslint/eslint-plugin": ^5.41.0
-    "@typescript-eslint/parser": ^5.41.0
-    chai: ^4.3.6
-    decimal.js: ^10.4.2
-    eslint: ^8.26.0
-    eslint-plugin-mocha-no-only: ^1.1.1
-    eslint-plugin-prettier: ^4.2.1
-    ethereum-waffle: ^3.4.4
-    ethers: ^5.7.2
-    hardhat: ^2.12.5
-    hardhat-ignore-warnings: ^0.2.4
-    mocha: ^10.1.0
-    nodemon: ^2.0.20
-    prettier: ^2.7.1
-    prettier-plugin-solidity: v1.0.0-alpha.59
-    solhint: ^3.2.0
-    solhint-plugin-prettier: ^0.0.4
-    ts-node: ^10.9.1
-    typescript: ^4.0.2
-  languageName: unknown
-  linkType: soft
-
 "@swaap-labs/v2-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@swaap-labs/v2-monorepo@workspace:."
@@ -2005,86 +2085,6 @@ __metadata:
     mocha: ^10.2.0
     solc: ^0.8.19
     solidity-coverage: ^0.8.2
-  languageName: unknown
-  linkType: soft
-
-"@swaap-labs/v2-solidity-utils@workspace:dep/solidity-utils":
-  version: 0.0.0-use.local
-  resolution: "@swaap-labs/v2-solidity-utils@workspace:dep/solidity-utils"
-  dependencies:
-    "@balancer-labs/balancer-js": 2.0.0
-    "@balancer-labs/v2-common": "workspace:*"
-    "@balancer-labs/v2-helpers": "workspace:*"
-    "@balancer-labs/v2-interfaces": 0.4.0
-    "@nomiclabs/hardhat-ethers": ^2.2.1
-    "@nomiclabs/hardhat-waffle": ^2.0.3
-    "@types/chai": ^4.3.3
-    "@types/lodash": ^4.14.186
-    "@types/mocha": ^10.0.0
-    "@types/node": ^14.14.31
-    "@typescript-eslint/eslint-plugin": ^5.41.0
-    "@typescript-eslint/parser": ^5.41.0
-    chai: ^4.3.6
-    decimal.js: ^10.4.2
-    eslint: ^8.26.0
-    eslint-plugin-mocha-no-only: ^1.1.1
-    eslint-plugin-prettier: ^4.2.1
-    ethereum-waffle: ^3.4.4
-    ethers: ^5.7.2
-    hardhat: ^2.12.5
-    hardhat-ignore-warnings: ^0.2.4
-    lodash.frompairs: ^4.0.1
-    lodash.pick: ^4.4.0
-    lodash.range: ^3.2.0
-    lodash.times: ^4.3.2
-    lodash.zip: ^4.2.0
-    mocha: ^10.1.0
-    nodemon: ^2.0.20
-    prettier: ^2.7.1
-    prettier-plugin-solidity: v1.0.0-alpha.59
-    solhint: ^3.2.0
-    solhint-plugin-prettier: ^0.0.4
-    ts-node: ^10.9.1
-    typescript: ^4.0.2
-  languageName: unknown
-  linkType: soft
-
-"@swaap-labs/v2-standalone-utils@workspace:dep/standalone-utils":
-  version: 0.0.0-use.local
-  resolution: "@swaap-labs/v2-standalone-utils@workspace:dep/standalone-utils"
-  dependencies:
-    "@balancer-labs/balancer-js": 2.0.0
-    "@balancer-labs/v2-common": "workspace:*"
-    "@balancer-labs/v2-helpers": "workspace:*"
-    "@balancer-labs/v2-interfaces": 0.4.0
-    "@balancer-labs/v2-pool-utils": 3.0.0
-    "@balancer-labs/v2-solidity-utils": 4.0.0
-    "@balancer-labs/v2-vault": 3.0.0
-    "@nomiclabs/hardhat-ethers": ^2.2.1
-    "@nomiclabs/hardhat-waffle": ^2.0.3
-    "@types/chai": ^4.3.3
-    "@types/lodash": ^4.14.186
-    "@types/mocha": ^10.0.0
-    "@types/node": ^14.14.31
-    "@typescript-eslint/eslint-plugin": ^5.41.0
-    "@typescript-eslint/parser": ^5.41.0
-    chai: ^4.3.6
-    eslint: ^8.26.0
-    eslint-plugin-mocha-no-only: ^1.1.1
-    eslint-plugin-prettier: ^4.2.1
-    ethereum-waffle: ^3.4.4
-    ethers: ^5.7.2
-    hardhat: ^2.12.5
-    hardhat-ignore-warnings: ^0.2.4
-    lodash: ^4.17.21
-    mocha: ^10.1.0
-    nodemon: ^2.0.20
-    prettier: ^2.7.1
-    prettier-plugin-solidity: v1.0.0-alpha.59
-    solhint: ^3.2.0
-    solhint-plugin-prettier: ^0.0.4
-    ts-node: ^10.9.1
-    typescript: ^4.0.2
   languageName: unknown
   linkType: soft
 
