@@ -925,7 +925,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
         uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
 
-        return(newTVLPerPT.divDown(oldTVLPerPT), newBalanceOut.divDown(hodlBalancePerPTOut));
+        return(newTVLPerPT.divDown(oldTVLPerPT), newBalanceOutPerPT.divDown(hodlBalancePerPTOut));
     }
 
     function _isTokenPegged0(bytes32 packedPoolParams) internal pure returns(bool){
