@@ -24,7 +24,7 @@ interface ISafeguardPool is IBasePool, ISignatureSafeguard {
 
     event PegStatesUpdated(bool isPegged0, bool isPegged1);
     event FlexibleOracleStatesUpdated(bool isFlexibleOracle0, bool isFlexibleOracle1);
-    event SignerChanged(address signer);
+    event SignerChanged(address indexed signer);
     event MustAllowlistLPsSet(bool mustAllowlistLPs);
     event PerfUpdateIntervalChanged(uint256 perfUpdateInterval);
     event MaxPerfDevChanged(uint256 maxPerfDev);
