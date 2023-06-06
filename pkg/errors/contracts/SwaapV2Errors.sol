@@ -42,6 +42,7 @@ library SwaapV2Errors {
     uint256 internal constant EXCEEDS_TIMEOUT = 23;
     uint256 internal constant NON_POSITIVE_PRICE = 24;
     uint256 internal constant FEES_TOO_HIGH = 25;
+    uint256 internal constant LOW_INITIAL_BALANCE = 26;
 }
 
 /**

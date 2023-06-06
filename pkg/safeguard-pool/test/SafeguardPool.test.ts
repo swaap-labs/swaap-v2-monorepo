@@ -209,8 +209,13 @@ describe('SafeguardPool', function () {
 
           expect(await pool.balanceOf(ZERO_ADDRESS)).to.be.equal(minimumBpt);
         });
+        
+        it('reverts for low initial amountsIn', async () => {
+          const wrongAmountsIn = [fp(0), fp(0)];
+          await expect(pool.init({ initialBalances: wrongAmountsIn, recipient: lp })).to.be.revertedWith('SWAAP#26');
+        });
 
-        it('reverts with invalid initial balances', async () => {
+        it('reverts with wrong initial balances length', async () => {
           await expect(pool.init({ recipient, initialBalances: [fp(1)] })).to.be.revertedWith(
             'BAL#524'
           );

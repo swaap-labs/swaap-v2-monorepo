@@ -37,7 +37,10 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
     uint256 private constant _NUM_TOKENS = 2;
     
+    // initial BPT minted at the initialization of the pool
     uint256 private constant _INITIAL_BPT = 100 ether;
+    // minimum acceptable balance at the initialization of the pool (balance upscaled to 18 decimals)
+    uint256 private constant _MIN_INITIAL_BALANCE = 1e8;
 
     // Pool parameters constants
     uint256 private constant _MAX_PERFORMANCE_DEVIATION = 95e16; // 5% max tolerance
@@ -467,6 +470,14 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         _require(amountsIn.length == _NUM_TOKENS, Errors.TOKENS_LENGTH_MUST_BE_2);
         
         _upscaleArray(amountsIn, scalingFactors);
+
+        // prevents the pool from being initialized with a low balance (i.e. amountIn = 1 wei)
+        // which will result in an usuable pool at initialization since hodlBalancePerPT will be equal to 0 
+        // and targeDeviation = currentBalancePerPT / hodlBalancePerPT (illegal division by 0)
+        _srequire(
+            amountsIn[0] >= _MIN_INITIAL_BALANCE && amountsIn[1] >= _MIN_INITIAL_BALANCE,
+            SwaapV2Errors.LOW_INITIAL_BALANCE
+        );
 
         // set perf balances & set last perf update time to current block.timestamp
         _setHodlBalancesPerPT(amountsIn[0].divDown(_INITIAL_BPT), amountsIn[1].divDown(_INITIAL_BPT));
