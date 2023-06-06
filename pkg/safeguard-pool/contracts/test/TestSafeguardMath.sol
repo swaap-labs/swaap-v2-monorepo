@@ -29,17 +29,21 @@ contract TestSafeguardMath {
     function calcBalanceBasedPenalty(
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
-        uint256 balanceChangeTolerance,
+        uint256 totalSupply,
         uint256 quoteBalanceIn,
         uint256 quoteBalanceOut,
+        uint256 quoteTotalSupply,
+        uint256 balanceChangeTolerance,
         uint256 balanceBasedSlippage
     ) external pure returns (uint256) {
         return SafeguardMath.calcBalanceBasedPenalty(
             balanceTokenIn,
             balanceTokenOut,
-            balanceChangeTolerance,
+            totalSupply,
             quoteBalanceIn,
             quoteBalanceOut,
+            quoteTotalSupply,
+            balanceChangeTolerance,
             balanceBasedSlippage
         );
     }

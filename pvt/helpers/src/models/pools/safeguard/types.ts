@@ -86,6 +86,7 @@ export type SwapSafeguardPool = {
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
+  quoteTotalSupply?         : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
@@ -130,6 +131,7 @@ export type JoinGivenInSafeguardPool = {
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
+  quoteTotalSupply?         : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
   startTime?                : BigNumberish;
   timeBasedSlippage?        : BigNumberish;
@@ -178,6 +180,7 @@ export type ExitGivenOutSafeguardPool = {
   maxBalanceChangeTolerance?: BigNumberish;
   quoteBalanceIn?           : BigNumberish;
   quoteBalanceOut?          : BigNumberish;
+  quoteTotalSupply?         : BigNumberish;
   balanceBasedSlippage?     : BigNumberish;
   originBasedSlippage?      : BigNumberish;
   startTime?                : BigNumberish;

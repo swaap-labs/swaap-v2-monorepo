@@ -41,10 +41,11 @@ library SafeguardPoolUserData {
         uint256 originBasedSlippage,
         bytes32 priceBasedParams,
         bytes32 quoteBalances,
+        uint256 quoteTotalSupply,
         bytes32 balanceBasedParams,
         bytes32 timeBasedParams
     ) {
-        return abi.decode(self, (address, uint256, bytes32, bytes32, bytes32, bytes32));
+        return abi.decode(self, (address, uint256, bytes32, bytes32, uint256, bytes32, bytes32));
     }
 
     function decodeSignedSwapData(bytes calldata self) internal pure 

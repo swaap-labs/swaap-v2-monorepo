@@ -288,6 +288,7 @@ export default class SafeguardPool extends BasePool {
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (tokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (tokenOut == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const quoteTotalSupply = params.quoteTotalSupply?? await this.instance.totalSupply();
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
@@ -308,6 +309,7 @@ export default class SafeguardPool extends BasePool {
       maxBalanceChangeTolerance,
       quoteBalanceIn,
       quoteBalanceOut,
+      quoteTotalSupply,
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
@@ -345,6 +347,7 @@ export default class SafeguardPool extends BasePool {
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (tokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (tokenOut == tokens[0]? currentBalances[0] : currentBalances[1]);
+    const quoteTotalSupply = params.quoteTotalSupply?? await this.instance.totalSupply();
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
@@ -358,6 +361,7 @@ export default class SafeguardPool extends BasePool {
       maxBalanceChangeTolerance,
       quoteBalanceIn,
       quoteBalanceOut,
+      quoteTotalSupply,
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
@@ -425,6 +429,7 @@ export default class SafeguardPool extends BasePool {
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0]);
+    const quoteTotalSupply = params.quoteTotalSupply?? await this.instance.totalSupply();
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
@@ -448,6 +453,7 @@ export default class SafeguardPool extends BasePool {
       maxBalanceChangeTolerance,
       quoteBalanceIn,
       quoteBalanceOut,
+      quoteTotalSupply,
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
@@ -525,6 +531,7 @@ export default class SafeguardPool extends BasePool {
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0]);
+    const quoteTotalSupply = params.quoteTotalSupply?? await this.instance.totalSupply();
     const balanceBasedSlippage = params.balanceBasedSlippage?? 0;
     const startTime = params.startTime?? MAX_UINT256;
     const timeBasedSlippage = params.timeBasedSlippage?? 0;
@@ -554,6 +561,7 @@ export default class SafeguardPool extends BasePool {
         maxBalanceChangeTolerance,
         quoteBalanceIn,
         quoteBalanceOut,
+        quoteTotalSupply,
         balanceBasedSlippage,
         startTime,
         timeBasedSlippage,

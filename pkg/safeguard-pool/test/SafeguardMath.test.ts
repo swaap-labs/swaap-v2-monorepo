@@ -189,58 +189,121 @@ describe('SafeguardMath', () => {
 
   describe('calcBalanceBasedPenalty', () => {
 
-    it ('slippage on tokenIn', async () => {
+    it ('slippage on balance of tokenIn', async () => {
       const balanceTokenIn = fp(1)
       const balanceTokenOut = fp(1)
-      const balanceChangeTolerance = fp(1) // 100%
+      const totalSupply = fp(100)
       const quoteBalanceIn = fp(2)
       const quoteBalanceOut = fp(1)
+      const quoteTotalSupply = totalSupply;
+      const balanceChangeTolerance = fp(1) // 100%
       const balanceBasedSlippage = fp(0.01)
+
       const actual = await lib.connect(ZERO_ADDRESS).calcBalanceBasedPenalty(
         balanceTokenIn,
         balanceTokenOut,
-        balanceChangeTolerance,
+        totalSupply,
         quoteBalanceIn,
         quoteBalanceOut,
+        quoteTotalSupply,
+        balanceChangeTolerance,
         balanceBasedSlippage
-      )
+      );
+
       const expected = balanceBasedSlippage.mul(quoteBalanceIn.sub(balanceTokenIn)).mul(fp(1)).div(balanceTokenIn).div(fp(1))
       expectRelativeErrorBN(actual, expected, tolerance)
     });
 
-    it ('slippage on tokenOut', async () => {
+    it ('slippage on balance of tokenOut', async () => {
       const balanceTokenIn = fp(1)
       const balanceTokenOut = fp(1)
-      const balanceChangeTolerance = fp(1) // 100%
+      const totalSupply = fp(100);
       const quoteBalanceIn = fp(2)
       const quoteBalanceOut = fp(2)
+      const quoteTotalSupply = totalSupply;
+      const balanceChangeTolerance = fp(1) // 100%
       const balanceBasedSlippage = fp(0.01)
+
       const actual = await lib.connect(ZERO_ADDRESS).calcBalanceBasedPenalty(
         balanceTokenIn,
         balanceTokenOut,
-        balanceChangeTolerance,
+        totalSupply,
         quoteBalanceIn,
         quoteBalanceOut,
+        quoteTotalSupply,
+        balanceChangeTolerance,
         balanceBasedSlippage
       )
       const expected = balanceBasedSlippage.mul(quoteBalanceOut.sub(balanceTokenOut)).mul(fp(1)).div(balanceTokenOut).div(fp(1))
       expectRelativeErrorBN(actual, expected, tolerance)
     });
 
-    it ('reverts', async () => {
+    it ('slippage on balance per PT change', async () => {
       const balanceTokenIn = fp(1)
       const balanceTokenOut = fp(1)
-      const balanceChangeTolerance = fp(0.1) // 10%
+      const totalSupply = fp(150);
+      const quoteBalanceIn = fp(1)
+      const quoteBalanceOut = fp(1)
+      const quoteTotalSupply = fp(100);
+      const balanceChangeTolerance = fp(1) // 100%
+      const balanceBasedSlippage = fp(0.01)
+
+      const actual = await lib.connect(ZERO_ADDRESS).calcBalanceBasedPenalty(
+        balanceTokenIn,
+        balanceTokenOut,
+        totalSupply,
+        quoteBalanceIn,
+        quoteBalanceOut,
+        quoteTotalSupply,
+        balanceChangeTolerance,
+        balanceBasedSlippage
+      )
+
+      const expected = balanceBasedSlippage.mul(totalSupply.sub(quoteTotalSupply)).div(quoteTotalSupply);
+      expectRelativeErrorBN(actual, expected, tolerance)
+    });
+
+    it ('reverts on large balance change', async () => {
+      const balanceTokenIn = fp(1)
+      const balanceTokenOut = fp(1)
+      const totalSupply = fp(100);
       const quoteBalanceIn = fp(2)
       const quoteBalanceOut = fp(3)
+      const quoteTotalSupply = totalSupply;
+      const balanceChangeTolerance = fp(0.1) // 10%
       const balanceBasedSlippage = fp(0.01)
       await expect(
         lib.connect(ZERO_ADDRESS).calcBalanceBasedPenalty(
           balanceTokenIn,
           balanceTokenOut,
-          balanceChangeTolerance,
+          totalSupply,
           quoteBalanceIn,
           quoteBalanceOut,
+          quoteTotalSupply,
+          balanceChangeTolerance,
+          balanceBasedSlippage
+        )
+      ).to.be.revertedWith("SWAAP#20")
+    });
+
+    it ('reverts on large balance per PT change', async () => {
+      const balanceTokenIn = fp(1)
+      const balanceTokenOut = fp(1)
+      const totalSupply = fp(150);
+      const quoteBalanceIn = fp(1)
+      const quoteBalanceOut = fp(1)
+      const quoteTotalSupply = fp(100);
+      const balanceChangeTolerance = fp(0.1) // 10%
+      const balanceBasedSlippage = fp(0.01)
+      await expect(
+        lib.connect(ZERO_ADDRESS).calcBalanceBasedPenalty(
+          balanceTokenIn,
+          balanceTokenOut,
+          totalSupply,
+          quoteBalanceIn,
+          quoteBalanceOut,
+          quoteTotalSupply,
+          balanceChangeTolerance,
           balanceBasedSlippage
         )
       ).to.be.revertedWith("SWAAP#20")

@@ -244,11 +244,18 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             uint256 originBasedSlippage,
             bytes32 priceBasedParams,
             bytes32 quoteBalances,
+            uint256 quoteTotalSupply,
             bytes32 balanceBasedParams,
             bytes32 timeBasedParams
         ) = swapData.pricingParameters();
         
-        uint256 penalty = _getBalanceBasedPenalty(balanceTokenIn, balanceTokenOut, quoteBalances, balanceBasedParams);
+        uint256 penalty = _getBalanceBasedPenalty(
+            balanceTokenIn,
+            balanceTokenOut,
+            quoteBalances,
+            quoteTotalSupply,
+            balanceBasedParams
+        );
         
         penalty = penalty.add(_getTimeBasedPenalty(timeBasedParams));
 
@@ -265,8 +272,9 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         bytes32 quoteBalances,
+        uint256 quoteTotalSupply,
         bytes32 balanceBasedParams
-    ) internal pure returns(uint256) 
+    ) internal view returns(uint256) 
     {
         (uint256 quoteBalanceIn, uint256 quoteBalanceOut) = quoteBalances.unpackPairedUints();
 
@@ -276,9 +284,11 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         return SafeguardMath.calcBalanceBasedPenalty(
             balanceTokenIn,
             balanceTokenOut,
-            balanceChangeTolerance,
+            totalSupply(),
             quoteBalanceIn,
             quoteBalanceOut,
+            quoteTotalSupply,
+            balanceChangeTolerance,
             balanceBasedSlippage
         );
     }

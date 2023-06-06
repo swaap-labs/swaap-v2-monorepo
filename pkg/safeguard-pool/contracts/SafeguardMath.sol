@@ -47,24 +47,42 @@ library SafeguardMath {
 
     /**
     * @notice slippage based on the change of the pool's balance between quotation and execution time
+    * @param balanceTokenIn actual balance of the token in before the swap
+    * @param balanceTokenOut actual balance of the token out before the swap
+    * @param totalSupply total supply of the pool during swap time
+    * @param quoteBalanceIn expected balance of the token in at the time of the quote
+    * @param quoteBalanceOut expected balance of the token out at the time of the quote
+    * @param quoteTotalSupply expected total supply of the pool at the time of the quote
+    * @param balanceChangeTolerance max percentage change of the pool's balance between quotation and execution
+    * @param balanceBasedSlippage slope based on the change of the pool's balance between quotation and execution
     */
     function calcBalanceBasedPenalty(
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
-        uint256 balanceChangeTolerance,
+        uint256 totalSupply,
         uint256 quoteBalanceIn,
         uint256 quoteBalanceOut,
+        uint256 quoteTotalSupply,
+        uint256 balanceChangeTolerance,
         uint256 balanceBasedSlippage
     ) internal pure returns (uint256) {
         
-        uint256 balanceDevIn = calcBalanceDeviation(balanceTokenIn, quoteBalanceIn);
+        // if the expected balance of the token in is lower than the actual balance, we apply a penalty
+        uint256 balanceDevIn = Math.max(
+            calcBalanceDeviation(balanceTokenIn, quoteBalanceIn),
+            calcBalanceDeviation(balanceTokenIn.divDown(totalSupply), quoteBalanceIn.divDown(quoteTotalSupply))
+        );
 
-        uint256 balanceDevOut = calcBalanceDeviation(balanceTokenOut, quoteBalanceOut);
+        // if the expected balance of the token out is lower than the actual balance, we apply a penalty
+        uint256 balanceDevOut = Math.max(
+            calcBalanceDeviation(balanceTokenOut, quoteBalanceOut),
+            calcBalanceDeviation(balanceTokenOut.divDown(totalSupply), quoteBalanceOut.divDown(quoteTotalSupply))
+        );
 
         uint256 maxDeviation = Math.max(balanceDevIn, balanceDevOut);
 
         _srequire(maxDeviation <= balanceChangeTolerance, SwaapV2Errors.QUOTE_BALANCE_NO_LONGER_VALID);
-    
+
         return balanceBasedSlippage.mulUp(maxDeviation);
     }
 

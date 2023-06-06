@@ -77,6 +77,7 @@ export class SafeguardPoolEncoder {
       maxBalanceChangeTolerance: BigNumberish,
       quoteBalanceIn: BigNumberish,
       quoteBalanceOut: BigNumberish,
+      quoteTotalSupply: BigNumberish,
       balanceBasedSlippage: BigNumberish,
       startTime: BigNumberish,
       timeBasedSlippage: BigNumberish,
@@ -93,6 +94,7 @@ export class SafeguardPoolEncoder {
       maxBalanceChangeTolerance,
       quoteBalanceIn,
       quoteBalanceOut,
+      quoteTotalSupply,
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
@@ -135,6 +137,7 @@ export class SafeguardPoolEncoder {
     maxBalanceChangeTolerance: BigNumberish,  //  60 bits
     quoteBalanceIn: BigNumberish,
     quoteBalanceOut:BigNumberish,
+    quoteTotalSupply: BigNumberish,
     balanceBasedSlippage: BigNumberish,
     startTime: BigNumberish,
     timeBasedSlippage: BigNumberish,
@@ -150,6 +153,7 @@ export class SafeguardPoolEncoder {
       maxBalanceChangeTolerance,
       quoteBalanceIn,
       quoteBalanceOut,
+      quoteTotalSupply,
       balanceBasedSlippage,
       startTime,
       timeBasedSlippage,
@@ -181,6 +185,7 @@ export class SafeguardPoolEncoder {
       maxBalanceChangeTolerance: BigNumberish,
       quoteBalanceIn: BigNumberish,
       quoteBalanceOut:BigNumberish,
+      quoteTotalSupply: BigNumberish,
       balanceBasedSlippage: BigNumberish,
       startTime: BigNumberish,
       timeBasedSlippage: BigNumberish,
@@ -193,12 +198,13 @@ export class SafeguardPoolEncoder {
     const timeBasedParams = this.packIn256Bits(this.fitIn128bits(startTime), timeBasedSlippage)
 
     return defaultAbiCoder.encode(
-      ['address','uint256','uint256','uint256','uint256','uint256'],
+      ['address','uint256','uint256','uint256','uint256','uint256','uint256'],
       [
         expectedOrigin, // expected origin
         originBasedSlippage, // origin slope
         priceBasedParams, // relative price + maxSwapAmount
         quoteBalances, // quote balanceIn + Out
+        quoteTotalSupply, // quote total supply
         balanceBasedParams, // maxBalanceTolerance + balance slope
         timeBasedParams // startTime + time slope
       ]
