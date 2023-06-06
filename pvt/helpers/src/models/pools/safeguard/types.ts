@@ -143,16 +143,6 @@ export type JoinGivenInSafeguardPool = {
   allowlistDeadline?        : BigNumberish;
 };
 
-export type JoinGivenOutWeightedPool = {
-  token: number | Token;
-  bptOut: BigNumberish;
-  from?: SignerWithAddress;
-  recipient?: Account;
-  lastChangeBlock?: BigNumberish;
-  currentBalances?: BigNumberish[];
-  protocolFeePercentage?: BigNumberish;
-};
-
 export type JoinAllGivenOutSafeguardPool = {
   bptOut: BigNumberish;
   from?: SignerWithAddress;
@@ -189,16 +179,6 @@ export type ExitGivenOutSafeguardPool = {
   timeBasedSlippage?        : BigNumberish;
   quoteIndex?               : BigNumberish;
   signer                    : SignerWithAddress;
-};
-
-export type SingleExitGivenInWeightedPool = {
-  bptIn: BigNumberish;
-  token: number | Token;
-  recipient?: Account;
-  from?: SignerWithAddress;
-  lastChangeBlock?: BigNumberish;
-  currentBalances?: BigNumberish[];
-  protocolFeePercentage?: BigNumberish;
 };
 
 export type MultiExitGivenInSafeguardPool = {
@@ -242,32 +222,6 @@ export type VoidResult = {
 };
 
 export type PoolQueryResult = JoinQueryResult | ExitQueryResult;
-
-export type BasePoolRights = {
-  canTransferOwnership: boolean;
-  canChangeSwapFee: boolean;
-  canUpdateMetadata: boolean;
-};
-
-export type ManagedPoolRights = {
-  canChangeWeights: boolean;
-  canDisableSwaps: boolean;
-  canSetMustAllowlistLPs: boolean;
-  canSetCircuitBreakers: boolean;
-  canChangeTokens: boolean;
-  canChangeMgmtFees: boolean;
-  canDisableJoinExit: boolean;
-};
-
-export type ManagedPoolParams = {
-  tokens: string[];
-  normalizedWeights: BigNumberish[];
-  swapFeePercentage: BigNumberish;
-  swapEnabledOnStart: boolean;
-  mustAllowlistLPs: boolean;
-  managementAumFeePercentage: BigNumberish;
-  aumFeeId: BigNumberish;
-};
 
 export type CircuitBreakerState = {
   bptPrice: BigNumber;
