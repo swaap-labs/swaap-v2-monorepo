@@ -14,6 +14,7 @@ import Oracle from '@balancer-labs/v2-helpers/src/models/oracles/Oracle';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import OraclesDeployer from '@balancer-labs/v2-helpers/src/models/oracles/OraclesDeployer';
 import '@balancer-labs/v2-common/setupTests'
+import TypesConverter  from '@balancer-labs/v2-helpers/src/models/types/TypesConverter';
 
 describe('SafeguardFactory', function () {
   let tokens: TokenList;
@@ -86,15 +87,20 @@ describe('SafeguardFactory', function () {
       mustAllowlistLPs: mustAllowlistLPs
     }
 
+    const salt = TypesConverter.toBytes32(Math.round(Date.now()));
+    const args = {
+        name: NAME,
+        symbol: SYMBOL,
+        tokens: tokens.addresses,
+        oracleParams: initialOracleParams,
+        safeguardParameters: safeguardParameters,
+        setPegStates: setPegStates,
+    };
     const receipt = await (
-      await factory.create(
-        NAME,
-        SYMBOL,
-        tokens.addresses,
-        initialOracleParams,
-        safeguardParameters,
-        setPegStates
-      )
+      (await factory.create(
+        args, 
+        salt
+      ))
     ).wait();
 
     const event = expectEvent.inReceipt(receipt, 'PoolCreated');

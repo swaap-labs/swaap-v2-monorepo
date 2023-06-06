@@ -29,7 +29,7 @@
     "test-fuzz": "forge test"
   },
   "dependencies": {
-    "@balancer-labs/v2-vault": "3.0.0"
+    "@balancer-labs/v2-vault": "3.0.1"
   },
   "devDependencies": {
     "@balancer-labs/balancer-js": "2.0.0",

@@ -16,13 +16,14 @@ pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
 import "@balancer-labs/v2-interfaces/contracts/vault/IVault.sol";
-
 import "@balancer-labs/v2-pool-utils/contracts/factories/BasePoolFactory.sol";
 
 import "./SafeguardPool.sol";
 import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISafeguardPool.sol";
+import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISafeguardFactory.sol";
 
-contract SafeguardFactory is BasePoolFactory {
+contract SafeguardFactory is ISafeguardFactory, BasePoolFactory {
+
     constructor(
         IVault vault,
         IProtocolFeePercentagesProvider protocolFeeProvider,
@@ -41,34 +42,31 @@ contract SafeguardFactory is BasePoolFactory {
     }
 
     /**
-     * @dev Deploys a new `WeightedPool`.
+     * @dev Deploys a new `SafeguardPool`.
      */
     function create(
-        string memory name,
-        string memory symbol,
-        IERC20[] memory tokens,
-        ISafeguardPool.InitialOracleParams[] calldata oracleParams,
-        ISafeguardPool.InitialSafeguardParams calldata safeguardParameters,
-        bool setPegStates
-    ) external returns (address) {
+        SafeguardFactoryParameters memory parameters,
+        bytes32 salt
+    ) external override returns (address) {
         (uint256 pauseWindowDuration, uint256 bufferPeriodDuration) = getPauseConfiguration();
         
-        bytes memory constructorArgs = abi.encode(
-            getVault(),
-            name,
-            symbol,
-            tokens,
-            new address[](tokens.length), // Don't allow asset managers
-            pauseWindowDuration,
-            bufferPeriodDuration,
-            0xBA1BA1ba1BA1bA1bA1Ba1BA1ba1BA1bA1ba1ba1B, // only delegate ownership
-            oracleParams,
-            safeguardParameters
+        address pool = super._create(
+            abi.encode(
+                getVault(),
+                parameters.name,
+                parameters.symbol,
+                parameters.tokens,
+                new address[](parameters.tokens.length), // Don't allow asset managers
+                pauseWindowDuration,
+                bufferPeriodDuration,
+                0xBA1BA1ba1BA1bA1bA1Ba1BA1ba1BA1bA1ba1ba1B, // only delegate ownership
+                parameters.oracleParams,
+                parameters.safeguardParameters
+            ), 
+            salt
         );
 
-        address pool = _create(constructorArgs);
-
-        if(setPegStates) {
+        if(parameters.setPegStates) {
             ISafeguardPool(pool).evaluateStablesPegStates();
         }
 

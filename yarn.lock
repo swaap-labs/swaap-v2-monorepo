@@ -152,7 +152,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@balancer-labs/typechain@npm:*, @balancer-labs/typechain@npm:1.0.0":
+"@balancer-labs/typechain@npm:1.0.0":
   version: 1.0.0
   resolution: "@balancer-labs/typechain@npm:1.0.0"
   peerDependencies:
@@ -212,6 +212,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@balancer-labs/v2-interfaces@npm:0.2.1":
+  version: 0.2.1
+  resolution: "@balancer-labs/v2-interfaces@npm:0.2.1"
+  checksum: c28fc50945fc75f7e26b392b4ff29f9d015e5f44c912a14a594c7bb208f513fa7c3e119a3e4c0fbc9e31d2ad6a9699fefedb1930042ea427075a533c67a47810
+  languageName: node
+  linkType: hard
+
 "@balancer-labs/v2-interfaces@npm:0.4.0":
   version: 0.4.0
   resolution: "@balancer-labs/v2-interfaces@npm:0.4.0"
@@ -219,21 +226,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@balancer-labs/v2-pool-utils@npm:3.0.0":
-  version: 3.0.0
-  resolution: "@balancer-labs/v2-pool-utils@npm:3.0.0"
+"@balancer-labs/v2-pool-utils@npm:4.1.1":
+  version: 4.1.1
+  resolution: "@balancer-labs/v2-pool-utils@npm:4.1.1"
   dependencies:
-    "@balancer-labs/v2-interfaces": 0.2.0
-    "@balancer-labs/v2-solidity-utils": 3.0.1
-    "@balancer-labs/v2-vault": 3.0.0
-  checksum: 7ee555d574cfd64f17ea3f57d407f815b84538c1308cd4c32dd4e8619479c958f1444f516e64cd96db71b6fc7ba804a0477a83973edaf66fd8ccbb4c72cbb42e
-  languageName: node
-  linkType: hard
-
-"@balancer-labs/v2-solidity-utils@npm:3.0.0":
-  version: 3.0.0
-  resolution: "@balancer-labs/v2-solidity-utils@npm:3.0.0"
-  checksum: 859af6b01532258edf91e37f6ca940eff9a1cb5ba64abe9d5eb15ff54f0e58f17267238edab70e5fdbcc94964c3c2383fd5a420edfa356e60abb4e99083540f1
+    "@balancer-labs/v2-interfaces": 0.4.0
+    "@balancer-labs/v2-solidity-utils": 4.0.0
+  checksum: 7588d44ccb7d44cbb7fbd5f2a3073b01fa011582904d069a95e97eb2ad60dca57a99ce483a3822579f8fcdafdb855e387ee31b2c4ec48275940df6dd29a70ebf
   languageName: node
   linkType: hard
 
@@ -255,13 +254,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@balancer-labs/v2-vault@npm:3.0.0":
-  version: 3.0.0
-  resolution: "@balancer-labs/v2-vault@npm:3.0.0"
+"@balancer-labs/v2-vault@npm:3.0.1":
+  version: 3.0.1
+  resolution: "@balancer-labs/v2-vault@npm:3.0.1"
   dependencies:
-    "@balancer-labs/v2-interfaces": 0.2.0
+    "@balancer-labs/v2-interfaces": 0.2.1
     "@balancer-labs/v2-solidity-utils": 3.0.1
-  checksum: 31b3cb01c94784a0969ef062273262cf81591874ae9f9558c075a7353813286d84e6dd2a97806f8366ee843a809cf6ba92611d3d9649142c02b7cc3788768066
+  checksum: 53dba04e574bdab266b388aa5903fb935069bdc8b1ba6c99bd6b4eefa0493cb852fc06356b6b3fde0450ecf6681830f9fea38d6de2e51abeb61f813aabfb1833
   languageName: node
   linkType: hard
 
@@ -1897,9 +1896,9 @@ __metadata:
     "@balancer-labs/v2-common": "workspace:*"
     "@balancer-labs/v2-helpers": "workspace:*"
     "@balancer-labs/v2-interfaces": 0.4.0
-    "@balancer-labs/v2-pool-utils": 3.0.0
+    "@balancer-labs/v2-pool-utils": 4.1.1
     "@balancer-labs/v2-solidity-utils": 4.0.0
-    "@balancer-labs/v2-vault": 3.0.0
+    "@balancer-labs/v2-vault": 3.0.1
     "@nomiclabs/hardhat-ethers": ^2.2.1
     "@nomiclabs/hardhat-waffle": ^2.0.3
     "@types/chai": ^4.3.3
@@ -2034,8 +2033,8 @@ __metadata:
     "@balancer-labs/v2-common": "workspace:*"
     "@balancer-labs/v2-helpers": "workspace:*"
     "@balancer-labs/v2-interfaces": 0.4.0
-    "@balancer-labs/v2-pool-utils": 3.0.0
-    "@balancer-labs/v2-solidity-utils": 3.0.0
+    "@balancer-labs/v2-pool-utils": 4.1.1
+    "@balancer-labs/v2-solidity-utils": 4.0.0
     "@nomicfoundation/hardhat-chai-matchers": ^1.0.6
     "@nomicfoundation/hardhat-toolbox": ^2.0.1
     "@nomiclabs/hardhat-etherscan": ^3.0.0
@@ -2057,7 +2056,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@swaap-labs/v2-swaap-js@workspace:pkg/swaap-js"
   dependencies:
-    "@balancer-labs/typechain": "*"
+    "@balancer-labs/typechain": 1.0.0
     "@ethersproject/abi": ^5.7.0
     "@ethersproject/abstract-signer": ^5.7.0
     "@ethersproject/address": ^5.7.0
@@ -2097,7 +2096,7 @@ __metadata:
     "@balancer-labs/v2-helpers": "workspace:*"
     "@balancer-labs/v2-interfaces": 0.4.0
     "@balancer-labs/v2-solidity-utils": 4.0.0
-    "@balancer-labs/v2-vault": 3.0.0
+    "@balancer-labs/v2-vault": 3.0.1
     "@nomicfoundation/hardhat-network-helpers": ^1.0.6
     "@nomiclabs/hardhat-ethers": ^2.2.1
     "@nomiclabs/hardhat-waffle": ^2.0.3
