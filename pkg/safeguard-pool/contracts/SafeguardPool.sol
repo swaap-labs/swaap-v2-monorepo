@@ -459,12 +459,27 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         bytes32 packedPoolParams
     ) internal view {
 
-        (uint256 performance, uint256 targetDev) 
-            = _getPerfAndTargetDev(isTokenInToken0, newBalanceIn, newBalanceOut, onChainAmountInPerOut, totalSupply);
+        (uint256 newBalancePerPTIn, uint256 newBalancePerPTOut, uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) 
+            = _getBalancesPerPT(isTokenInToken0, newBalanceIn, newBalanceOut, totalSupply);
         
-        _srequire(performance >= _getMaxPerfDev(packedPoolParams), SwaapV2Errors.LOW_PERFORMANCE);
-        
-        _srequire(targetDev >= _getMaxTargetDev(packedPoolParams), SwaapV2Errors.MIN_BALANCE_OUT_NOT_MET);
+        // we check for performance only if the pool is not being rebalanced by the current swap
+        if (newBalancePerPTOut < hodlBalancePerPTOut || newBalancePerPTIn > hodlBalancePerPTIn) {
+            _srequire(
+                _getPerfFromBalancesPerPT(
+                    newBalancePerPTIn,
+                    newBalancePerPTOut,
+                    hodlBalancePerPTIn,
+                    hodlBalancePerPTOut,
+                    onChainAmountInPerOut
+                ) >= _getMaxPerfDev(packedPoolParams), 
+                SwaapV2Errors.LOW_PERFORMANCE
+            );
+        }
+
+        _srequire(
+            newBalancePerPTOut.divDown(hodlBalancePerPTOut) >= _getMaxTargetDev(packedPoolParams), 
+            SwaapV2Errors.MIN_BALANCE_OUT_NOT_MET
+        );
     }
 
     function _onInitializePool(
@@ -938,16 +953,49 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(_packedPoolParams, true);
 
-        (performance, ) = _getPerfAndTargetDev(true, balances[0], balances[1], onChainAmountInPerOut, totalSupply());
+        performance = _getPerf(true, balances[0], balances[1], onChainAmountInPerOut, totalSupply());
     }
 
-    function _getPerfAndTargetDev(
+    function _getPerf(
         bool    isTokenInToken0,
         uint256 newBalanceIn,
         uint256 newBalanceOut,
         uint256 onChainAmountInPerOut,
         uint256 totalSupply
-    ) internal view returns (uint256, uint256) {
+    ) internal view returns (uint256) {
+        
+        (uint256 newBalancePerPTIn, uint256 newBalancePerPTOut, uint256 hodlBalancePerPTIn, uint256 hodlBalancePerPTOut) = 
+            _getBalancesPerPT(isTokenInToken0, newBalanceIn, newBalanceOut, totalSupply);
+        
+        return _getPerfFromBalancesPerPT(
+            newBalancePerPTIn,
+            newBalancePerPTOut,
+            hodlBalancePerPTIn,
+            hodlBalancePerPTOut,
+            onChainAmountInPerOut
+        );
+    }
+
+    function _getPerfFromBalancesPerPT(
+        uint256 newBalancePerPTIn,
+        uint256 newBalancePerPTOut,
+        uint256 hodlBalancePerPTIn,
+        uint256 hodlBalancePerPTOut,
+        uint256 onChainAmountInPerOut
+    ) internal pure returns (uint256) {
+
+        uint256 newTVLPerPT = (newBalancePerPTIn.divDown(onChainAmountInPerOut)).add(newBalancePerPTOut);
+        uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
+
+        return newTVLPerPT.divDown(oldTVLPerPT);
+    }
+
+    function _getBalancesPerPT(
+        bool    isTokenInToken0,
+        uint256 newBalanceIn,
+        uint256 newBalanceOut,
+        uint256 totalSupply
+    ) internal view returns (uint256, uint256, uint256, uint256) {
 
         (uint256 hodlBalancePerPT0, uint256 hodlBalancePerPT1) = getHodlBalancesPerPT();
 
@@ -955,13 +1003,10 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             (hodlBalancePerPT0, hodlBalancePerPT1) :
             (hodlBalancePerPT1, hodlBalancePerPT0); 
 
-        uint256 newBalanceInPerPT = newBalanceIn.divDown(totalSupply);
-        uint256 newBalanceOutPerPT = newBalanceOut.divDown(totalSupply);
+        uint256 newBalancePerPTIn = newBalanceIn.divDown(totalSupply);
+        uint256 newBalancePerPTOut = newBalanceOut.divDown(totalSupply);
 
-        uint256 newTVLPerPT = (newBalanceInPerPT.divDown(onChainAmountInPerOut)).add(newBalanceOutPerPT);
-        uint256 oldTVLPerPT = (hodlBalancePerPTIn.divDown(onChainAmountInPerOut)).add(hodlBalancePerPTOut);
-
-        return(newTVLPerPT.divDown(oldTVLPerPT), newBalanceOutPerPT.divDown(hodlBalancePerPTOut));
+        return(newBalancePerPTIn, newBalancePerPTOut, hodlBalancePerPTIn, hodlBalancePerPTOut);
     }
 
     function _isTokenPegged0(bytes32 packedPoolParams) internal pure returns(bool){

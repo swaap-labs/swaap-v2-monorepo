@@ -121,6 +121,11 @@ export default class BasePool {
     return balances;
   }
 
+  async getHodlBalancesPerPT(): Promise<BigNumber[]> {
+    const balances = await this.instance.getHodlBalancesPerPT();
+    return [balances[0], balances[1]];
+  }
+
   async getRate(): Promise<BigNumber> {
     return this.instance.getRate();
   }

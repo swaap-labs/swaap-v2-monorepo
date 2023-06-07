@@ -9,7 +9,7 @@ import SafeguardPool from '@balancer-labs/v2-helpers/src/models/pools/safeguard/
 import { RawSafeguardPoolDeployment } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/types';
 import Vault from '@balancer-labs/v2-helpers/src/models/vault/Vault';
 import { BigNumber, BigNumberish, fp, bn, bnSum } from '@balancer-labs/v2-helpers/src/numbers';
-import { MAX_UINT112, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
+import { MAX_UINT112, MAX_UINT256, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import { DAY, MINUTE } from '@balancer-labs/v2-helpers/src/time';
 import '@balancer-labs/v2-common/setupTests'
 import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
@@ -297,9 +297,12 @@ describe('SafeguardPool', function () {
           oracles[outIndex].setPrice(latestPrice.mul(pumpFactor)) // pumping token-in-shortage price
 
           const kind = 1;
-          const [newBalanceTokenIn, newBalanceTokenOut, newAmountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          let [newBalanceTokenIn, newBalanceTokenOut, newAmountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
           const newAmountOut = amountIn.mul(fp(1)).div(newAmountInPerOut)
           const maxSwapAmount = newAmountOut
+
+          newBalanceTokenIn = newBalanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          newBalanceTokenOut = newBalanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
 
           await expect(
             pool.validateSwap(
@@ -313,6 +316,39 @@ describe('SafeguardPool', function () {
               maxSwapAmount
             )
           ).to.be.revertedWith("SWAAP#03")
+
+          // rebalancing is allowed
+          let newAmountOutAsIn = newAmountOut.div(2)
+          let newAmountInAsOut = newAmountOutAsIn.mul(newAmountInPerOut).div(fp(1))
+          await expect(
+            pool.validateSwap(
+              kind,
+              !isTokenInToken0,
+              newBalanceTokenOut,
+              newBalanceTokenIn,
+              newAmountOutAsIn,
+              newAmountInAsOut,
+              fp(1).mul(fp(1)).div(newAmountInPerOut),
+              MAX_UINT256
+            )
+          ).not.to.be.reverted;
+
+          // imbalancing is not allowed
+          newAmountOutAsIn = newAmountOutAsIn.mul(5)
+          newAmountInAsOut = newAmountInAsOut.mul(5)
+          await expect(
+            pool.validateSwap(
+              kind,
+              !isTokenInToken0,
+              newBalanceTokenOut,
+              newBalanceTokenIn,
+              newAmountOutAsIn,
+              newAmountInAsOut,
+              fp(1).mul(fp(1)).div(newAmountInPerOut),
+              MAX_UINT256
+            )
+          ).to.be.revertedWith("SWAAP#03")
+
         });
 
       });
