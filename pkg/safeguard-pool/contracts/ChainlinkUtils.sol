@@ -23,11 +23,12 @@ library ChainlinkUtils {
 
     function getLatestPrice(AggregatorV3Interface oracle, uint256 maxTimeout) internal view returns (uint256) {
         (
-            , int256 latestPrice, , uint256 latestTimestamp,
+            uint80 roundId, int256 latestPrice, , uint256 latestTimestamp, uint80 answeredInRound
         ) = AggregatorV3Interface(oracle).latestRoundData();
         // we assume that block.timestamp >= maxTimeout
         _srequire(latestTimestamp >= block.timestamp - maxTimeout, SwaapV2Errors.EXCEEDS_TIMEOUT);
         _srequire(latestPrice > 0, SwaapV2Errors.NON_POSITIVE_PRICE);
+        _srequire(roundId == answeredInRound, SwaapV2Errors.OUTDATED_ORACLE_ROUND_ID);
         return uint256(latestPrice);
     }
 
