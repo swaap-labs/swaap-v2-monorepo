@@ -48,6 +48,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     uint256 private constant _MAX_PRICE_DEVIATION = 97e16; // 3% max tolerance
     uint256 private constant _MIN_PERFORMANCE_UPDATE_INTERVAL = 0.5 days;
     uint256 private constant _MAX_PERFORMANCE_UPDATE_INTERVAL = 1.5 days;
+    uint256 private constant _MAX_ORACLE_TIMEOUT = 1.5 days;
 
     // NB Max yearly fee should fit in a 32 bits slot
     uint256 private constant _MAX_YEARLY_FEES = 5e16; // corresponds to 5% fees
@@ -57,6 +58,9 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     
     AggregatorV3Interface internal immutable _oracle0;
     AggregatorV3Interface internal immutable _oracle1;
+
+    uint256 internal immutable _maxOracleTimeout0;
+    uint256 internal immutable _maxOracleTimeout1;
 
     bool internal immutable _isStable0;
     bool internal immutable _isStable1;
@@ -167,6 +171,17 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         _oracle0 = oracleParams[0].oracle;
         _oracle1 = oracleParams[1].oracle;
 
+        // oracles max price timeouts must be lower than 1.5 days
+        _srequire(
+            oracleParams[0].maxTimeout <= _MAX_ORACLE_TIMEOUT && oracleParams[1].maxTimeout <= _MAX_ORACLE_TIMEOUT,
+            SwaapV2Errors.ORACLE_TIMEOUT_TOO_HIGH
+        );
+
+        // setting oracles price max timeouts
+        _maxOracleTimeout0 = oracleParams[0].maxTimeout;
+        _maxOracleTimeout1 = oracleParams[1].maxTimeout;
+
+        // setting oracles price scale factors
         _priceScaleFactor0 = ChainlinkUtils.computePriceScalingFactor(oracleParams[0].oracle);
         _priceScaleFactor1 = ChainlinkUtils.computePriceScalingFactor(oracleParams[1].oracle);
 
@@ -898,12 +913,12 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         bytes32 packedPoolParams = _packedPoolParams;
         
         if(_isStable0 && _isFlexibleOracle0(packedPoolParams)) {
-            bool newPegState = _canBePegged(_isTokenPegged0(packedPoolParams), _oracle0, _priceScaleFactor0);
+            bool newPegState = _canBePegged(_isTokenPegged0(packedPoolParams), _oracle0, _maxOracleTimeout0, _priceScaleFactor0);
             packedPoolParams = packedPoolParams.insertBool(newPegState, _TOKEN_0_PEGGED_BIT_OFFSET);
         }
         
         if(_isStable1 && _isFlexibleOracle1(packedPoolParams)) {
-            bool newPegState = _canBePegged(_isTokenPegged1(packedPoolParams), _oracle1, _priceScaleFactor1);
+            bool newPegState = _canBePegged(_isTokenPegged1(packedPoolParams), _oracle1, _maxOracleTimeout1, _priceScaleFactor1);
             packedPoolParams = packedPoolParams.insertBool(newPegState, _TOKEN_1_PEGGED_BIT_OFFSET);
         }
 
@@ -995,7 +1010,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         if(_isStable0 && _isFlexibleOracle0(packedPoolParams) && _isTokenPegged0(packedPoolParams)) {
             price0 = FixedPoint.ONE;
         } else {
-            price0 = _getPriceFromOracle(_oracle0, _priceScaleFactor0);
+            price0 = _getPriceFromOracle(_oracle0, _maxOracleTimeout0, _priceScaleFactor0);
         }
 
         uint256 price1;
@@ -1003,14 +1018,18 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         if(_isStable1 && _isFlexibleOracle1(packedPoolParams) && _isTokenPegged1(packedPoolParams)) {
             price1 = FixedPoint.ONE;
         } else {
-            price1 = _getPriceFromOracle(_oracle1, _priceScaleFactor1);
+            price1 = _getPriceFromOracle(_oracle1, _maxOracleTimeout1, _priceScaleFactor1);
         }
        
         return isTokenInToken0? price1.divDown(price0) : price0.divDown(price1); 
     }
 
-    function _getPriceFromOracle(AggregatorV3Interface oracle, uint256 priceScaleFactor) internal view returns(uint256){
-        return  _upscale(ChainlinkUtils.getLatestPrice(oracle), priceScaleFactor);
+    function _getPriceFromOracle(
+        AggregatorV3Interface oracle,
+        uint256 maxTimeout,
+        uint256 priceScaleFactor
+    ) internal view returns(uint256){
+        return  _upscale(ChainlinkUtils.getLatestPrice(oracle, maxTimeout), priceScaleFactor);
     }
 
     /// @inheritdoc ISafeguardPool
@@ -1070,6 +1089,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         oracleParams[0] = OracleParams({
             oracle: _oracle0,
+            maxTimeout: _maxOracleTimeout0,
             isStable: _isStable0,
             isFlexibleOracle: _isFlexibleOracle0(packedPoolParams),
             isPegged: _isTokenPegged0(packedPoolParams),
@@ -1078,6 +1098,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         oracleParams[1] = OracleParams({
             oracle: _oracle1,
+            maxTimeout: _maxOracleTimeout1,
             isStable: _isStable1,
             isFlexibleOracle: _isFlexibleOracle1(packedPoolParams),
             isPegged: _isTokenPegged1(packedPoolParams),
@@ -1090,10 +1111,11 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     function _canBePegged(
         bool isTokenPegged,
         AggregatorV3Interface oracle,
+        uint256 maxOracleTimeout,
         uint256 priceScaleFactor
     ) internal view returns(bool) {
 
-        uint256 currentPrice = _getPriceFromOracle(oracle, priceScaleFactor);
+        uint256 currentPrice = _getPriceFromOracle(oracle, maxOracleTimeout, priceScaleFactor);
         
         (uint256 priceMin, uint256 priceMax) = currentPrice < FixedPoint.ONE?
             (currentPrice, FixedPoint.ONE) : (FixedPoint.ONE, currentPrice);

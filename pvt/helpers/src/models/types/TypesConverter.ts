@@ -55,6 +55,7 @@ export default {
     let {
       tokens,
       oracles,
+      maxOracleTimeouts,
       stableTokens,
       flexibleOracles,
       assetManagers,
@@ -71,6 +72,7 @@ export default {
     if (!params.owner) params.owner = ZERO_ADDRESS;
     if (!tokens) tokens = new TokenList();
     if (!oracles) oracles = Array(tokens.length).fill(ZERO_ADDRESS);
+    if (!maxOracleTimeouts) maxOracleTimeouts = Array(tokens.length).fill(1 * DAY);
     if (!stableTokens) stableTokens = Array(tokens.length).fill(true);
     if (!flexibleOracles) flexibleOracles = Array(tokens.length).fill(false);
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
@@ -85,6 +87,7 @@ export default {
     let oracleParameters : InitialOracleParams[] = tokens.map((t, i) => {
       return {
         oracle: oracles![i],
+        maxTimeout: maxOracleTimeouts![i],
         isStable: stableTokens![i],
         isFlexibleOracle: flexibleOracles![i]
       }

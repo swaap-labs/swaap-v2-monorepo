@@ -13,6 +13,7 @@ import Vault from '../../vault/Vault';
 export type RawSafeguardPoolDeployment = {
   tokens?: TokenList;
   oracles?: Oracle[];
+  maxOracleTimeouts?: BigNumberish[];
   stableTokens?: boolean[];
   flexibleOracles?: boolean[];
   assetManagers?: string[];
@@ -48,6 +49,7 @@ export type SafeguardPoolDeployment = {
 
 export type InitialOracleParams = {
   oracle: Oracle;
+  maxTimeout: BigNumberish;
   isStable: boolean;
   isFlexibleOracle: boolean;
 }

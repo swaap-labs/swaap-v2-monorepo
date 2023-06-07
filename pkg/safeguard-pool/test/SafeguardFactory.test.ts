@@ -64,11 +64,13 @@ describe('SafeguardFactory', function () {
     let initialOracleParams =  [
       {
         oracle: oracles[0].address,
+        maxTimeout: 1 * DAY,
         isStable: isStable0,
         isFlexibleOracle: isFlexibleOracle0
       },
       {
         oracle: oracles[1].address,
+        maxTimeout: 1 * DAY,
         isStable: isStable1,
         isFlexibleOracle: isFlexibleOracle1
       }
@@ -140,6 +142,7 @@ describe('SafeguardFactory', function () {
       const oracleParams = await pool.getOracleParams();
       oracleParams.forEach((oracleParam: any, index: number) => {
         expect(oracleParam.oracle).to.eq(oracles[index].address);
+        expect(oracleParam.maxTimeout).to.eq(1 * DAY);
         expect(oracleParam.isStable).to.eq(false);
         expect(oracleParam.isFlexibleOracle).to.eq(false);
         expect(oracleParam.isPegged).to.eq(false);

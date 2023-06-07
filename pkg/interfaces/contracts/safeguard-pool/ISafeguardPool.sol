@@ -56,12 +56,14 @@ interface ISafeguardPool is IBasePool, ISignatureSafeguard {
 
     struct InitialOracleParams {
         AggregatorV3Interface oracle;
+        uint256 maxTimeout;
         bool isStable;
         bool isFlexibleOracle;
     }
 
     struct OracleParams {
         AggregatorV3Interface oracle;
+        uint256 maxTimeout;
         bool isStable;
         bool isFlexibleOracle;
         bool isPegged;

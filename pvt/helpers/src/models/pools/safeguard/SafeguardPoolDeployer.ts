@@ -67,6 +67,7 @@ export default {
             oracleParameters.map((oracleParam) => {
               return {
                 oracle: oracleParam.oracle.address,
+                maxTimeout: oracleParam.maxTimeout,
                 isStable: oracleParam.isStable,
                 isFlexibleOracle: oracleParam.isFlexibleOracle,
               }

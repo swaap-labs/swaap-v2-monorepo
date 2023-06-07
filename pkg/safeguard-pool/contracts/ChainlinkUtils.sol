@@ -21,14 +21,12 @@ import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 library ChainlinkUtils {
 
-    uint256 constant private _ORACLE_TIMEOUT = 1.5 days;
-
-    function getLatestPrice(AggregatorV3Interface oracle) internal view returns (uint256) {
+    function getLatestPrice(AggregatorV3Interface oracle, uint256 maxTimeout) internal view returns (uint256) {
         (
             , int256 latestPrice, , uint256 latestTimestamp,
         ) = AggregatorV3Interface(oracle).latestRoundData();
-        // we assume that block.timestamp >= latestTimestamp
-        _srequire(latestTimestamp >= block.timestamp - _ORACLE_TIMEOUT, SwaapV2Errors.EXCEEDS_TIMEOUT);
+        // we assume that block.timestamp >= maxTimeout
+        _srequire(latestTimestamp >= block.timestamp - maxTimeout, SwaapV2Errors.EXCEEDS_TIMEOUT);
         _srequire(latestPrice > 0, SwaapV2Errors.NON_POSITIVE_PRICE);
         return uint256(latestPrice);
     }
