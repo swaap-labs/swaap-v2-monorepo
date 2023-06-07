@@ -149,7 +149,10 @@ library SafeguardMath {
     ) internal pure returns (uint256) {
         uint256 num   = excessTokenAmountIn.sub(swapAmountIn);
         uint256 denom = excessTokenBalance.add(swapAmountIn);
-        return num.divDown(denom);
+
+        // removing 1wei from the numerator and adding 1wei to the denominator to make up for rounding errors
+        // that may have accumulated in previous calculations
+        return (num.sub(1)).divDown(denom.add(1));
     }
 
     /**********************************************************************************************
@@ -178,6 +181,7 @@ library SafeguardMath {
         denom = denom.add((excessTokenBalance.sub(excessTokenAmountOut)).mulDown(quoteAmountInPerOut));
 
         uint256 swapAmountOut = num.divDown(denom);
+
         uint256 swapAmountIn = quoteAmountInPerOut.mulDown(swapAmountOut);
 
         return (swapAmountIn, swapAmountOut);
@@ -196,7 +200,10 @@ library SafeguardMath {
     ) internal pure returns (uint256) {
         uint256 num   = excessTokenAmountOut.sub(swapAmountOut);
         uint256 denom = excessTokenBalance.sub(swapAmountOut);
-        return num.divDown(denom);
+        
+        // removing 1wei from the numerator and adding 1wei to the denominator to make up for rounding errors
+        // that may have accumulated in previous calculations
+        return (num.sub(1)).divDown(denom.add(1));
     }
 
     /**********************************************************************************************
