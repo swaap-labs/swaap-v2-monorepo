@@ -31,6 +31,7 @@ interface ISafeguardPool is IBasePool, ISignatureSafeguard {
     event MaxTargetDevChanged(uint256 maxTargetDev);
     event MaxPriceDevChanged(uint256 maxPriceDev);
     event ManagementFeesUpdated(uint256 yearlyFees);
+    event Quote(bytes32 indexed digest, uint256 amountIn18Decimals, uint256 amountOut18Decimals);
     
     /// @param feesClaimed corresponds to the minted pool tokens
     /// @param totalSupply correcsponds to the total supply before minting the pool tokens

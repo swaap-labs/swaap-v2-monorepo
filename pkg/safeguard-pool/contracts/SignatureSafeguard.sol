@@ -22,6 +22,12 @@ import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISignatureSafeguard.s
 import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafeguard {
+
+    struct ValidatedQuoteData {
+        bytes swapData;
+        bytes32 digest;
+    }
+
     using SafeguardPoolUserData for bytes;
 
     // solhint-disable max-line-length
@@ -49,13 +55,13 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         address sender,
         address recipient,
         bytes calldata userData
-    ) internal returns (bytes memory) {
+    ) internal returns (bytes memory, bytes32) {
         (bytes memory swapData, bytes memory signature, uint256 quoteIndex, uint256 deadline)
            = userData.decodeSignedSwapData();
 
-        _validateSwapSignature(kind, isTokenInToken0, sender, recipient, swapData, signature, quoteIndex, deadline);
+        bytes32 digest = _validateSwapSignature(kind, isTokenInToken0, sender, recipient, swapData, signature, quoteIndex, deadline);
 
-        return swapData;
+        return (swapData, digest);
     }
 
     /**
@@ -67,7 +73,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         address sender,
         address recipient,
         bytes memory userData
-    ) internal returns (uint256, uint256[] memory, bool, bytes memory) {
+    ) internal returns (uint256, uint256[] memory, bool, ValidatedQuoteData memory) {
         
         (
             bool isTokenInToken0, // excess token in or limit token in
@@ -77,13 +83,13 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
             uint256 deadline // swap deadline
         ) = userData.exactJoinExitSwapData();
 
-        _validateSwapSignature(
+        bytes32 digest = _validateSwapSignature(
             IVault.SwapKind.GIVEN_IN, isTokenInToken0, sender, recipient, swapData, signature, quoteIndex, deadline
         );
 
         (uint256 limitBptAmountOut, uint256[] memory joinExitAmounts) = userData.exactJoinExitAmountsData();
 
-        return (limitBptAmountOut, joinExitAmounts, isTokenInToken0, swapData);
+        return (limitBptAmountOut, joinExitAmounts, isTokenInToken0, ValidatedQuoteData(swapData, digest));
     }
 
     function _validateSwapSignature(
@@ -95,7 +101,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
         bytes memory signature,
         uint256 quoteIndex,
         uint256 deadline
-    ) internal {
+    ) internal returns (bytes32) {
         // For a two token pool,we can only include the tokenIn in the signature. For pools that has more than
         // two tokens the tokenOut must be specified to ensure the correctness of the trade.
         bytes32 structHash = keccak256(
@@ -111,7 +117,7 @@ abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafegu
             deadline
         );
 
-        emit SwapSignatureValidated(digest, quoteIndex);
+        return digest;
     }
 
     function _ensureValidBitmapSignature(

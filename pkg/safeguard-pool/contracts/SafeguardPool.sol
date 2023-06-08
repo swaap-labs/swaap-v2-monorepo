@@ -28,7 +28,7 @@ import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISafeguardPool.sol";
 import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
-    
+
     using FixedPoint for uint256;
     using WordCodec for bytes32;
     using BasePoolUserData for bytes;
@@ -217,37 +217,50 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         _beforeSwapJoinExit();
 
         bool isTokenInToken0 = request.tokenIn == _token0;
-        IVault.SwapKind swapKind = request.kind;
 
-        bytes memory swapData = _swapSignatureSafeguard(
-            swapKind,
+        (bytes memory swapData, bytes32 digest) = _swapSignatureSafeguard(
+            request.kind,
             isTokenInToken0,
             request.from,
             request.to,
             request.userData
         );
         
-        uint256 scalingFactorTokenIn = _scalingFactor(isTokenInToken0);
-        uint256 scalingFactorTokenOut = _scalingFactor(!isTokenInToken0);
+        (uint256 scalingFactorTokenIn, uint256 scalingFactorTokenOut) = _scalingFactorsInAndOut(isTokenInToken0);
 
         balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
         balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
 
-        (
-            uint256 quoteAmountInPerOut,
-            uint256 maxSwapAmount
-        ) = _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
+        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = 
+            _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
 
-        return (swapKind == IVault.SwapKind.GIVEN_IN? _onSwapGivenIn : _onSwapGivenOut)(
+        if (request.kind == IVault.SwapKind.GIVEN_IN) {
+            uint256 amountIn = request.amount;
+            return _onSwapGivenIn(
+                digest,
                 isTokenInToken0,
                 balanceTokenIn,
                 balanceTokenOut,
-                request.amount,
+                amountIn,
                 quoteAmountInPerOut,
                 maxSwapAmount,
                 scalingFactorTokenIn,
                 scalingFactorTokenOut
             );
+        } else {
+            uint256 amountOut = request.amount;
+            return _onSwapGivenOut(
+                digest,
+                isTokenInToken0,
+                balanceTokenIn,
+                balanceTokenOut,
+                amountOut,
+                quoteAmountInPerOut,
+                maxSwapAmount,
+                scalingFactorTokenIn,
+                scalingFactorTokenOut
+            );
+        }
     }
 
     /// @dev amountInPerOut = baseAmountInPerOut * (1 + slippagePenalty)
@@ -317,12 +330,13 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     }
 
     function _onSwapGivenIn(
+        bytes32 digest,
         bool    isTokenInToken0,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountIn,
         uint256 quoteAmountInPerOut,
-        uint256 maxSwapAmountIn,
+        uint256 maxSwapAmount,
         uint256 scalingFactorTokenIn,
         uint256 scalingFactorTokenOut
     ) internal returns(uint256) {
@@ -330,6 +344,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 amountOut = amountIn.divDown(quoteAmountInPerOut);
 
         _validateSwap(
+            digest,
             IVault.SwapKind.GIVEN_IN,
             isTokenInToken0,
             balanceTokenIn,
@@ -337,19 +352,20 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             amountIn,
             amountOut,
             quoteAmountInPerOut,
-            maxSwapAmountIn
+            maxSwapAmount
         );
 
         return _downscaleDown(amountOut, scalingFactorTokenOut);
     }
 
     function _onSwapGivenOut(
+        bytes32 digest,
         bool    isTokenInToken0,
         uint256 balanceTokenIn,
         uint256 balanceTokenOut,
         uint256 amountOut,
         uint256 quoteAmountInPerOut,
-        uint256 maxSwapAmountOut,
+        uint256 maxSwapAmount,
         uint256 scalingFactorTokenIn,
         uint256 scalingFactorTokenOut
     ) internal returns(uint256) {
@@ -357,6 +373,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 amountIn = amountOut.mulUp(quoteAmountInPerOut);
 
         _validateSwap(
+            digest,
             IVault.SwapKind.GIVEN_OUT,
             isTokenInToken0,
             balanceTokenIn,
@@ -364,7 +381,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             amountIn,
             amountOut,
             quoteAmountInPerOut,
-            maxSwapAmountOut
+            maxSwapAmount
         );
 
         return _downscaleUp(amountIn, scalingFactorTokenIn);
@@ -374,6 +391,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     * @dev all the inputs should be normalized to 18 decimals regardless of token decimals
     */
     function _validateSwap(
+        bytes32 digest,
         IVault.SwapKind kind,
         bool    isTokenInToken0,
         uint256 balanceTokenIn,
@@ -414,6 +432,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             totalSupply,
             packedPoolParams
         );
+
+        Quote(digest, amountIn, amountOut);
     }
 
     // ensures that the quote has a fair price compared to the on-chain price
@@ -579,17 +599,14 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             uint256 minBptAmountOut,
             uint256[] memory joinAmounts,
             bool isExcessToken0,
-            bytes memory swapData
+            ValidatedQuoteData memory validatedQuoteData
         ) = _joinExitSwapSignatureSafeguard(sender, recipient, userData);
 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = isExcessToken0?
             (balances[0], balances[1]) : (balances[1], balances[0]);
 
-        (
-            uint256 quoteAmountInPerOut,
-            uint256 maxSwapAmountIn
-        ) = _getQuoteAmountInPerOut(swapData, excessTokenBalance, limitTokenBalance);
-
+        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = _getQuoteAmountInPerOut(validatedQuoteData.swapData, excessTokenBalance, limitTokenBalance);
+        
         (uint256 excessTokenAmountIn, uint256 limitTokenAmountIn) = isExcessToken0?
             (joinAmounts[0], joinAmounts[1]) : (joinAmounts[1], joinAmounts[0]);
         
@@ -605,6 +622,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         );
 
         _validateSwap(
+            validatedQuoteData.digest,
             IVault.SwapKind.GIVEN_IN,
             isExcessToken0,
             excessTokenBalance,
@@ -612,14 +630,14 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             swapAmountIn,
             swapAmountOut,
             quoteAmountInPerOut,
-            maxSwapAmountIn
+            maxSwapAmount
         );
 
         uint256 rOpt = SafeguardMath.calcJoinSwapROpt(excessTokenBalance, excessTokenAmountIn, swapAmountIn);
         
         uint256 bptAmountOut = totalSupply().mulDown(rOpt);        
         _srequire(bptAmountOut >= minBptAmountOut, SwaapV2Errors.NOT_ENOUGH_PT_OUT);
-
+        
         return (bptAmountOut, joinAmounts);
 
     }
@@ -685,16 +703,13 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             uint256 maxBptAmountIn,
             uint256[] memory exitAmounts,
             bool isLimitToken0,
-            bytes memory swapData
+            ValidatedQuoteData memory validatedQuoteData
         ) = _joinExitSwapSignatureSafeguard(sender, recipient, userData);
 
         (uint256 excessTokenBalance, uint256 limitTokenBalance) = isLimitToken0?
             (balances[1], balances[0]) : (balances[0], balances[1]);
 
-        (
-            uint256 quoteAmountInPerOut,
-            uint256 maxSwapAmountIn
-        ) = _getQuoteAmountInPerOut(swapData, limitTokenBalance, excessTokenBalance);
+        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = _getQuoteAmountInPerOut(validatedQuoteData.swapData, limitTokenBalance, excessTokenBalance);
 
         (uint256 excessTokenAmountOut, uint256 limitTokenAmountOut) = isLimitToken0?
             (exitAmounts[1], exitAmounts[0]) : (exitAmounts[0], exitAmounts[1]);
@@ -711,6 +726,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         );
 
         _validateSwap(
+            validatedQuoteData.digest,
             IVault.SwapKind.GIVEN_IN,
             isLimitToken0,
             limitTokenBalance,
@@ -718,7 +734,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             swapAmountIn,
             swapAmountOut,
             quoteAmountInPerOut,
-            maxSwapAmountIn
+            maxSwapAmount
         );
 
         uint256 rOpt = SafeguardMath.calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
@@ -726,7 +742,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256 bptAmountOut = totalSupply().mulUp(rOpt);
         
         _srequire(bptAmountOut <= maxBptAmountIn, SwaapV2Errors.EXCEEDED_BURNED_PT);
-
+        
         return (bptAmountOut, exitAmounts);
 
     }
@@ -1208,11 +1224,11 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         return _scaleFactor1;
     }
 
-    function _scalingFactor(bool isToken0) internal view returns (uint256) {
+    function _scalingFactorsInAndOut(bool isToken0) internal view returns (uint256, uint256) {
         if (isToken0) {
-            return _scaleFactor0;
+            return (_scaleFactor0, _scaleFactor1);
         }
-        return _scaleFactor1;
+        return (_scaleFactor1, _scaleFactor0);
     }
 
     /*

@@ -55,6 +55,7 @@ contract TestSafeguardPool is SafeguardPool {
         uint256 maxSwapAmount
     ) external {  
         return SafeguardPool._validateSwap(
+            bytes32(0),
             kind,
             isTokenInToken0,
             balanceTokenIn,
@@ -73,13 +74,14 @@ contract TestSafeguardPool is SafeguardPool {
         address recipient,
         bytes calldata userData
     ) external returns (bytes memory) {
-        return _swapSignatureSafeguard(
+        (bytes memory swapData, ) = _swapSignatureSafeguard(
             kind,
             isTokenInToken0,
             sender,
             recipient,
             userData
         );
+        return swapData;
     }
 
     function validateSwapSignature(
