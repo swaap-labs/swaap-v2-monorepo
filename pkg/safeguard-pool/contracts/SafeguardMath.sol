@@ -201,9 +201,9 @@ library SafeguardMath {
         uint256 num   = excessTokenAmountOut.sub(swapAmountOut);
         uint256 denom = excessTokenBalance.sub(swapAmountOut);
         
-        // removing 1wei from the numerator and adding 1wei to the denominator to make up for rounding errors
+        // adding 1wei to the numerator and removing 1wei from the denominator to make up for rounding errors
         // that may have accumulated in previous calculations
-        return (num.sub(1)).divDown(denom.add(1));
+        return (num.add(1)).divDown(denom.sub(1));
     }
 
     /**********************************************************************************************
