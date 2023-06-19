@@ -31,15 +31,24 @@ interface ISafeguardPool is IBasePool, ISignatureSafeguard {
     event MaxTargetDevChanged(uint256 maxTargetDev);
     event MaxPriceDevChanged(uint256 maxPriceDev);
     event ManagementFeesUpdated(uint256 yearlyFees);
+
+    /// @dev the amountIn and amountOut are denominated in 18-decimals,
+    /// irrespective of the specific decimal precision utilized by each token.
     event Quote(bytes32 indexed digest, uint256 amountIn18Decimals, uint256 amountOut18Decimals);
     
+    /// @dev The target balances are denominated in 18-decimals,
+    /// irrespective of the specific decimal precision utilized by each token.
+    event InitialTargetBalancesSet(uint256 targetBalancePerPT0, uint256 targetBalancePerPT1);
+
     /// @param feesClaimed corresponds to the minted pool tokens
-    /// @param totalSupply correcsponds to the total supply before minting the pool tokens
+    /// @param totalSupply corresponds to the total supply before minting the pool tokens
     event ManagementFeesClaimed(uint256 feesClaimed, uint256 totalSupply, uint256 yearlyRate, uint256 time);
     
+    /// @dev The target balances are denominated in 18-decimals,
+    /// irrespective of the specific decimal precision utilized by each token.
     event PerformanceUpdated(
-        uint256 hodlBalancePerPT0,
-        uint256 hodlBalancePerPT1,
+        uint256 targetBalancePerPT0,
+        uint256 targetBalancePerPT1,
         uint256 performance,
         uint256 amount0Per1,
         uint256 time

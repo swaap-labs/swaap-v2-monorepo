@@ -531,9 +531,13 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             SwaapV2Errors.LOW_INITIAL_BALANCE
         );
 
-        // set perf balances & set last perf update time to current block.timestamp
-        _setHodlBalancesPerPT(amountsIn[0].divDown(_INITIAL_BPT), amountsIn[1].divDown(_INITIAL_BPT));
+        // sets initial target balances
+        uint256 initHodlBalancePerPT0 = amountsIn[0].divDown(_INITIAL_BPT);
+        uint256 initHodlBalancePerPT1 = amountsIn[1].divDown(_INITIAL_BPT);
+        _setHodlBalancesPerPT(initHodlBalancePerPT0, initHodlBalancePerPT1);
 
+        emit InitialTargetBalancesSet(initHodlBalancePerPT0, initHodlBalancePerPT1);
+        
         return (_INITIAL_BPT, amountsIn);
         
     }
