@@ -1,2 +1,1 @@
-@swaap-labs/v2-interfaces/=./pkg/interfaces/
-@swaap-labs/v2-vault/=./pkg/vault/
+@balancer-labs/v2-vault/=./pkg/vault/
