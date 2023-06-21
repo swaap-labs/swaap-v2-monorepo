@@ -13,7 +13,7 @@ import { BigNumberish, fp, bn, fromFp } from '@balancer-labs/v2-helpers/src/numb
 import { actionId } from '@balancer-labs/v2-helpers/src/models/misc/actions';
 import { MAX_UINT112, MAX_UINT256, ZERO_ADDRESS } from '@balancer-labs/v2-helpers/src/constants';
 import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
-import { DAY, advanceToTimestamp, SECOND, advanceTime } from '@balancer-labs/v2-helpers/src/time';
+import { DAY, advanceToTimestamp, SECOND, advanceTime, HOUR } from '@balancer-labs/v2-helpers/src/time';
 import '@balancer-labs/v2-common/setupTests'
 import VaultDeployer from '@balancer-labs/v2-helpers/src/models/vault/VaultDeployer';
 import { calcYearlyRate, calcAccumulatedManagementFees } from '@balancer-labs/v2-helpers/src/models/pools/safeguard/math'
@@ -440,9 +440,15 @@ describe('SafeguardPool', function () {
               signer: signer
             })).to.be.revertedWith("SWAAP#21");
           });
-          
-          it('valid', async () => {
+
+          it('valid with performance update', async () => {
             const currentBalances = await pool.getBalances();
+
+            const lastPerfUpdateBeforeJoin = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 2 days to update the performance
+            await advanceTime(2 * DAY);
+
             const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
             await pool.joinGivenIn({
               recipient: lp.address,
@@ -454,6 +460,60 @@ describe('SafeguardPool', function () {
             const updatedBalances = await pool.getBalances();
             expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
             expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
+
+            // Check that the performance was updated
+            const lastPerfUpdateAfterJoin = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterJoin).to.be.gt(lastPerfUpdateBeforeJoin);
+          });
+
+          it('valid without performance update', async () => {
+            const currentBalances = await pool.getBalances();
+
+            const lastPerfUpdateBeforeJoin = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 1 hour to not update the performance
+            await advanceTime(1 * HOUR);
+
+            const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
+            await pool.joinGivenIn({
+              recipient: lp.address,
+              chainId: chainId,
+              amountsIn: amountsIn,
+              swapTokenIn: tokens.tokens[0],
+              signer: signer
+            });
+            const updatedBalances = await pool.getBalances();
+            expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
+            expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
+
+            // Check that the performance was not updated
+            const lastPerfUpdateAfterJoin = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterJoin).to.be.eq(lastPerfUpdateBeforeJoin);
+          });
+
+          it('valid with performance update', async () => {
+            const currentBalances = await pool.getBalances();
+
+            const lastPerfUpdateBeforeExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 2 days to update the performance
+            await advanceTime(2 * DAY);
+
+            const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.add(amountsIn[index]));
+            await pool.joinGivenIn({
+              recipient: lp.address,
+              chainId: chainId,
+              amountsIn: amountsIn,
+              swapTokenIn: tokens.tokens[0],
+              signer: signer
+            });
+            const updatedBalances = await pool.getBalances();
+            expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
+            expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
+
+            // Check that the performance was updated
+            const lastPerfUpdateAfterExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterExit).to.be.gt(lastPerfUpdateBeforeExit);
           });
         });
       });
@@ -517,8 +577,14 @@ describe('SafeguardPool', function () {
             })).to.be.revertedWith("SWAAP#22");
           });
 
-          it('valid', async () => {
+          it('valid with performance update', async () => {
             const currentBalances = await pool.getBalances();
+            
+            const lastPerfUpdateBeforeExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 2 days to update the performance
+            await advanceTime(2 * DAY);
+            
             const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.sub(amountsOut[index]));
             await pool.exitGivenOut({
               from: lp,
@@ -531,6 +597,36 @@ describe('SafeguardPool', function () {
             const updatedBalances = await pool.getBalances();
             expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
             expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
+
+            // Check that the performance was updated
+            const lastPerfUpdateAfterExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterExit).to.be.gt(lastPerfUpdateBeforeExit);
+          });          
+          
+          it('valid without performance update', async () => {
+            const currentBalances = await pool.getBalances();
+            
+            const lastPerfUpdateBeforeExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 1 hour to not update the performance
+            await advanceTime(1 * HOUR);  
+            
+            const expectedBalances = currentBalances.map((currentBalance, index) => currentBalance.sub(amountsOut[index]));
+            await pool.exitGivenOut({
+              from: lp,
+              recipient: lp.address,
+              chainId: chainId,
+              amountsOut: amountsOut,
+              swapTokenIn: tokens.tokens[1],
+              signer: signer
+            });
+            const updatedBalances = await pool.getBalances();
+            expectEqualWithError(updatedBalances[0], expectedBalances[0], lowTolerance);
+            expectEqualWithError(updatedBalances[1], expectedBalances[1], lowTolerance);
+
+            // Check that the performance was not updated
+            const lastPerfUpdateAfterExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterExit).to.be.eq(lastPerfUpdateBeforeExit);
           });
         });
       });
@@ -563,7 +659,7 @@ describe('SafeguardPool', function () {
           sharedBeforeEach('Signature Safeguards', async () => {
             await pool.enableRecoveryMode(admin);
           });
-          it('valid', async () => {
+          it('reverts', async () => {
             await pool.pause();
             await expect(
               pool.multiExitGivenIn({
@@ -576,7 +672,12 @@ describe('SafeguardPool', function () {
         });
 
         describe('when in normal mode', () => {
-          it('valid', async () => {
+          it('valid with performance update', async () => {
+            const lastPerfUpdateBeforeExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 2 days to update the performance
+            await advanceTime(2 * DAY);
+
             await pool.multiExitGivenIn({
               bptIn: bptIn,
               from: lp,
@@ -584,6 +685,29 @@ describe('SafeguardPool', function () {
             });
             const lpBalanceAfter = await pool.balanceOf(lp.address);
             expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.sub(bptIn));
+
+            // Check that the performance was updated
+            const lastPerfUpdateAfterExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterExit).to.be.gt(lastPerfUpdateBeforeExit);
+          });
+
+          it('valid without performance update', async () => {
+            const lastPerfUpdateBeforeExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+
+            // advance 1 hour to not update the performance
+            await advanceTime(1 * HOUR);
+
+            await pool.multiExitGivenIn({
+              bptIn: bptIn,
+              from: lp,
+              recipient: lp
+            });
+            const lpBalanceAfter = await pool.balanceOf(lp.address);
+            expect(lpBalanceAfter).to.be.equal(lpBalanceBefore.sub(bptIn));
+
+            // Check that the performance was not updated
+            const lastPerfUpdateAfterExit = (await pool.instance.getPoolParameters()).lastPerfUpdate;
+            expect(lastPerfUpdateAfterExit).to.be.eq(lastPerfUpdateBeforeExit);
           });
         });
       });

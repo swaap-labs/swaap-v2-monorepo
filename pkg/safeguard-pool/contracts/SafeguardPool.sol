@@ -583,7 +583,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256[] memory balances,
         uint256 totalSupply,
         bytes memory userData
-    ) private pure returns (uint256, uint256[] memory) {
+    ) private  pure returns (uint256, uint256[] memory) {
+              
         uint256 bptAmountOut = userData.allTokensInForExactBptOut();
         // Note that there is no maximum amountsIn parameter: this is handled by `IVault.joinPool`.
 
@@ -688,7 +689,11 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         uint256[] memory balances,
         uint256 totalSupply,
         bytes memory userData
-    ) private pure returns (uint256, uint256[] memory) {
+    ) private returns (uint256, uint256[] memory) {
+               
+        // updates pool performance if necessary
+        try this.updatePerformance() {} catch {}
+        
         uint256 bptAmountIn = userData.exactBptInForTokensOut();
         // Note that there is no minimum amountOut parameter: this is handled by `IVault.exitPool`.
 

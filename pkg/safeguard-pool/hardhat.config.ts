@@ -16,11 +16,19 @@ module.exports = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1000,
+            runs: 1100,
           }
         }
       },
     ]
+  },
+
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    strict: true,
+    except: [':TestSafeguardPool*$'],
   },
 
   networks: {
