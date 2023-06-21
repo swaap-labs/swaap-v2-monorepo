@@ -87,7 +87,7 @@ library SafeguardMath {
     }
 
     function calcBalanceDeviation(uint256 currentBalance, uint256 quoteBalance) internal pure returns(uint256) {
-        return currentBalance >= quoteBalance ? 0 : (quoteBalance - currentBalance).divDown(currentBalance);
+        return currentBalance >= quoteBalance ? 0 : (quoteBalance - currentBalance).divDown(quoteBalance);
     }
 
     /**
