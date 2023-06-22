@@ -210,7 +210,7 @@ describe('SafeguardMath', () => {
         balanceBasedSlippage
       );
 
-      const expected = balanceBasedSlippage.mul(quoteBalanceIn.sub(balanceTokenIn)).mul(fp(1)).div(balanceTokenIn).div(fp(1))
+      const expected = balanceBasedSlippage.mul(quoteBalanceIn.sub(balanceTokenIn)).mul(fp(1)).div(quoteBalanceIn).div(fp(1))
       expectRelativeErrorBN(actual, expected, tolerance)
     });
 
@@ -234,7 +234,7 @@ describe('SafeguardMath', () => {
         balanceChangeTolerance,
         balanceBasedSlippage
       )
-      const expected = balanceBasedSlippage.mul(quoteBalanceOut.sub(balanceTokenOut)).mul(fp(1)).div(balanceTokenOut).div(fp(1))
+      const expected = balanceBasedSlippage.mul(quoteBalanceOut.sub(balanceTokenOut)).mul(fp(1)).div(quoteBalanceOut).div(fp(1))
       expectRelativeErrorBN(actual, expected, tolerance)
     });
 
@@ -259,7 +259,7 @@ describe('SafeguardMath', () => {
         balanceBasedSlippage
       )
 
-      const expected = balanceBasedSlippage.mul(totalSupply.sub(quoteTotalSupply)).div(quoteTotalSupply);
+      const expected = balanceBasedSlippage.mul(totalSupply.sub(quoteTotalSupply)).div(totalSupply);
       expectRelativeErrorBN(actual, expected, tolerance)
     });
 
