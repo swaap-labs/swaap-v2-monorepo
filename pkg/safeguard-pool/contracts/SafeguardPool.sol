@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.7.0;
+pragma solidity =0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./ChainlinkUtils.sol";
@@ -773,14 +773,14 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     }
 
     /// @inheritdoc ISafeguardPool
-    function setSigner(address signer) external override authenticate whenNotPaused {
-        _setSigner(signer);
+    function setSigner(address signer_) external override authenticate whenNotPaused {
+        _setSigner(signer_);
     }
 
-    function _setSigner(address signer) internal {
-        _srequire(signer != address(0), SwaapV2Errors.SIGNER_CANNOT_BE_NULL_ADDRESS);
-        _signer = signer;
-        emit SignerChanged(signer);
+    function _setSigner(address signer_) internal {
+        _srequire(signer_ != address(0), SwaapV2Errors.SIGNER_CANNOT_BE_NULL_ADDRESS);
+        _signer = signer_;
+        emit SignerChanged(signer_);
     }
 
     /// @inheritdoc ISafeguardPool
