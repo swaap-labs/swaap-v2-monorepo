@@ -212,7 +212,7 @@ library SafeguardMath {
     // a = yearly rate constant                       \     1y     /                             //
     **********************************************************************************************/
     function calcYearlyRate(uint256 yearlyFees) internal pure returns(uint256) {
-        uint256 logInput = FixedPoint.ONE - yearlyFees; // we assume yearlyFees is < 1e18
+        uint256 logInput = FixedPoint.ONE.sub(yearlyFees);
         // Since 0 < logInput <= 1 => logResult <= 0
         int256 logResult = LogExpMath.ln(int256(logInput));
         return(uint256(-logResult) / _ONE_YEAR);
@@ -229,7 +229,7 @@ library SafeguardMath {
         uint256 yearlyRate,
         uint256 currentSupply
      ) internal pure returns(uint256) {
-        uint256 expInput = yearlyRate * elapsedTime;
+        uint256 expInput = Math.mul(yearlyRate, elapsedTime);
         uint256 expResult = uint256(LogExpMath.exp(expInput.toInt256()));
         return (currentSupply.mulDown(expResult.sub(FixedPoint.ONE)));
     }
