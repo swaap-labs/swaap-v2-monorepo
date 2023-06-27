@@ -32,7 +32,7 @@ library SwaapV2Errors {
     uint256 internal constant MAX_TARGET_DEV_TOO_LARGE = 13;
     uint256 internal constant MAX_PRICE_DEV_TOO_LOW = 14;
     uint256 internal constant MAX_PRICE_DEV_TOO_LARGE = 15;
-    uint256 internal constant PERFORMANCE_UPDATE_TOO_S0ON = 16;
+    uint256 internal constant PERFORMANCE_UPDATE_TOO_SOON = 16;
     uint256 internal constant BITMAP_SIGNATURE_NOT_VALID = 17;
     uint256 internal constant QUOTE_ALREADY_USED = 18;
     uint256 internal constant REPLAYABLE_SIGNATURE_NOT_VALID = 19;

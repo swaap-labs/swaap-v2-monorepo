@@ -397,7 +397,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         uint256 totalSupply = totalSupply();
 
-        _performanceSafeguard(
+        _updatePerformanceIfDue(
             isTokenInToken0,
             balanceTokenIn,
             balanceTokenOut,
@@ -416,6 +416,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         );
     }
 
+    // ensures that the quote has a fair price compared to the on-chain price
     function _fairPricingSafeguard(
         uint256 quoteAmountInPerOut,
         uint256 onChainAmountInPerOut,
@@ -424,7 +425,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         _srequire(quoteAmountInPerOut.divDown(onChainAmountInPerOut) >= _getMaxPriceDev(packedPoolParams), SwaapV2Errors.UNFAIR_PRICE);
     }
 
-    function _performanceSafeguard(
+    // updates the pool target balances based on performance if needed
+    function _updatePerformanceIfDue(
         bool    isTokenInToken0,
         uint256 currentBalanceIn,
         uint256 currentBalanceOut,
@@ -810,6 +812,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     /// @dev for gas optimization purposes we store (1 - max tolerance)
     function _setMaxPerfDev(uint256 maxPerfDev) internal {
         
+        // the lower maxPerfDev value is, the less strict the performance check is (more permitted deviation)
         _srequire(maxPerfDev <= FixedPoint.ONE, SwaapV2Errors.MAX_PERFORMANCE_DEV_TOO_LOW);
         _srequire(maxPerfDev >= _MAX_PERFORMANCE_DEVIATION, SwaapV2Errors.MAX_PERFORMANCE_DEV_TOO_HIGH);
         
@@ -829,6 +832,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     /// @dev for gas optimization purposes we store (1 - max tolerance)
     function _setMaxTargetDev(uint256 maxTargetDev) internal {
 
+        // the lower maxTargetDev value is, the less strict the balances check is (more permitted deviation)  
         _srequire(maxTargetDev <= FixedPoint.ONE, SwaapV2Errors.MAX_TARGET_DEV_TOO_LOW);
         _srequire(maxTargetDev >= _MAX_TARGET_DEVIATION, SwaapV2Errors.MAX_TARGET_DEV_TOO_LARGE);
         
@@ -848,6 +852,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     /// @dev for gas optimization purposes we store (1 - max tolerance)
     function _setMaxPriceDev(uint256 maxPriceDev) internal {
 
+        // the lower maxPriceDev value is, the less strict the price check is (more permitted deviation)  
         _srequire(maxPriceDev <= FixedPoint.ONE, SwaapV2Errors.MAX_PRICE_DEV_TOO_LOW);
         _srequire(maxPriceDev >= _MAX_PRICE_DEVIATION, SwaapV2Errors.MAX_PRICE_DEV_TOO_LARGE);
 
@@ -866,7 +871,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         (uint256 lastPerfUpdate, uint256 perfUpdateInterval) = _getPerformanceTimeParams(packedPoolParams);
         
-        _srequire(block.timestamp > lastPerfUpdate + perfUpdateInterval, SwaapV2Errors.PERFORMANCE_UPDATE_TOO_S0ON);
+        _srequire(block.timestamp > lastPerfUpdate + perfUpdateInterval, SwaapV2Errors.PERFORMANCE_UPDATE_TOO_SOON);
 
         (, uint256[] memory balances, ) = getVault().getPoolTokens(getPoolId());
 
@@ -1078,7 +1083,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     }
 
     /// @inheritdoc ISafeguardPool
-    function getPoolParameters() public view override
+    function getPoolParameters() external view override
     returns (
         uint256 maxPerfDev,
         uint256 maxTargetDev,
@@ -1128,7 +1133,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     }
 
     /// @inheritdoc ISafeguardPool
-    function getOracleParams() public view override returns(OracleParams[] memory) {
+    function getOracleParams() external view override returns(OracleParams[] memory) {
         OracleParams[] memory oracleParams = new OracleParams[](2);
         bytes32 packedPoolParams = _packedPoolParams;
 
@@ -1231,21 +1236,20 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         if(elapsedTime > 0) {
             // update last claim time
             _previousClaimTime = uint32(currentTime);
-            uint256 protocolFees;
             uint256 yearlyRate = uint256(_yearlyRate);
             uint256 previousTotalSupply = totalSupply();
 
             if(yearlyRate > 0) {
                 // returns bpt that needs to be minted
-                protocolFees = SafeguardMath.calcAccumulatedManagementFees(
+                uint256 protocolFees = SafeguardMath.calcAccumulatedManagementFees(
                     elapsedTime,
                     yearlyRate,
                     previousTotalSupply
                 );
+                
+                _payProtocolFees(protocolFees);
+                emit ManagementFeesClaimed(protocolFees, previousTotalSupply, yearlyRate, currentTime);
             }
-
-            _payProtocolFees(protocolFees);
-            emit ManagementFeesClaimed(protocolFees, previousTotalSupply, yearlyRate, currentTime);
         }
 
     }
