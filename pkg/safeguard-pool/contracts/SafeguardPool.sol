@@ -27,6 +27,16 @@ import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/SafeguardPoolUserData
 import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISafeguardPool.sol";
 import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
+/**
+ * @title Safeguard Pool
+ * @author Swaap-labs (https://github.com/swaap-labs/swaap-v2-monorepo)
+ * @notice Main contract that allows the use of a non-custodial RfQ market-making infrastructure that
+ * implements safety measures (i.e "safeguards") to prevent potential value extraction from the pool.
+ * For more details: https://www.swaap.finance/v2-whitepaper.pdf.
+ * @dev This contract is built on top of Balancer V2's infrastructure but is meant to be deployed with
+ * a modified version of Balancer V2 Vault. (refer to the comments in the `updatePerformance` function
+ * for more details).
+ */
 contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimalSwapInfoPool, ReentrancyGuard {
 
     using FixedPoint for uint256;
@@ -892,6 +902,16 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         emit MaxPriceDevChanged(maxPriceDev);
     }
 
+    /**
+     * @dev This function assumes that the pool is deployed with a modified version of the vault
+     * that addresses a known reentrancy issue described here:
+     * https://forum.balancer.fi/t/reentrancy-vulnerability-scope-expanded/4345.
+     * The modified version of the vault is available here:
+     * https://github.com/swaap-labs/swaap-v2-monorepo/commit/85e0ef66b460995129f196be42762186b3d3727d
+     * If you're using an old version of the vault, you should add _ensureNotInVaultContext function
+     * https://github.com/balancer/balancer-v2-monorepo/pull/2418/files
+     * 
+    */
     /// @inheritdoc ISafeguardPool
     function updatePerformance() external override nonReentrant whenNotPaused {
 

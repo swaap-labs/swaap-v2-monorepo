@@ -21,6 +21,9 @@ import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/SafeguardPoolUserData
 import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISignatureSafeguard.sol";
 import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
+/**
+ * @dev Utility for verifying signed quotes and whitelisted lps.
+ */
 abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafeguard {
 
     struct ValidatedQuoteData {
