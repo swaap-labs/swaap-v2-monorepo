@@ -1293,6 +1293,12 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     * Management fees
     */
 
+   function _onDisableRecoveryMode() internal override {
+        // resets last claim time to the current time in order to prevent claiming fees accrued
+        // when the pool was in recovery mode
+        _previousClaimTime = uint32(block.timestamp);
+    }
+
     function _beforeJoinExit() private {
         _claimManagementFees();
     }
