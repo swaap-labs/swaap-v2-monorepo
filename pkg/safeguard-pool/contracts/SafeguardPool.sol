@@ -43,6 +43,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     uint256 private constant _MIN_INITIAL_BALANCE = 1e8;
 
     // Pool parameters constants
+    uint256 private constant _MIN_SWAP_AMOUNT_PERCENTAGE = 10e16; // 10% min swap amount
     uint256 private constant _MAX_PERFORMANCE_DEVIATION = 95e16; // 5% max tolerance
     uint256 private constant _MAX_TARGET_DEVIATION = 85e16; // 15% max tolerance
     uint256 private constant _MAX_PRICE_DEVIATION = 97e16; // 3% max tolerance
@@ -404,8 +405,10 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         if(kind == IVault.SwapKind.GIVEN_IN) {
             _srequire(amountIn <= maxSwapAmount, SwaapV2Errors.EXCEEDED_SWAP_AMOUNT_IN);
+            _srequire(amountIn >= maxSwapAmount.mulDown(_MIN_SWAP_AMOUNT_PERCENTAGE), SwaapV2Errors.LOW_SWAP_AMOUNT_IN);
         } else {
             _srequire(amountOut <= maxSwapAmount, SwaapV2Errors.EXCEEDED_SWAP_AMOUNT_OUT);
+            _srequire(amountOut >= maxSwapAmount.mulDown(_MIN_SWAP_AMOUNT_PERCENTAGE), SwaapV2Errors.LOW_SWAP_AMOUNT_OUT);
         }
 
         bytes32 packedPoolParams = _packedPoolParams;

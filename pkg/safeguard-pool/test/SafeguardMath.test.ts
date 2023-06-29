@@ -112,7 +112,6 @@ describe('SafeguardMath', () => {
         fp(initialSupply)
       )
       const actualPoolOwnership = fpDiv(fp(initialSupply), actualMintedSupply.add(fp(initialSupply)));
-      console.log(actualPoolOwnership);
       expectRelativeErrorBN(actualPoolOwnership, expectedPoolOwnership, tolerance)
     });
 

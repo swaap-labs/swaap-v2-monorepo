@@ -153,6 +153,29 @@ describe('SafeguardPool', function () {
           ).to.be.revertedWith("SWAAP#00")
         });
 
+        it ('swap amount in too low for quote', async () => {
+          const kind = 0;
+          const isTokenInToken0 = true;
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
+          const amountOut = balanceTokenOut.div(20)
+          const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
+          const maxSwapAmount = amountIn.mul(20);
+          await expect(
+            pool.validateSwap(
+              kind,
+              isTokenInToken0,
+              balanceTokenIn,
+              balanceTokenOut,
+              amountIn,
+              amountOut,
+              amountInPerOut,
+              maxSwapAmount
+            )
+          ).to.be.revertedWith("SWAAP#29")
+        });
+
         it ('exceeded swap amount out', async () => {
           const kind = 1;
           const isTokenInToken0 = true;
@@ -174,6 +197,29 @@ describe('SafeguardPool', function () {
               maxSwapAmount
             )
           ).to.be.revertedWith("SWAAP#01")
+        });
+
+        it ('swap amount out too low for quote', async () => {
+          const kind = 1;
+          const isTokenInToken0 = true;
+          let [balanceTokenIn, balanceTokenOut, amountInPerOut] = await pool.getBalanceAndPrice(isTokenInToken0);
+          balanceTokenIn = balanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
+          balanceTokenOut = balanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
+          const amountOut = balanceTokenOut.div(20)
+          const amountIn = amountOut.mul(amountInPerOut).div(fp(1))
+          const maxSwapAmount = amountOut.mul(20);
+          await expect(
+            pool.validateSwap(
+              kind,
+              isTokenInToken0,
+              balanceTokenIn,
+              balanceTokenOut,
+              amountIn,
+              amountOut,
+              amountInPerOut,
+              maxSwapAmount
+            )
+          ).to.be.revertedWith("SWAAP#30")
         });
 
         it ('unfair price: index 0', async () => {
@@ -303,7 +349,6 @@ describe('SafeguardPool', function () {
 
           newBalanceTokenIn = newBalanceTokenIn.mul(fp(1)).div(bn(10).pow(tokens.tokens[0].decimals))
           newBalanceTokenOut = newBalanceTokenOut.mul(fp(1)).div(bn(10).pow(tokens.tokens[1].decimals))
-
           await expect(
             pool.validateSwap(
               kind,
@@ -329,7 +374,7 @@ describe('SafeguardPool', function () {
               newAmountOutAsIn,
               newAmountInAsOut,
               fp(1).mul(fp(1)).div(newAmountInPerOut),
-              MAX_UINT256
+              newAmountInAsOut
             )
           ).not.to.be.reverted;
 
@@ -345,7 +390,7 @@ describe('SafeguardPool', function () {
               newAmountOutAsIn,
               newAmountInAsOut,
               fp(1).mul(fp(1)).div(newAmountInPerOut),
-              MAX_UINT256
+              newAmountInAsOut
             )
           ).to.be.revertedWith("SWAAP#03")
 

@@ -1,10 +1,9 @@
 import { ethers } from 'hardhat';
 import { BigNumber, Contract, ContractFunction, ContractReceipt, ContractTransaction } from 'ethers';
-import { BigNumberish, bn, fp, fpMul } from '../../../numbers';
+import { BigNumberish, bn, fp, fpMul, fpDiv } from '../../../numbers';
 import { MAX_INT256, MAX_UINT112, MAX_UINT256, ZERO_ADDRESS } from '../../../constants';
 import * as expectEvent from '../../../test/expectEvent';
 import Vault from '../../vault/Vault';
-import Token from '../../tokens/Token';
 import TokenList from '../../tokens/TokenList';
 import TypesConverter from '../../types/TypesConverter';
 import SafeguardPoolDeployer from './SafeguardPoolDeployer';
@@ -26,7 +25,6 @@ import {
   ExitQueryResult,
   JoinQueryResult,
   PoolQueryResult,
-  CircuitBreakerState,
   OracleParams,
 } from './types';
 import { signSwapData } from '@swaap-labs/v2-swaap-js/src/safeguard-pool/SafeguardPoolSigner';
@@ -41,6 +39,8 @@ import { SwapKind } from '@balancer-labs/balancer-js';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import BasePool from '../base/BasePool';
 import { fromBNish } from './helpers';
+import { parseUnits } from 'ethers/lib/utils';
+import { get } from 'lodash';
 
 const MAX_IN_RATIO = fp(0.3);
 const MAX_OUT_RATIO = fp(0.3);
@@ -283,8 +283,8 @@ export default class SafeguardPool extends BasePool {
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const deadline = params.deadline?? MAX_UINT256;
     const expectedOrigin = params.expectedOrigin?? sender;
-    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(tokenIn);
+    const maxSwapAmount = params.maxSwapAmount?? this._getMaxSwapAmount(kind, tokenIn, params.amount, quoteAmountInPerOut);
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (tokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (tokenOut == tokens[0]? currentBalances[0] : currentBalances[1]);
@@ -333,6 +333,26 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
+  private _getMaxSwapAmount(
+    kind: number,
+    tokenIn: string,
+    amount: BigNumberish,
+    amountInPerOut: BigNumberish
+  ): BigNumber {
+
+    // get tokenIn index
+    const tokens = this.tokens.tokens;
+    const tokenInIndex = typeof tokenIn == "number"? tokenIn : tokens.findIndex((token) => token.address == tokenIn);
+    const tokenOutIndex = tokenInIndex == 0? 1 : 0;
+
+    if (kind == SwapKind.GivenIn) {
+      return parseUnits(amount.toString(), 18-tokens[tokenInIndex].decimals).mul(11).div(10);
+    } else {
+      return parseUnits(amount.toString(), 18-tokens[tokenOutIndex].decimals).mul(11).div(10);
+    }
+
+  }
+
   async buildSwapDecodedUserData(kind: number, params: SwapSafeguardPool): Promise<[string, string, BigNumberish, BigNumberish]> {
     const currentBalances = await this.getBalances();
     const { tokens } = await this.vault.getPoolTokens(this.poolId);
@@ -342,8 +362,8 @@ export default class SafeguardPool extends BasePool {
     const recipient = params.recipient ?? ZERO_ADDRESS;
     const deadline = params.deadline?? MAX_UINT256;
     const expectedOrigin = params.expectedOrigin?? sender;
-    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(tokenIn);
+    const maxSwapAmount = params.maxSwapAmount?? this._getMaxSwapAmount(kind, tokenIn, params.amount, quoteAmountInPerOut);
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (tokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (tokenOut == tokens[0]? currentBalances[0] : currentBalances[1]);
@@ -421,11 +441,12 @@ export default class SafeguardPool extends BasePool {
     const chainId = params.chainId;
     const deadline = params.deadline  || MAX_UINT256;
     const minBptAmountOut = params.minBptAmountOut || 0;
-    const amountsIn = Array.isArray(params.amountsIn) ? params.amountsIn : Array(this.tokens.length).fill(params.amountsIn);
+    const amountsIn = Array.isArray(params.amountsIn) ? params.amountsIn : Array(this.tokens.length).fill(0);
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
     const expectedOrigin = params.expectedOrigin?? sender;
-    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
+    const maxSwapAmount = params.maxSwapAmount?? 
+      bn(await this._getSwapAmountJoinGivenIn(swapTokenIn, this._amountsTo18Decimals(currentBalances), amountsIn, quoteAmountInPerOut));
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0]);
@@ -485,6 +506,36 @@ export default class SafeguardPool extends BasePool {
     };
   }
 
+  private _amountsTo18Decimals(amounts: BigNumberish[]): BigNumber[] {
+    const decimals = this.tokens.map((token) => token.decimals)
+    return amounts.map((amount, index) =>  parseUnits(amount.toString(), 18-decimals[index]));
+  }
+
+  // estimates the amount of tokens to swap when joining with arbitrary amountsIn
+  private async _getSwapAmountJoinGivenIn(
+      tokenIn: string | number,
+      currentBalances: BigNumber[],
+      amountsIn: BigNumberish[],
+      quoteAmountInPerOut: BigNumberish
+    ): Promise<BigNumberish> {
+      
+      const tokens = (await this.getTokens()).tokens;
+      const tokenInIndex = typeof tokenIn == "number"? tokenIn : tokens.findIndex((token) => token == tokenIn);
+      const tokenOutIndex = tokenInIndex == 0? 1 : 0;
+
+      const fpCurrentBalances = this._amountsTo18Decimals(currentBalances);
+
+      const numerator = fpMul(amountsIn[tokenInIndex], fpCurrentBalances[tokenOutIndex]).sub(fpMul(amountsIn[tokenOutIndex], fpCurrentBalances[tokenInIndex]));
+
+      const denom = bn(fpCurrentBalances[tokenOutIndex]).add(amountsIn[tokenOutIndex]).add(
+        fpDiv(bn(fpCurrentBalances[tokenInIndex]).add(amountsIn[tokenInIndex]), quoteAmountInPerOut)
+      );
+        
+      const maxSwapAmount = fpDiv(numerator, denom);
+
+      return maxSwapAmount > BigNumber.from(0) ? maxSwapAmount.mul(11).div(10) : BigNumber.from(0);
+  }
+
   private async _buildJoinAllGivenOutParams(params: JoinAllGivenOutSafeguardPool): Promise<JoinExitSafeguardPool> {
     
     let userData = await SafeguardPoolEncoder.joinAllTokensInForExactBPTOut(params.bptOut);
@@ -526,8 +577,9 @@ export default class SafeguardPool extends BasePool {
     const amountsOut = Array.isArray(params.amountsOut) ? params.amountsOut : Array(this.tokens.length).fill(params.amountsOut);
     const swapTokenIn = typeof params.swapTokenIn === 'number' ? tokens[params.swapTokenIn] : params.swapTokenIn.address;
     const expectedOrigin = params.expectedOrigin?? sender;
-    const maxSwapAmount = params.maxSwapAmount?? MAX_UINT256;
     const quoteAmountInPerOut = params.quoteAmountInPerOut?? await this.getAmountInPerOut(swapTokenIn);
+    const maxSwapAmount = params.maxSwapAmount?? 
+      bn(await this._getSwapAmountExitGivenOut(swapTokenIn, this._amountsTo18Decimals(currentBalances), amountsOut, quoteAmountInPerOut));
     const maxBalanceChangeTolerance = params.maxBalanceChangeTolerance?? MAX_UINT256;
     const quoteBalanceIn = params.quoteBalanceIn?? (swapTokenIn == tokens[0]? currentBalances[0] : currentBalances[1]);
     const quoteBalanceOut = params.quoteBalanceOut?? (swapTokenIn == tokens[0]? currentBalances[1] : currentBalances[0]);
@@ -570,6 +622,28 @@ export default class SafeguardPool extends BasePool {
         signer
       ),
     };
+  }
+
+    // estimates the amount of tokens to swap when joining with arbitrary amountsIn
+    private async _getSwapAmountExitGivenOut(
+      tokenIn: string | number,
+      currentBalances: BigNumber[], // should be in 18 decimals
+      amountsOut: BigNumberish[], // should be in 18 decimals
+      quoteAmountInPerOut: BigNumberish // should be in 18 decimals
+    ): Promise<BigNumberish> {
+      
+      const tokens = (await this.getTokens()).tokens;
+      const tokenInIndex = typeof tokenIn == "number"? tokenIn : tokens.findIndex((token) => token == tokenIn);
+      const tokenOutIndex = tokenInIndex == 0? 1 : 0;
+
+      const numerator = fpMul(amountsOut[tokenOutIndex], currentBalances[tokenInIndex]).sub(fpMul(amountsOut[tokenInIndex], currentBalances[tokenOutIndex]));
+
+      const denom = bn(currentBalances[tokenOutIndex]).sub(amountsOut[tokenOutIndex]).add(
+        fpMul(bn(currentBalances[tokenInIndex]).sub(amountsOut[tokenInIndex]), quoteAmountInPerOut)
+      );
+        
+      const maxSwapAmount = fpDiv(numerator, denom);
+      return maxSwapAmount > BigNumber.from(0) ? maxSwapAmount.mul(11).div(10) : BigNumber.from(0);
   }
 
   public newQuoteIndex(): BigNumberish {
