@@ -1240,6 +1240,32 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
         return (_scaleFactor1, _scaleFactor0);
     }
 
+    /**
+    * @dev Safeguard pool does not support on-chain swap fees. They should be included in the pricing
+    * of the signed quotes. The following functions are overriden to reduce contract size and disable
+    * on-chain swap fees.
+    */
+
+    // Safeguard pool does not support on-chain swap fees.
+    function _setSwapFeePercentage(uint256) internal pure override {
+        return;
+    }
+
+    // Safeguard pool does not support on-chain swap fees.
+    function getSwapFeePercentage() public pure override(BasePool, IBasePool) returns (uint256) {
+        return 0;
+    }
+
+    // Safeguard pool does not support on-chain swap fees.
+    function _getMinSwapFeePercentage() internal override pure returns (uint256) {
+        return 0;
+    }
+
+    // Safeguard pool does not support on-chain swap fees.
+    function _getMaxSwapFeePercentage() internal override pure returns (uint256) {
+        return 0;
+    }
+
     /*
     * Management fees
     */
