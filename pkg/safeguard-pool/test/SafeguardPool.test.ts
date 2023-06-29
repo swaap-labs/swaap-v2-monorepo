@@ -550,19 +550,33 @@ describe('SafeguardPool', function () {
           sharedBeforeEach('Signature Safeguards', async () => {
             await pool.enableRecoveryMode(admin);
           });
-          it('valid', async () => {
-            await pool.pause();
-            await expect(
-              pool.exitGivenOut({
-                from: lp,
-                recipient: lp.address,
-                chainId: chainId,
-                amountsOut: amountsOut,
-                swapTokenIn: tokens.tokens[1],
-                signer: signer
-              })
-            ).to.be.revertedWith("BAL#402");
+          context('when paused', () => {
+            it('reverts for exits different than recovery mode', async () => {
+              await pool.pause();
+              await expect(
+                pool.exitGivenOut({
+                  from: lp,
+                  recipient: lp.address,
+                  chainId: chainId,
+                  amountsOut: amountsOut,
+                  swapTokenIn: tokens.tokens[1],
+                  signer: signer
+                })
+              ).to.be.revertedWith("BAL#402");
+            });
+
+            it('valid for exits in recovery mode', async () => {
+              await pool.pause();
+              await expect(
+                pool.recoveryModeExit({
+                  bptIn: fp(10),
+                  from: lp,
+                  recipient: lp.address
+                })
+              ).to.not.be.reverted;
+            });
           });
+
         });
 
         describe('when in normal mode', () => {
@@ -1030,17 +1044,23 @@ describe('SafeguardPool', function () {
 
     describe('Protocol Fees', () => {
 
+      const yearlyFees = 3 / 100
+
+      sharedBeforeEach('setting managementt fees', async () => {
+        const action = await actionId(pool.instance, 'setManagementFees');
+        await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
+        await pool.setManagementFees(deployer, fp(yearlyFees))
+      
+      });
+
       for (let i=1; i < 11; i++) { 
         const window = (i * 1.5) * 365 * DAY
         it (`Management Fees: ${window}s`, async () => {
           
-          const yearlyFees = 3 / 100
 
           const bptIn = fp(1);
 
-          const action = await actionId(pool.instance, 'setManagementFees');
-          await pool.vault.authorizer.connect(deployer).grantPermissions([action], deployer.address, [pool.address]);
-          await pool.setManagementFees(deployer, fp(yearlyFees))
+
           let block = await ethers.provider.getBlockNumber();
           const managementFeesInitTimestmap = (await ethers.provider.getBlock(block)).timestamp;
 
@@ -1079,6 +1099,53 @@ describe('SafeguardPool', function () {
 
         });
       };
+
+      context('when in recovery mode', () => {
+
+        let totalSupplyBefore : BigNumber;
+        sharedBeforeEach('Signature Safeguards', async () => {
+          totalSupplyBefore = await pool.totalSupply();
+          await pool.enableRecoveryMode(admin);
+          // advance 1 year
+          await advanceTime(365 * DAY);
+        });
+
+        it('recovery exit does not apply fees', async () => {
+          const burnSupplyAmount = fp(1);
+          await pool.recoveryModeExit({
+            bptIn: burnSupplyAmount,
+            from: lp,
+            recipient: lp.address
+          });
+          const totalSupplyAfter = await pool.totalSupply();
+          expect(totalSupplyAfter).to.be.eq(totalSupplyBefore.sub(burnSupplyAmount));
+        });
+
+        it('regular exit does apply fees', async () => {
+          const burnSupplyAmount = fp(1);
+          await pool.multiExitGivenIn({
+            bptIn: burnSupplyAmount,
+            from: lp,
+            recipient: lp.address
+          });
+          const totalSupplyAfter = await pool.totalSupply();
+          expect(totalSupplyAfter).to.be.gt(totalSupplyBefore.sub(burnSupplyAmount));
+        });
+
+        context('after exiting recovery mode', () => {
+          it('regular exit does not apply accrued fees', async () => {
+            await pool.disableRecoveryMode(admin);
+            const burnSupplyAmount = fp(1);
+            await pool.multiExitGivenIn({
+              bptIn: burnSupplyAmount,
+              from: lp,
+              recipient: lp.address
+            });
+            const totalSupplyAfter = await pool.totalSupply();
+            expectRelativeErrorBN(totalSupplyAfter, totalSupplyBefore.sub(burnSupplyAmount), tolerance)
+          });
+        });
+      });
     });
 
     describe('Setters / Getters', () => {
