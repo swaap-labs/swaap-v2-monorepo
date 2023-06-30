@@ -48,6 +48,13 @@ import "./SafeguardPool.sol";
 import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISafeguardPool.sol";
 import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISafeguardFactory.sol";
 
+/**
+ * @title SafeguardFactory
+ * @notice Factory contract for deploying `SafeguardPool` contracts.
+ * @dev `SafeguardPool` is built on top of Balancer V2's infrastructure but is meant to be deployed
+ * with a modified version of Balancer V2 Vault. (refer to the comments in the 
+ * `SafeguardPool.updatePerformance` function for more details).
+ */
 contract SafeguardFactory is ISafeguardFactory, BasePoolFactory {
 
     constructor(

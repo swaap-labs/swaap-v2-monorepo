@@ -22,7 +22,8 @@ import "@swaap-labs/v2-interfaces/contracts/safeguard-pool/ISignatureSafeguard.s
 import "@swaap-labs/v2-errors/contracts/SwaapV2Errors.sol";
 
 /**
- * @dev Utility for verifying signed quotes and whitelisted lps.
+ * @dev Utility for verifying signed quotes and whitelisted lps. This module should only
+ * be used with pools with a fixed two token order that are similar to that in the vault.
  */
 abstract contract SignatureSafeguard is EOASignaturesValidator, ISignatureSafeguard {
 
