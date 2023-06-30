@@ -81,7 +81,7 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
     // Pool parameters constants
     uint256 private constant _MIN_SWAP_AMOUNT_PERCENTAGE = 10e16; // 10% min swap amount
     uint256 private constant _MAX_PERFORMANCE_DEVIATION = 95e16; // 5% max tolerance
-    uint256 private constant _MAX_TARGET_DEVIATION = 85e16; // 15% max tolerance
+    uint256 private constant _MAX_TARGET_DEVIATION = 80e16; // 20% max tolerance
     uint256 private constant _MAX_PRICE_DEVIATION = 97e16; // 3% max tolerance
     uint256 private constant _MIN_PERFORMANCE_UPDATE_INTERVAL = 0.5 days;
     uint256 private constant _MAX_PERFORMANCE_UPDATE_INTERVAL = 1.5 days;
