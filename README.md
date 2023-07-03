@@ -47,6 +47,13 @@ $ cd pkg/<package> # e.g. cd pkg/vault
 $ yarn test
 ```
 
+## Security
+### Audits
+Swaap v2 SafeguardPool have been audited by Chainsecurity and Quantstamp. The audit reports can be found in the [`audits folder`](./audits/) of this repository.
+
+### Upgradability
+
+All core smart contracts are immutable, and cannot be upgraded.
 
 ## Licensing
 
