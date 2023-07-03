@@ -4,7 +4,7 @@ import * as dotenv from "dotenv";
 import { BigNumber } from "@balancer-labs/v2-helpers/src/numbers";
 dotenv.config({ path: __dirname+'/.env' });
 
-const vaultAddress = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // balancer's vault on polygon
+const vaultAddress = "0xd315a9c38ec871068fec378e4ce78af528c76293"; // swaap v2 vault on polygon
 // TODO: add poolId
 const poolId = process.env.POOL_ID;
 
@@ -32,7 +32,7 @@ async function main() {
   }
 
   const token1Contract = await ethers.getContractAt("ERC20", token1);
-  const allowance1: BigNumber = await token0Contract.allowance(sender.address, vaultAddress);
+  const allowance1: BigNumber = await token1Contract.allowance(sender.address, vaultAddress);
   
   if(allowance1.lt(joinAmountToken1)) { // approving token1
     console.log("Approving token1 to the vault");

@@ -1,86 +1,88 @@
-import { DELEGATE_OWNER, ZERO_ADDRESS } from "@balancer-labs/v2-helpers/src/constants";
 import { ethers } from "hardhat";
-import { DAY } from "@balancer-labs/v2-helpers/src/time";
 import * as dotenv from "dotenv";
+import { DAY } from "@balancer-labs/v2-helpers/src/time";
 dotenv.config({ path: __dirname+'/.env' });
 
-// TODO: INSERT QUOTE SIGNER ADDRESS
-const signerAddress = process.env.QUOTE_SIGNER;
+const factoryAddress = "0x03C01Acae3D0173a93d819efDc832C7C4F153B06"; // Safeguard factory on polygon
 
-// token0 and token1 must be ordered such that address(token0) < address(token1) 
-const vaultAddress = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // balancer's vault on polygon
-const name = "Pool Safeguard";
-const symbol = "Pool Safeguard";
-const pauseWindowDuration = 270 * DAY // max pauseWindowDuration
-const bufferPeriodDuration = 90 * DAY // max bufferPeriodDuration
+const name = "Swaap USDC-WETH Safeguard";
+const symbol = "s-USDC-WETH-Sa";
 
 const token0 = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"; // USDC on polygon
 const oracle0 = "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7"; // chainlink USDC oracle on polygon
+const maxTimeOut0 = 1 * DAY;
 const isStable0 = true;
 const isFlexibleOracle0 = true;
 
 const token1 = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"; // WETH on polygon
+const maxTimeOut1 = 1 * DAY;
 const oracle1 = "0xF9680D99D6C9589e2a93a78A04A279e509205945"; // chainlink WETH oracle on polygon
 const isStable1 = false;
 const isFlexibleOracle1 = false;
 
+const signer = process.env.QUOTE_SIGNER;
 const maxPerfDev = ethers.utils.parseEther('0.97'); // 3% deviation tolerance
-const maxTargetDev = ethers.utils.parseEther('0.95'); // 5% deviation tolerance
-const maxPriceDev = ethers.utils.parseEther('0.97'); // 3% deviation tolerance
+const maxTargetDev = ethers.utils.parseEther('0.90'); // 10% deviation tolerance
+const maxPriceDev = ethers.utils.parseEther('0.99'); // 1% deviation tolerance
 const perfUpdateInterval = 1 * DAY;
-const yearlyFees = ethers.utils.parseEther('0.01'); // 1% yearly fees
+const yearlyFees = ethers.utils.parseEther('0'); // 0% yearly fees
 const mustAllowlistLPs = false;
 
-const constructorArgs = [
-  vaultAddress, // vault
-  name, // name
-  symbol, // symbol
-  [token0,  token1], // tokens
-  [ZERO_ADDRESS, ZERO_ADDRESS], // assetManagers
-  pauseWindowDuration,
-  bufferPeriodDuration,
-  DELEGATE_OWNER, // owner
-  [ // oracleParameters
-      [
-        oracle0, // oracle address
-        isStable0, // is token stable
-        isFlexibleOracle0 // can the oracle be pegged to 1
-      ],
-      [
-        oracle1, // oracle address
-        isStable1, // is token stable
-        isFlexibleOracle1 // can the oracle be pegged to 1
-      ]
+const setPegStates = true;
+
+const tokens = [token0, token1];
+
+const oracleParams = [
+  [
+    oracle0,
+    maxTimeOut0,
+    isStable0,
+    isFlexibleOracle0
   ],
-  [ // safeguardParameters
-    signerAddress, // signerAddress
-    maxPerfDev, // maxPerfDev
-    maxTargetDev, // maxTargetDev
-    maxPriceDev, // maxPriceDev
-    perfUpdateInterval, // perfUpdateInterval
-    yearlyFees, // yearlyFees
-    mustAllowlistLPs // mustAllowlistLPs
+  [
+    oracle1,
+    maxTimeOut1,
+    isStable1,
+    isFlexibleOracle1
   ]
+];
+
+const safeguardParameters = [
+  signer,
+  maxPerfDev,
+  maxTargetDev,
+  maxPriceDev,
+  perfUpdateInterval,
+  yearlyFees,
+  mustAllowlistLPs
 ]
 
 async function main() {
 
-  const Pool = await ethers.getContractFactory("SafeguardPool");
-  const pool = await Pool.deploy(...constructorArgs);
-
-  await pool.deployed();
+  const factory = await ethers.getContractAt("SafeguardFactory", factoryAddress);
   
-  console.log(`pool address: ${pool.address}`);
+  const salt = ethers.utils.randomBytes(32);
+
+  const tx = await factory.create(
+    [
+      name,
+      symbol,
+      tokens,
+      oracleParams,
+      safeguardParameters,
+      setPegStates
+    ],
+    salt
+  );
+  
+  const receipt = await tx.wait();
+  const eventPoolCreated = receipt.events?.filter((x: any) => x.event == "PoolCreated")[0];
+  console.log(`pool address: ${eventPoolCreated.args.pool}`);
+  
+  // print pool id
+  const pool = await ethers.getContractAt("SafeguardPool", eventPoolCreated.args.pool);
   const poolId = await pool.getPoolId();
-  console.log(`poolId: ${poolId}`);
-  
-  if(isFlexibleOracle0 || isFlexibleOracle1) {
-    console.log("Evaluating peg states");
-    const tx = await pool.evaluateStablesPegStates();
-    await tx.wait();
-    console.log("Peg states evaluated");
-  }
-
+  console.log(`pool id: ${poolId}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
