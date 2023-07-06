@@ -2052,6 +2052,33 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@swaap-labs/v2-standalone-utils@workspace:pkg/standalone-utils":
+  version: 0.0.0-use.local
+  resolution: "@swaap-labs/v2-standalone-utils@workspace:pkg/standalone-utils"
+  dependencies:
+    "@balancer-labs/balancer-js": 2.0.0
+    "@balancer-labs/v2-common": "workspace:*"
+    "@balancer-labs/v2-helpers": "workspace:*"
+    "@balancer-labs/v2-interfaces": 0.4.0
+    "@balancer-labs/v2-pool-utils": 4.1.1
+    "@balancer-labs/v2-solidity-utils": 4.0.0
+    "@nomicfoundation/hardhat-chai-matchers": ^1.0.6
+    "@nomicfoundation/hardhat-toolbox": ^2.0.1
+    "@nomiclabs/hardhat-etherscan": ^3.0.0
+    "@swaap-labs/swaap-core-v1": ^1.0.0
+    "@swaap-labs/v2-errors": "workspace:*"
+    "@typechain/hardhat": ^6.1.5
+    "@types/mocha": ^10
+    eth-gas-reporter: ^0.2.25
+    hardhat: ^2.12.7
+    hardhat-contract-sizer: ^2.8.0
+    hardhat-gas-reporter: ^1.0.9
+    mocha: ^10.2.0
+    solc: ^0.8.19
+    solidity-coverage: ^0.8.2
+  languageName: unknown
+  linkType: soft
+
 "@swaap-labs/v2-swaap-js@workspace:pkg/swaap-js, @swaap-labs/v2-swaap-js@worlspace:*":
   version: 0.0.0-use.local
   resolution: "@swaap-labs/v2-swaap-js@workspace:pkg/swaap-js"
