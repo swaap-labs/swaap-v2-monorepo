@@ -34,11 +34,7 @@ describe('WstETHToBasePriceAdapter', function () {
 
     it('should give wstETH / usd price correctly', async () => {
 
-        // wait 2 seconds 
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
         const roundData = await wstETHToBasePriceAdapter.latestRoundData();
-        console.log(await wstETHToBasePriceAdapter.estimateGas.latestRoundData());
 
         const actualPrice = roundData[1];
         
@@ -47,7 +43,24 @@ describe('WstETHToBasePriceAdapter', function () {
         const clRoundData = await aggregatorV3.latestRoundData();
 
         expect(roundData[0]).to.equal(clRoundData.roundId);
+        expect(roundData[2]).to.equal(clRoundData.startedAt);
+        expect(roundData[3]).to.equal(clRoundData.updatedAt);
         expect(roundData[4]).to.equal(clRoundData.answeredInRound);
+    });
+
+
+    it('should revert if update time is not up to date', async () => {
+        // advance time by 2 months
+        await ethers.provider.send("evm_increaseTime", [60 * 3600 * 24]);
+        // mine a block to update timestamp of the last block
+        await ethers.provider.send("evm_mine", []);
+
+        await expect(wstETHToBasePriceAdapter.latestRoundData()).to.be.revertedWith("SWAAP#23");
+    });
+
+    it('should revert when paused', async () => {
+        await wstETHToBasePriceAdapter.pause();
+        await expect(wstETHToBasePriceAdapter.latestRoundData()).to.be.revertedWith("SWAAP#31");
     });
 
 });

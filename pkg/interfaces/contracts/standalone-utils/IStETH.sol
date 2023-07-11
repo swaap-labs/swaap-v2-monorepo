@@ -13,6 +13,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity >=0.7.0 <0.9.0;
+
 interface IStETH {
   function getPooledEthByShares(uint256 shares) external view returns (uint256);
 }

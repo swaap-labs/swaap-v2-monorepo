@@ -47,6 +47,7 @@ library SwaapV2Errors {
     uint256 internal constant OUTDATED_ORACLE_ROUND_ID = 28;
     uint256 internal constant LOW_SWAP_AMOUNT_IN = 29;
     uint256 internal constant LOW_SWAP_AMOUNT_OUT = 30;
+    uint256 internal constant PAUSED = 31;
 }
 
 /**

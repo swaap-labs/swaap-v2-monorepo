@@ -15,6 +15,17 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 interface IWstETHToBasePriceAdapter {
+
+  /**
+   * @notice Event emitted when price is updated
+   */
+  event PriceUpdated(int256 price, uint256 timestamp);
+
+  /**
+   * @notice Event emitted when setting pause state
+   */
+  event PauseStateChanged(bool isPaused);
+
   /**
    * @notice Calculates the current answer based on the aggregators.
    */
