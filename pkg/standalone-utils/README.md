@@ -4,6 +4,8 @@
 
 [![NPM Package](https://img.shields.io/npm/v/@swaap-labs/v2-standalone-utils.svg)](https://www.npmjs.org/package/@swaap-labs/v2-standalone-utils)
 
+This package contains standalone Solidity utilities that can be used in the Swaap V2 protocol.
+
 ## Overview
 
 ### Installation
