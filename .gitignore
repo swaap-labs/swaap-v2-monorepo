@@ -28,3 +28,6 @@ forge-cache/
 
 # VS code
 .vscode/
+
+# OS
+.env
