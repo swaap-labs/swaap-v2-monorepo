@@ -1,9 +1,18 @@
 import { ethers } from "hardhat";
 import * as dotenv from "dotenv";
 import { DAY } from "@balancer-labs/v2-helpers/src/time";
+import { Contract } from "ethers";
+import { ZERO_ADDRESS, DELEGATE_OWNER } from "@balancer-labs/v2-helpers/src/constants";
 dotenv.config({ path: __dirname+'/.env' });
+const hre = require("hardhat");
+
+// Pool Parameters (should be tailored to the pool)
+// ----------------------------------------------------------------
 
 const factoryAddress = "0x03C01Acae3D0173a93d819efDc832C7C4F153B06"; // Safeguard factory on polygon
+const factoryCreationBlockId = 44521619; // block id of factory creation
+const factoryInitialPauseWindowDuration = 270 * DAY;
+const factoryBufferPeriodDuration = 90 * DAY;
 
 const name = "Swaap USDC-WETH Safeguard";
 const symbol = "s-USDC-WETH-Sa";
@@ -28,7 +37,9 @@ const perfUpdateInterval = 1 * DAY;
 const yearlyFees = ethers.utils.parseEther('0'); // 0% yearly fees
 const mustAllowlistLPs = false;
 
-const setPegStates = true;
+const setPegStates = (isStable0 && isFlexibleOracle0) || (isStable1 && isFlexibleOracle1);
+
+// ----------------------------------------------------------------
 
 const tokens = [token0, token1];
 
@@ -83,7 +94,39 @@ async function main() {
   const pool = await ethers.getContractAt("SafeguardPool", eventPoolCreated.args.pool);
   const poolId = await pool.getPoolId();
   console.log(`pool id: ${poolId}`);
+
+  // get block timestamp from factory creation
+  const factoryTimestamp = (await ethers.provider.getBlock(factoryCreationBlockId)).timestamp;
+  // get block timestamp from receipt
+  const poolTimestamp = (await ethers.provider.getBlock(receipt.blockNumber)).timestamp;
+
+  let initialPauseWindowDuration = factoryInitialPauseWindowDuration - (poolTimestamp - factoryTimestamp);
+  initialPauseWindowDuration = initialPauseWindowDuration < 0 ? 0 : initialPauseWindowDuration;
+
+  const vaultAddress = await factory.callStatic.getVault();
+
+  // pool constructor arguments
+  const args = [vaultAddress, name, symbol, tokens, [ZERO_ADDRESS, ZERO_ADDRESS], initialPauseWindowDuration, factoryBufferPeriodDuration, DELEGATE_OWNER, oracleParams, safeguardParameters];
+  
+  await verifyContract(pool, args);
 }
+
+async function verifyContract(myContract: Contract, args: any) {
+  // await new Promise(r => setTimeout(r, 15000));
+  try {
+      await hre.run("verify:verify", {
+        address: myContract.address,
+        constructorArguments: args, // Pass constructor arguments if required
+        //salt: saltValue
+      });
+    } catch (e) {
+      console.log(e);
+      console.log("Contract verification failed. Retrying in 15 seconds...");
+      // wait 15 seconds in order not to spam the verification service
+      await new Promise(resolve => setTimeout(resolve, 15000));
+      await verifyContract(myContract, args);
+    }
+};
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
