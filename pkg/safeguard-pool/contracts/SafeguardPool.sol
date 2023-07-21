@@ -787,11 +787,11 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
 
         uint256 rOpt = SafeguardMath.calcExitSwapROpt(excessTokenBalance, excessTokenAmountOut, swapAmountOut);
                 
-        uint256 bptAmountOut = totalSupply().mulUp(rOpt);
+        uint256 bptAmountIn = totalSupply().mulUp(rOpt);
         
-        _srequire(bptAmountOut <= maxBptAmountIn, SwaapV2Errors.EXCEEDED_BURNED_PT);
+        _srequire(bptAmountIn <= maxBptAmountIn, SwaapV2Errors.EXCEEDED_BURNED_PT);
         
-        return (bptAmountOut, exitAmounts);
+        return (bptAmountIn, exitAmounts);
 
     }
 
