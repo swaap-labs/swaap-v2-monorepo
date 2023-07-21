@@ -1,6 +1,6 @@
 {
   "name": "@swaap-labs/v2-interfaces",
-  "version": "0.0.5",
+  "version": "1.0.0",
   "description": "V2 Interfaces",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/interfaces#readme",

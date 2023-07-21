@@ -1,6 +1,6 @@
 {
   "name": "@swaap-labs/v2-vault",
-  "version": "0.0.5",
+  "version": "1.0.0",
   "description": "Swaap V2 Vault contract and core interfaces",
   "license": "GPL-3.0-only",
   "homepage": "https://github.com/swaap-labs/swaap-v2-monorepo/tree/master/pkg/vault#readme",
