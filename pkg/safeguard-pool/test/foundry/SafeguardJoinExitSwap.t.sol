@@ -91,21 +91,6 @@ contract SafeguardJoinExitSwapFuzz is Test {
 
         assertApproxEqRel(tvlPerPTBefore, tvlPerPTAfter, _PRECISION);
 
-        // // evaluate tvlPerPT before and after the exitswap
-        // if(tvlPerPTBefore - 1 <= tvlPerPTAfter && tvlPerPTAfter <= tvlPerPTBefore + 1) {
-        //     return;
-        // }
-
-        // // evaluate tvlPerPT before and after the exitswap
-        // if(tvlPerPTAfter < tvlPerPTBefore) {
-        //     console2.log("tvlPerPTBefore: %d", tvlPerPTBefore);
-        //     console2.log("tvlPerPTAfter: %d", tvlPerPTAfter);
-        //     assertLe((tvlPerPTBefore - tvlPerPTAfter).divDown(tvlPerPTAfter), _PRECISION);
-        // } else {
-        //     console2.log("tvlPerPTBefore: %d", tvlPerPTBefore);
-        //     console2.log("tvlPerPTAfter: %d", tvlPerPTAfter);
-        //     assertLe((tvlPerPTAfter - tvlPerPTBefore).divDown(tvlPerPTBefore), _PRECISION);
-        // }
     }
 
     function mockJoinExactTokensInForBptOut(
@@ -189,21 +174,6 @@ contract SafeguardJoinExitSwapFuzz is Test {
 
         assertApproxEqRel(tvlPerPTBefore, tvlPerPTAfter, _PRECISION);
 
-        // // evaluate tvlPerPT before and after the exitswap
-        // if(tvlPerPTBefore - 1 <= tvlPerPTAfter && tvlPerPTAfter <= tvlPerPTBefore + 1) {
-        //     return;
-        // }
-
-        // // evaluate tvlPerPT before and after the exitswap
-        // if(tvlPerPTAfter < tvlPerPTBefore) {
-        //     console2.log("tvlPerPTBefore: %d", tvlPerPTBefore);
-        //     console2.log("tvlPerPTAfter: %d", tvlPerPTAfter);
-        //     assertLe((tvlPerPTBefore - tvlPerPTAfter).divDown(tvlPerPTAfter), _PRECISION);
-        // } else {
-        //     console2.log("tvlPerPTBefore: %d", tvlPerPTBefore);
-        //     console2.log("tvlPerPTAfter: %d", tvlPerPTAfter);
-        //     assertLe((tvlPerPTAfter - tvlPerPTBefore).divDown(tvlPerPTBefore), _PRECISION);
-        // }
     }
 
     function mockExitBPTInForExactTokensOut(

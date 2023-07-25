@@ -214,18 +214,6 @@ contract InvariantManagementFees is Test {
         return result;
     }
 
-    // function assertApproxEqRel(
-    //     uint256 a,
-    //     uint256 b,
-    //     uint256 maxPercentDelta
-    // ) internal override {
-    //     if ((b * maxPercentDelta) / 1e18 == 0) {
-    //         assertApproxEqAbs(a, b, 1);
-    //     } else {
-    //         super.assertApproxEqRel(a, b, maxPercentDelta);
-    //     }
-    // }
-
 }
 
 contract ManagementFeesHandler is Test {
