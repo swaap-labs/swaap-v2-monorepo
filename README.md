@@ -25,6 +25,13 @@ The monorepo is has 3 main directories:
 - [`v2-safeguard-pool`](./pkg/safeguard-pool): the [`SafeguardPool`](./pkg/safeguard-pool/contracts/SafeguardPool.sol) solidity contract.
 - [`v2-vault`](./pkg/vault): the [`Vault`](./pkg/vault/contracts/Vault.sol) solidity contract, forked from Balancer V2.
 
+## Clone
+This repository uses git submodules to run fuzz tests using forge. Therefore use ```--recurse-submodules``` when cloning:
+
+```bash
+$ git clone --recurse-submodules https://github.com/swaap-labs/swaap-v2-monorepo.git
+```
+
 ## Build and Test
 
 Before any tests can be run, the repository needs to be prepared:
@@ -45,6 +52,13 @@ To instead run a single package's tests, run:
 ```bash
 $ cd pkg/<package> # e.g. cd pkg/vault
 $ yarn test
+```
+
+To run fuzz/invariant tests run:
+
+```bash
+$ cd pkg/<package> # e.g. cd pkg/safeguard-pool
+$ yarn test-fuzz
 ```
 
 ## Security
