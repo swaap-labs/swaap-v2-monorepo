@@ -20,6 +20,15 @@ module.exports = {
           }
         }
       },
+      {
+        version: "0.7.6",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 99999,
+          }
+        }
+      },
     ]
   },
 
@@ -35,7 +44,7 @@ module.exports = {
       allowUnlimitedContractSize: true,
       forking: {
         url: process.env.MAINNET_RPC_URL?? "https://eth.llamarpc.com",
-        blockNumber: 17635689
+        blockNumber: 17970051 // 17635689
       }
     },
     // polygon: {

@@ -48,6 +48,10 @@ library SwaapV2Errors {
     uint256 internal constant LOW_SWAP_AMOUNT_IN = 29;
     uint256 internal constant LOW_SWAP_AMOUNT_OUT = 30;
     uint256 internal constant PAUSED = 31;
+    uint256 internal constant INVALID_AGGREGATOR = 32;
+    uint256 internal constant PASSED_DEADLINE = 33;
+    uint256 internal constant SAME_TOKENS = 34;
+    uint256 internal constant INVALID_DATA_LENGTH = 35;
 }
 
 /**

@@ -6,11 +6,11 @@ import { fp } from '@balancer-labs/v2-helpers/src/numbers';
 
 describe('WstETHToBasePriceAdapter', function () {
     
-    // calculated by hand at blocknumber 17635689
-    const expectedPrice = BigNumber.from(fp(2121.90044498));
+    // calculated by hand at blocknumber 17970051
+    const expectedPrice = BigNumber.from(fp(1890.0069));
 
     // tolerance of 1e-6
-    const tolerance = BigNumber.from(1e9);
+    const tolerance = BigNumber.from(1e12);
 
     // mainnet addresses
     const STETH_CL_AGGREGATOR = '0xCfE54B5cD566aB89272946F602D76Ea879CAb4a8';
