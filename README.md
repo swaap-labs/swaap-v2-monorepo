@@ -61,6 +61,12 @@ $ cd pkg/<package> # e.g. cd pkg/safeguard-pool
 $ yarn test-fuzz
 ```
 
+To run test coverage:
+```bash
+$ cd pkg/<package> # e.g. cd pkg/safeguard-pool
+$ yarn test-coverage
+```
+
 ## Security
 ### Audits
 Swaap v2 SafeguardPool have been audited by Chainsecurity and Quantstamp. The audit reports can be found in the [`audits folder`](./audits/) of this repository.
