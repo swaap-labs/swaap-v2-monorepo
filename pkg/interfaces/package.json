@@ -21,7 +21,7 @@
     "compile:watch": "nodemon --ext sol --exec yarn compile",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "solhint 'contracts/**/*.sol'",
-    "lint:typescript": "eslint . --ext .ts --ignore-path ../../.eslintignore  --max-warnings 0"
+    "lint:typescript": "eslint . --ext .ts --ignore-path ../../.eslintignore"
   },
   "devDependencies": {
     "@balancer-labs/v2-common": "workspace:*",

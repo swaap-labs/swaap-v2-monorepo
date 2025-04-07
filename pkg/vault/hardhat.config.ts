@@ -26,5 +26,5 @@ export default {
     ],
     overrides: { ...hardhatBaseConfig.overrides(name) },
   },
-  warnings: hardhatBaseConfig.warnings,
+  warnings: 'off',
 };
