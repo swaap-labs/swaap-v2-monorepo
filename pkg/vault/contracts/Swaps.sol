@@ -334,11 +334,6 @@ abstract contract Swaps is ReentrancyGuard, PoolBalances {
             tokenInBalance,
             tokenOutBalance
         );
-
-        // We check the token ordering again to create the new shared cash packed struct
-        poolBalances.sharedCash = request.tokenIn < request.tokenOut
-            ? BalanceAllocation.toSharedCash(tokenInBalance, tokenOutBalance) // in is A, out is B
-            : BalanceAllocation.toSharedCash(tokenOutBalance, tokenInBalance); // in is B, out is A
     }
 
     function _processMinimalSwapInfoPoolSwapRequest(
@@ -386,7 +381,9 @@ abstract contract Swaps is ReentrancyGuard, PoolBalances {
         (uint256 amountIn, uint256 amountOut) = _getAmounts(request.kind, request.amount, amountCalculated);
 
         newTokenInBalance = tokenInBalance.increaseCash(amountIn);
-        newTokenOutBalance = tokenOutBalance.decreaseCash(amountOut);
+        // Given cache is disabled, decresing may produce overflow, just doing nothing instead.
+        // newTokenOutBalance = tokenOutBalance.decreaseCash(amountOut);
+
     }
 
     function _processGeneralPoolSwapRequest(IPoolSwapStructs.SwapRequest memory request, IGeneralPool pool)

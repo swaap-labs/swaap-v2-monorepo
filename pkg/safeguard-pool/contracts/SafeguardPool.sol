@@ -262,14 +262,9 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             request.to,
             request.userData
         );
-        
-        (uint256 scalingFactorTokenIn, uint256 scalingFactorTokenOut) = _scalingFactorsInAndOut(isTokenInToken0);
 
-        balanceTokenIn = _upscale(balanceTokenIn, scalingFactorTokenIn);
-        balanceTokenOut = _upscale(balanceTokenOut, scalingFactorTokenOut);
-
-        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = 
-            _getQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
+        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount, uint256 scalingFactorTokenIn, uint256 scalingFactorTokenOut) =
+            _zrxGetQuoteAmountInPerOut(swapData, balanceTokenIn, balanceTokenOut);
 
         if (request.kind == IVault.SwapKind.GIVEN_IN) {
             uint256 amountIn = request.amount;
@@ -317,23 +312,31 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             bytes32 timeBasedParams
         ) = swapData.pricingParameters();
         
-        uint256 penalty = _getBalanceBasedPenalty(
-            balanceTokenIn,
-            balanceTokenOut,
-            quoteBalances,
-            quoteTotalSupply,
-            balanceBasedParams
-        );
-        
-        penalty = penalty.add(_getTimeBasedPenalty(timeBasedParams));
+        (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = priceBasedParams.unpackPairedUints();
+        return (quoteAmountInPerOut, maxSwapAmount);
+    }
 
-        penalty = penalty.add(SafeguardMath.calcOriginBasedPenalty(expectedOrigin, originBasedSlippage));
+    /// @dev amountInPerOut = baseAmountInPerOut * (1 + slippagePenalty)
+    function _zrxGetQuoteAmountInPerOut(
+        bytes memory swapData,
+        uint256 balanceTokenIn,
+        uint256 balanceTokenOut
+    ) internal view returns (uint256, uint256, uint256, uint256) {
+
+        (
+            address expectedOrigin,
+            uint256 originBasedSlippage,
+            bytes32 priceBasedParams,
+            bytes32 quoteBalances,
+            uint256 quoteTotalSupply,
+            bytes32 balanceBasedParams,
+            bytes32 timeBasedParams
+        ) = swapData.pricingParameters();
 
         (uint256 quoteAmountInPerOut, uint256 maxSwapAmount) = priceBasedParams.unpackPairedUints();
+        (uint256 scalingFactorTokenIn, uint256 scalingFactorTokenOut) = timeBasedParams.unpackPairedUints();
 
-        penalty = penalty.add(FixedPoint.ONE);
-
-        return (quoteAmountInPerOut.mulUp(penalty), maxSwapAmount);
+        return (quoteAmountInPerOut, maxSwapAmount, scalingFactorTokenIn, scalingFactorTokenOut);
     }
 
     function _getBalanceBasedPenalty(
@@ -392,7 +395,8 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             maxSwapAmount
         );
 
-        return _downscaleDown(amountOut, scalingFactorTokenOut);
+        amountOut = _downscaleDown(amountOut, scalingFactorTokenOut);
+        return amountOut;
     }
 
     function _onSwapGivenOut(
@@ -446,31 +450,6 @@ contract SafeguardPool is ISafeguardPool, SignatureSafeguard, BasePool, IMinimal
             _srequire(amountOut <= maxSwapAmount, SwaapV2Errors.EXCEEDED_SWAP_AMOUNT_OUT);
             _srequire(amountOut >= maxSwapAmount.mulDown(_MIN_SWAP_AMOUNT_PERCENTAGE), SwaapV2Errors.LOW_SWAP_AMOUNT_OUT);
         }
-
-        bytes32 packedPoolParams = _packedPoolParams;
-        uint256 onChainAmountInPerOut = _getOnChainAmountInPerOut(packedPoolParams, isTokenInToken0);
-
-        _fairPricingSafeguard(quoteAmountInPerOut, onChainAmountInPerOut, packedPoolParams);
-
-        uint256 totalSupply = totalSupply();
-
-        _updatePerformanceIfDue(
-            isTokenInToken0,
-            balanceTokenIn,
-            balanceTokenOut,
-            onChainAmountInPerOut,
-            totalSupply,
-            packedPoolParams
-        );
-
-        _balancesSafeguard(
-            isTokenInToken0,
-            balanceTokenIn.add(amountIn),
-            balanceTokenOut.sub(amountOut),
-            onChainAmountInPerOut,
-            totalSupply,
-            packedPoolParams
-        );
 
         Quote(digest, amountIn, amountOut);
     }
